@@ -213,6 +213,31 @@ const MIGRATIONS = [
       ALTER TABLE orders ADD COLUMN remark         TEXT NOT NULL DEFAULT '';
     `,
   },
+  {
+    version: 4,
+    name: 'two-level-category-and-brands',
+    sql: `
+      -- 两级分类：categories 支持 parent_id 自引用，一级类目 parent_id 为 NULL
+      ALTER TABLE categories ADD COLUMN parent_id TEXT REFERENCES categories(id) ON DELETE CASCADE;
+      ALTER TABLE categories ADD COLUMN icon      TEXT NOT NULL DEFAULT '';
+      ALTER TABLE categories ADD COLUMN desc      TEXT NOT NULL DEFAULT '';
+      CREATE INDEX IF NOT EXISTS idx_cat_parent ON categories(parent_id);
+
+      -- 商品归属到二级类目（冗余 parent category_id，便于「按一级类目聚合」与「按二级筛选」都快）
+      ALTER TABLE products ADD COLUMN sub_category_id TEXT;
+      CREATE INDEX IF NOT EXISTS idx_products_subcat ON products(sub_category_id);
+
+      -- 品牌维度（从一个个商品里派生出来，支撑品牌筛选与「按品牌逛」）
+      CREATE TABLE IF NOT EXISTS brands (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        category_id TEXT NOT NULL DEFAULT '',   -- 主营类目
+        logo_color  TEXT NOT NULL DEFAULT '',   -- 程序化 logo 底色
+        created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_brands_cat ON brands(category_id);
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

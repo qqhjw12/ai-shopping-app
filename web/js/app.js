@@ -1,6 +1,9 @@
 // 应用入口：装配路由、顶栏交互、AI 助手、购物车。
 import { updateCartBadge } from './ui.js';
 import { renderHome, renderProducts, renderSearch, renderCartDrawer, renderProductDetail, openProductDetail } from './views.js';
+import { renderCategories } from './categories.js';
+import { renderCheckout } from './checkout.js';
+import { renderOrders, renderFavorites } from './account.js';
 import { renderTools } from './tools.js';
 import { renderAnalytics } from './analytics.js';
 import { renderCheckout } from './checkout.js';
@@ -33,6 +36,7 @@ document.getElementById('cart-btn').addEventListener('click', () => renderCartDr
 /* ---------------- 路由分发 ---------------- */
 function setActiveNav(path) {
   const key = path === '/' ? 'home'
+    : path.startsWith('/categories') ? 'categories'
     : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') ? 'products'
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
@@ -45,7 +49,18 @@ function dispatch({ path, query }) {
   setActiveNav(path);
   window.scrollTo(0, 0);
   if (path === '/' || path === '') renderHome(view);
-  else if (path === '/products') renderProducts(view, { category: query.cat });
+  else if (path === '/categories') renderCategories(view);
+  else if (path === '/products') {
+    const num = (k) => (query[k] == null || query[k] === '' ? undefined : Number(query[k]));
+    renderProducts(view, {
+      category: query.cat || '',
+      sub: query.sub || '',
+      brand: query.brand || '',
+      sort: query.sort || 'default',
+      minPrice: num('min'),
+      maxPrice: num('max'),
+    });
+  }
   else if (path === '/search') renderSearch(view, query.q);
   else if (path.startsWith('/product/')) renderProductDetail(view, decodeURIComponent(path.slice('/product/'.length)), query.from);
   else if (path === '/tools') renderTools(view);

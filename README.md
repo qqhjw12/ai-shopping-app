@@ -37,7 +37,7 @@
 本仓库是「宏之蓝 / macrozheng mall」生态的一个 AI 增强示例（Route A）：
 
 - **后端 `ai-gateway`**：Node.js（ESM）网关，提供商品检索、AI 导购/客服/问答流式接口，以及对 Dify 中枢的编排。
-  - `RUN_MODE=local`：内置 **SQLite 数据库**（64 款商品 / 150 SKU / 192 评价 / 订单 / 购物车）+ 本地哈希嵌入 + 本地对话引擎，**零外部依赖即可演示**。
+  - `RUN_MODE=local`：内置 **SQLite 数据库**（256 款商品 / 556 SKU / 768 评价 / 订单 / 购物车）+ 本地哈希嵌入 + 本地对话引擎，**零外部依赖即可演示**。
   - `RUN_MODE=docker`：接入真实 Qdrant（向量）、Elasticsearch（关键词）、Ollama（嵌入）、Dify（智能客服 / 商品问答 / 导购 Agent / 运营文案 / 订单售后），失败自动降级。
 - **前端 `web/`**：原生 ES Module 单页应用，hash 路由、购物车服务端持久化（离线回落 localStorage）、AI 浮窗（导购/客服/问答均 SSE 逐字渲染）、商品详情深链分享（含来源埋点）、程序化生成的 SVG 商品图。
 
@@ -50,7 +50,9 @@
 | 模块 | 入口 | 说明 |
 |------|------|------|
 | 🔍 智能搜索 | 顶栏搜索 | 向量 + 关键词混合检索，首页 / 列表 / 搜索页通用 |
-| 📦 商品详情 | `#/product/:id` | 真实路由，可深链分享；SKU 规格切换联动价格库存、192 条真实评价、服务承诺、相关推荐、来源渠道色条与埋点 |
+| 📦 商品详情 | `#/product/:id` | 真实路由，可深链分享；SKU 规格切换联动价格库存、每款 3 条真实评价、服务承诺、相关推荐、来源渠道色条与埋点 |
+| 🗂️ 分类浏览 | `#/categories` | 16 个一级类目 + 48 个二级类目，每个类目用真实商品封面拼图，点进即按类目筛选 |
+| 🛒 商品列表 | `#/products` | 侧边栏两级类目 / 价格区间 / 品牌筛选 + 6 种排序，筛选条件全走 URL 可分享 |
 | 🛒 购物车 | 顶栏购物车抽屉 | 服务端持久化，换设备/清缓存不丢；数量增减、删除、库存不足提示 |
 | 🧾 结算下单 | `#/checkout` | 收货地址选择 + 优惠券勾选 + 金额明细（满 99 包邮）+ 提交订单 + 支付 |
 | 📦 我的订单 | `#/orders` | 订单状态机（待支付/已支付/已发货/已完成）、去支付、再次购买、物流信息 |
@@ -73,12 +75,13 @@
 
 | 表 | 用途 |
 |---|---|
-| `categories` | 类目（8 个：手机数码 / 电脑办公 / 音频耳机 / 家用电器 / 服饰鞋包 / 食品生鲜 / 家居家具 / 运动户外） |
-| `products` | 商品主数据（64 款，含品牌 / 现价 / 原价 / 标签 / 评分 / 销量 / 封面渐变色 / 一句话卖点 / 服务承诺） |
+| `categories` | **两级类目树**：16 个一级（手机数码 / 电脑办公 / 音频耳机 / 家用电器 / 服饰鞋包 / 食品生鲜 / 家居家具 / 运动户外 / 美妆个护 / 母婴玩具 / 图书文娱 / 厨具餐具 / 宠物用品 / 车载出行 / 健康保健 / 办公文具）+ 48 个二级（自引用 `parent_id`） |
+| `brands` | 品牌（23 个，从商品派生，带主营类目与程序化 logo 色） |
+| `products` | 商品主数据（256 款，含品牌 / 现价 / 原价 / 标签 / 评分 / 销量 / 封面渐变色 / 一句话卖点 / 服务承诺 / **二级类目**） |
 | `product_skus` | 规格变体与库存（150 个 SKU，按阶梯定价） |
 | `users` / `addresses` | 演示用户与收货地址（下单时自动为新用户建档 + 默认地址） |
 | `orders` / `order_items` | 订单与订单项（含物流公司、运单号、状态机、金额拆分） |
-| `reviews` | 商品评价（**192 条，覆盖全部 64 款**，带作者与星级，供问答引用口碑） |
+| `reviews` | 商品评价（**768 条，覆盖全部 256 款**，每款 3 条带作者与星级，供问答引用口碑） |
 | `cart_items` | 购物车（服务端持久化，按 user+sku 唯一，重复加购累加） |
 | `favorites` | 收藏夹 |
 | `coupons` / `user_coupons` | 优惠券模板与用户卡包（满减 / 折扣，领用核销） |
@@ -86,7 +89,7 @@
 | `conversations` / `messages` | 会话与消息（多轮上下文、可回放，重启不丢） |
 | `track_events` | 埋点事件（替代原内存环形缓冲，聚合走 SQL） |
 
-种子规模：**64 商品 / 150 SKU / 8 类目 / 192 评价 / 5 订单 / 8 FAQ / 5 政策 / 6 张券**。
+种子规模：**256 商品 / 556 SKU / 16 一级类目 / 48 二级类目 / 23 品牌 / 768 评价 / 7 订单 / 8 FAQ / 5 政策 / 6 张券**。
 `npm run db:seed` 幂等灌数据，`npm run db:reset` 清空重灌；两端都在启动时自动执行迁移 + 缺数据才种子。
 
 ### 购物交易链路（后端）
@@ -183,7 +186,8 @@
 │   ├── index.html
 │   ├── styles.css
 │   └── js/                  # api / state / ui / router / views / assistant / tools / app
-│       ├── art.js           # 程序化商品图：双色渐变 + 8 类目线稿（SVG）
+│       ├── art.js           # 程序化商品图：双色渐变 + 16 类目线稿（SVG）
+│       ├── categories.js    # 分类浏览页（两级类目 + 商品封面拼图）
 │       ├── checkout.js      # 结算页：地址 + 优惠券 + 金额明细 + 提交 + 支付
 │       ├── account.js       # 我的订单 / 我的收藏
 │       ├── track.js         # 埋点上报（fire-and-forget）+ stats 拉取
@@ -197,7 +201,7 @@
 │   │   │                    #          cart(购物车) / user(收藏·券·地址)
 │   │   ├── services/        # chatEngine(对话引擎) / llmClient(可选大模型)
 │   │   │                    #          orderService(下单事务·金额·库存)
-│   │   ├── data/catalog.js  # 商品目录种子（64 款 / 8 类目 / 150 SKU / 192 评价）
+│   │   ├── data/catalog.js  # 商品目录种子（256 款 / 16 一级类目 / 48 二级 / 556 SKU / 768 评价）
 │   │   └── server / config / middleware / search / copywrite / aftersale …
 │   ├── data/shop.db         # 本地数据库（gitignore，可 db:reset 重建）
 │   ├── Dockerfile
@@ -219,7 +223,7 @@
 
 ### 方式 A：本地零依赖演示（推荐先跑这个）
 
-无需 Docker、无需安装数据库：网关内置 **SQLite**（Node 22 自带 `node:sqlite`）与**本地对话引擎**，首次启动自动建表并灌入 64 款商品。
+无需 Docker、无需安装数据库：网关内置 **SQLite**（Node 22 自带 `node:sqlite`）与**本地对话引擎**，首次启动自动建表并灌入 256 款商品。
 
 **一键启动（推荐）**：
 
@@ -234,7 +238,7 @@ bash scripts/dev-local.sh
 # 1) 启动后端网关（local 模式，默认 :8080）
 cd ai-gateway
 npm start            # 等价于 node --disable-warning=ExperimentalWarning src/server.js
-#    首次启动会自动建库 + 种子：data/shop.db（64 商品 / 150 SKU / 订单 / 评价 / FAQ）
+#    首次启动会自动建库 + 种子：data/shop.db（256 商品 / 556 SKU / 48 二级类目 / 订单 / 评价 / FAQ）
 
 # 2) 另开终端，启动静态前端（任意静态服务器均可）
 cd web
@@ -322,9 +326,11 @@ bash scripts/setup-https-proxy.sh
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET  | `/api/products` | 商品列表（含封面色 / 卖点 / 评分 / 销量） |
+| GET  | `/api/products` | 商品列表（含封面色 / 卖点 / 评分 / 销量）；筛选 `category`/`sub`/`brand`/`minPrice`/`maxPrice`/`sort`(default·sales·price_asc·price_desc·rating·new)/`limit`/`offset`，返回 `{ total, count, products }` |
 | GET  | `/api/products/:id` | 商品详情（含 SKU、评价、相关推荐） |
-| GET  | `/api/categories` | 类目列表（带商品数） |
+| GET  | `/api/categories` | 类目列表（带商品数）；加 `?tree=1` 返回两级树与各类目商品数 |
+| GET  | `/api/brands` | 品牌列表（可按 `category` 过滤，带商品数） |
+| GET  | `/api/stats` | 站点规模概览：商品 / SKU / 类目 / 二级类目 / 品牌 / 评价数 |
 | POST | `/api/search` | 混合检索 `{ query, topK }` |
 | GET  | `/api/cart?userId=` | 购物车（服务端持久化） |
 | POST | `/api/cart` | 加购 `{ userId, productId, skuId?, qty }`，返回最新购物车 |
@@ -430,7 +436,7 @@ bash scripts/setup-https-proxy.sh
 
 为让 GitHub Pages 这类**未连接后端**的纯静态站点也能展示完整店面，前端做了优雅降级：
 
-- 商品列表 / 详情 / 搜索 / 相关推荐：网关不可达时，自动回退到内置示例商品库（`web/js/demo-data.js`，由 `catalog.js` 生成，含 64 款商品及其 SKU 与评价），页面顶部显示「演示模式」提示条。
+- 商品列表 / 详情 / 搜索 / 相关推荐：网关不可达时，自动回退到内置示例商品库（`web/js/demo-data.js`，由 `catalog.js` 生成，含 256 款商品及其 SKU 与评价），页面顶部显示「演示模式」提示条。
 - 购物车：服务端不可用时回落到 localStorage，恢复连接后自动补传。
 - 结算 / 订单 / 收藏：演示模式下给出明确提示或模拟结果路径，不会产生真实交易。
 - AI 导购 / 客服 / 问答 / 文案 / 售后：演示模式下给出友好提示，引导本地启动网关后体验。

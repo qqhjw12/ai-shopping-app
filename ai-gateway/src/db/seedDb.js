@@ -8,6 +8,7 @@ import { getDb } from './connection.js';
 import { migrate, SCHEMA_VERSION } from './schema.js';
 import {
   CATEGORIES,
+  SUBCATEGORIES,
   buildCatalog,
   deriveReviews,
   DEMO_USERS,
@@ -29,7 +30,7 @@ function resetTables(db) {
   // 顺序遵循外键依赖，先子后父
   for (const t of [
     'messages', 'conversations', 'track_events', 'order_items', 'orders',
-    'reviews', 'addresses', 'product_skus', 'products', 'users', 'categories',
+    'reviews', 'addresses', 'product_skus', 'products', 'brands', 'users', 'categories',
     'faqs', 'policies', 'cart_items', 'favorites', 'user_coupons', 'coupons',
   ]) {
     db.exec(`DELETE FROM ${t}`);
@@ -57,21 +58,41 @@ export function ensureSeeded({ reset = false } = {}) {
 
   db.exec('BEGIN');
   try {
-    const insCat = db.prepare('INSERT OR REPLACE INTO categories (id, name, sort) VALUES (?, ?, ?)');
-    for (const c of CATEGORIES) insCat.run(c.id, c.name, c.sort);
+    // 两级类目一起写入（一级先于二级，满足外键依赖）
+    const insCat = db.prepare(
+      'INSERT OR REPLACE INTO categories (id, name, sort, parent_id, icon, desc) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    for (const c of CATEGORIES) insCat.run(c.id, c.name, c.sort, null, c.icon || '', c.desc || '');
+    const insSub = db.prepare(
+      'INSERT OR REPLACE INTO categories (id, name, sort, parent_id, icon, desc) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    for (const s of SUBCATEGORIES) insSub.run(s.id, s.name, s.sort, s.parentId, '', '');
 
     const insProd = db.prepare(`
       INSERT OR REPLACE INTO products
-        (id, name, brand, category_id, price, original_price, description, tags,
+        (id, name, brand, category_id, sub_category_id, price, original_price, description, tags,
          rating, reviews_count, sales, status, cover_color, highlight, highlights)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const p of products) {
       insProd.run(
-        p.id, p.name, p.brand, p.categoryId, p.price, p.originalPrice,
+        p.id, p.name, p.brand, p.categoryId, p.subCategoryId, p.price, p.originalPrice,
         p.description, JSON.stringify(p.tags), p.rating, p.reviewsCount, p.sales, p.status,
         p.coverColor, p.highlight, JSON.stringify(p.highlights),
       );
+    }
+
+    // 品牌：从商品派生的去重表（品牌筛选 / 「按品牌逛」用）
+    const seenBrand = new Set();
+    const insBrand = db.prepare(
+      'INSERT OR REPLACE INTO brands (id, name, category_id, logo_color) VALUES (?, ?, ?, ?)',
+    );
+    for (const p of products) {
+      const bname = (p.brand || '').trim();
+      if (!bname || seenBrand.has(bname)) continue;
+      seenBrand.add(bname);
+      const hue = Math.abs([...bname].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7)) % 360;
+      insBrand.run(`br_${Buffer.from(bname).toString('hex').slice(0, 16)}`, bname, p.categoryId, `hsl(${hue} 62% 48%)`);
     }
 
     const insSku = db.prepare(

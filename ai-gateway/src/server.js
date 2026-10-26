@@ -35,6 +35,8 @@ function toSummary(p) {
     brand: p.brand || '',
     category: p.category || '',
     categoryId: p.categoryId || '',
+    subCategory: p.subCategory || '',
+    subCategoryId: p.subCategoryId || '',
     description: p.description || '',
     tags: p.tags || [],
     rating: p.rating ?? 4.8,
@@ -121,13 +123,50 @@ async function route(req, res, url) {
     return send(res, 200, { query, count: results.length, results });
   }
 
+  // 商品列表：支持 category / sub / brand / minPrice / maxPrice / sort / limit / offset
   if (req.method === 'GET' && url.pathname === '/api/products') {
-    const products = listAllProducts().map(toSummary);
-    return send(res, 200, { count: products.length, products });
+    const q = url.searchParams;
+    const num = (k) => (q.get(k) === null ? undefined : Number(q.get(k)));
+    const filter = {
+      categoryId: q.get('category') || q.get('cat') || undefined,
+      subCategoryId: q.get('sub') || undefined,
+      brand: q.get('brand') || undefined,
+      minPrice: num('minPrice'),
+      maxPrice: num('maxPrice'),
+      sort: q.get('sort') || 'default',
+      limit: Number(q.get('limit')) || 0,
+      offset: Number(q.get('offset')) || 0,
+    };
+    const total = productRepo.countProductsFiltered(filter);
+    const products = productRepo.listProducts(filter).map(toSummary);
+    return send(res, 200, {
+      count: products.length,
+      total,
+      limit: filter.limit,
+      offset: filter.offset,
+      filter,
+      products,
+    });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/categories') {
+    // tree=1 返回两级树（含二级商品数），否则返回扁平一级列表（兼容旧调用）
+    if (url.searchParams.get('tree') === '1') {
+      return send(res, 200, {
+        categories: productRepo.categoryTree(),
+        total: productRepo.countProducts(),
+      });
+    }
     return send(res, 200, { categories: productRepo.listCategories() });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/brands') {
+    return send(res, 200, { brands: productRepo.listBrands({ categoryId: url.searchParams.get('category') || undefined }) });
+  }
+
+  // 站点概览：商品 / SKU / 类目 / 品牌 / 评价规模（首页头部展示）
+  if (req.method === 'GET' && url.pathname === '/api/stats') {
+    return send(res, 200, { stats: productRepo.stats() });
   }
 
   if (req.method === 'GET' && url.pathname.startsWith('/api/products/')) {
@@ -533,9 +572,11 @@ async function route(req, res, url) {
         'GET /ready',
         'POST /api/seed',
         'POST /api/search {query, topK}',
-        'GET /api/products',
+        'GET /api/products (筛选: category/sub/brand/minPrice/maxPrice/sort/limit/offset)',
         'GET /api/products/:id (含 SKU / 评价 / 相关推荐)',
-        'GET /api/categories',
+        'GET /api/categories (tree=1 两级树 + 商品数)',
+        'GET /api/brands (可按 category 过滤)',
+        'GET /api/stats (商品/SKU/类目/品牌规模)',
         'GET|POST|PATCH|DELETE /api/cart?userId= (购物车：增删改查，服务端持久化)',
         'POST /api/orders/preview {userId, items?, addressId?, couponId?} (结算预览)',
         'GET /api/orders?userId= · POST /api/orders {userId, items, addressId?, couponId?}',

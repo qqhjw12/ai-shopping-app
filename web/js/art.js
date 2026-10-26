@@ -46,6 +46,50 @@ const ART = {
     <path d="M100 46 V150"/>
     <path d="M100 76 L130 150 M100 76 L70 150" opacity="0.45"/>
     <path d="M34 150 H166"/>`,
+  beauty: `
+    <rect x="86" y="62" width="28" height="92" rx="12"/>
+    <rect x="94" y="40" width="12" height="22" rx="4"/>
+    <path d="M86 42 H114"/>
+    <path d="M100 90 q12 16 0 32 q-12-16 0-32" opacity="0.45"/>`,
+  baby: `
+    <rect x="84" y="80" width="34" height="70" rx="12"/>
+    <rect x="93" y="58" width="16" height="22" rx="5"/>
+    <path d="M97 58 a5 8 0 0 1 8 0"/>
+    <line x1="84" y1="104" x2="118" y2="104" opacity="0.4"/>
+    <line x1="84" y1="120" x2="118" y2="120" opacity="0.4"/>
+    <circle cx="60" cy="76" r="11" opacity="0.55"/>
+    <circle cx="140" cy="88" r="8" opacity="0.45"/>`,
+  book: `
+    <path d="M100 68 V150 q-24-8-46-8 V58 q22 0 46 10"/>
+    <path d="M100 68 V150 q24-8 46-8 V58 q-22 0-46 10"/>
+    <line x1="62" y1="82" x2="88" y2="90" opacity="0.4"/>
+    <line x1="112" y1="90" x2="138" y2="82" opacity="0.4"/>`,
+  kitchen: `
+    <path d="M48 98 h82 v32 a41 41 0 0 1-82 0 Z"/>
+    <line x1="130" y1="106" x2="168" y2="106"/>
+    <path d="M48 98 H130"/>
+    <path d="M80 78 q9-13 0-24 M100 74 q9-15 0-28 M120 78 q9-13 0-24" opacity="0.5"/>`,
+  pet: `
+    <ellipse cx="100" cy="124" rx="27" ry="23"/>
+    <circle cx="70" cy="92" r="12"/>
+    <circle cx="92" cy="78" r="12"/>
+    <circle cx="116" cy="78" r="12"/>
+    <circle cx="138" cy="92" r="12"/>`,
+  auto: `
+    <circle cx="60" cy="132" r="26"/>
+    <circle cx="146" cy="132" r="26"/>
+    <path d="M60 132 h26 l24-44 h28 l16 44"/>
+    <path d="M92 88 h30"/>
+    <path d="M110 88 V68 h16" opacity="0.7"/>`,
+  health: `
+    <path d="M100 48 V88 M80 68 H120"/>
+    <path d="M24 150 h22 l9-18 l14 34 l13-24 l9 8 h38" opacity="0.65"/>
+    <rect x="76" y="112" width="48" height="26" rx="8" opacity="0.35"/>`,
+  stationery: `
+    <path d="M64 134 L156 42 l16 16 L80 150 Z"/>
+    <path d="M58 140 L50 148 l10 10 l8-8"/>
+    <line x1="86" y1="112" x2="112" y2="86" opacity="0.4"/>
+    <path d="M74 124 L102 96" opacity="0.3"/>`,
 };
 
 // 类目兜底色（商品没带 coverColor 时使用，保证视觉不塌），与前端口灰度一致
@@ -58,6 +102,14 @@ const FALLBACK = {
   food: '#f59e0b,#fbbf24',
   home: '#b45309,#e0a86a',
   sports: '#16a34a,#6ee7a0',
+  beauty: '#d831bf,#e879d8',
+  baby: '#f43f5e,#fb8fa8',
+  book: '#ca8a04,#eab308',
+  kitchen: '#dc2626,#f97316',
+  pet: '#65a30d,#a3e635',
+  auto: '#0891b2,#38bdf8',
+  health: '#4f46e5,#818cf8',
+  stationery: '#7e22ce,#c084fc',
 };
 
 function escapeAttr(s) {
