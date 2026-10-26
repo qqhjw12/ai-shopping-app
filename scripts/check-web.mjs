@@ -7,7 +7,9 @@
  *   - 导入了目标模块并不存在的具名导出（does not provide an export named）
  *   - 顶层执行期异常（访问未定义的全局、读取未初始化的配置）
  *
- * 用法：node scripts/check-web.mjs
+ * 用法：
+ *   node scripts/check-web.mjs               # 检查本地 web/js
+ *   node scripts/check-web.mjs <dir>         # 检查指定目录（例如线上站点下载下来的 js）
  * 退出码：0 全部通过 / 1 有模块加载失败
  */
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -15,7 +17,7 @@ import { readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const WEB_DIR = resolve(__dirname, '..', 'web', 'js');
+const WEB_DIR = process.argv[2] ? resolve(process.argv[2]) : resolve(__dirname, '..', 'web', 'js');
 
 /* ---------------- 极简 DOM 垫片（够前端模块顶层代码跑起来） ---------------- */
 class El {
