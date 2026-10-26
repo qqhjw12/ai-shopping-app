@@ -1,0 +1,102 @@
+# Dify 中枢（承载智能客服 + 商品问答 + 后续 4 个模块）
+# 与 docker-compose.yml 分开，便于按需启动。正式投产请以官方 dify/docker 仓库为准并跟踪版本。
+# 启动：docker compose -f docker-compose.dify.yml up -d
+
+services:
+  dify-db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dify-postgres
+      POSTGRES_DB: dify
+    volumes:
+      - dify-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  dify-redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - dify-redis:/data
+
+  dify-weaviate:
+    image: semitechnologies/weaviate:1.19.0
+    restart: always
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'
+    volumes:
+      - dify-weaviate:/var/lib/weaviate
+
+  dify-api:
+    image: langgenius/dify-api:0.15.3
+    restart: always
+    depends_on:
+      dify-db:
+        condition: service_healthy
+      dify-redis:
+        condition: service_started
+    environment:
+      MODE: api
+      SECRET_KEY: please-change-me-in-prod
+      DB_USERNAME: postgres
+      DB_PASSWORD: dify-postgres
+      DB_HOST: dify-db
+      DB_PORT: 5432
+      DB_DATABASE: dify
+      REDIS_HOST: dify-redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      WEAVIATE_HOST: dify-weaviate
+      WEAVIATE_PORT: 8080
+      VECTOR_STORE: weaviate
+      LOG_LEVEL: INFO
+      # 模型供应商：DeepSeek / 通义 在 Dify 界面配置；本地 Ollama 经下方地址接入
+      OLLAMA_HOST: http://ollama:11434
+    ports:
+      - '5001:5001'
+
+  dify-worker:
+    image: langgenius/dify-api:0.15.3
+    restart: always
+    depends_on:
+      dify-db:
+        condition: service_healthy
+      dify-redis:
+        condition: service_started
+    environment:
+      MODE: worker
+      SECRET_KEY: please-change-me-in-prod
+      DB_USERNAME: postgres
+      DB_PASSWORD: dify-postgres
+      DB_HOST: dify-db
+      DB_PORT: 5432
+      DB_DATABASE: dify
+      REDIS_HOST: dify-redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      WEAVIATE_HOST: dify-weaviate
+      WEAVIATE_PORT: 8080
+      VECTOR_STORE: weaviate
+      OLLAMA_HOST: http://ollama:11434
+
+  dify-web:
+    image: langgenius/dify-web:0.15.3
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_PREFIX: http://localhost:5001
+      NEXT_PUBLIC_PUBLIC_API_PREFIX: http://localhost:5001
+    ports:
+      - '3000:3000'
+
+volumes:
+  dify-db:
+  dify-redis:
+  dify-weaviate:

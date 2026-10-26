@@ -1,0 +1,16 @@
+{
+  "name": "ai-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI Gateway for shopping app (Route A) - hybrid search over Qdrant + Elasticsearch",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "seed": "node src/seed.js",
+    "sync:dify": "node scripts/sync-products-to-dify.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "app_name": "订单售后助手",
+  "app_mode": "workflow",
+  "description": "运营/用户在 Dify 控制台或前端自助使用的售后助手：按 userId / orderId 查单，给出状态、物流、退换货指引；可接 mall 订单 API 做更复杂编排。",
+  "entry_inputs": {
+    "user_id": "用户 ID（前端登录态透传）",
+    "order_id": "订单号（可选）",
+    "query": "用户自然语言诉求，如「我要退货」"
+  },
+  "graph": [
+    {
+      "node": "start",
+      "desc": "接收 user_id / order_id / query"
+    },
+    {
+      "node": "http-request",
+      "name": "查订单",
+      "method": "GET",
+      "url": "{{#env.MALL_BASE_URL#}}/api/ai/orders?userId={{#start.user_id#}}",
+      "auth": "Bearer {{#env.MALL_AI_TOKEN#}}",
+      "note": "M2 落地的 mall-ai 模块已暴露该只读接口；也可在 Dify 变量里配置 base url 与令牌"
+    },
+    {
+      "node": "llm",
+      "model": "deepseek-chat 或 通义千问-plus",
+      "prompt": "你是售后客服助手。\n用户诉求：{{#start.query#}}\n订单数据：{{#http-request.body#}}\n请输出 JSON：{ \"answer\": \"给用户的中文回复\", \"orders\": [命中的订单摘要] }。\n规则：状态准确引用；涉及退货明确时效（签收后 7 天）；不要承诺超出平台政策的补偿；信息不足时引导提供订单号。"
+    },
+    {
+      "node": "end",
+      "outputs": {
+        "answer": "= llm.answer",
+        "orders": "= llm.orders"
+      }
+    }
+  ],
+  "ops_note": "运营同事可在 Dify 控制台调整查单接口、退货时效话术、转人工阈值，无需改代码。"
+}

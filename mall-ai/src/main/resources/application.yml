@@ -1,0 +1,31 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: mall-ai
+  datasource:
+    # 指向 mall 同一套数据库；Docker 部署时由 compose 注入 DB_HOST=mall-mysql
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: ${DB_USER:mall}
+    password: ${DB_PASSWORD:mall}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  # mall-mbg 生成的 Mapper XML 位于 classpath 下的 com/macro/mall/mbg/mapper/
+  mapper-locations: classpath*:com/macro/mall/mbg/mapper/*.xml
+  type-aliases-package: com.macro.mall.mbg.model
+  configuration:
+    map-underscore-to-camel-case: true
+
+# 可选内部鉴权密钥：与 ai-gateway 的 AI_GATEWAY_KEY 保持一致；
+# 留空则不校验（此时靠内网隔离保护端点）。
+ai:
+  gateway-key: ${AI_GATEWAY_KEY:}
+
+logging:
+  level:
+    com.macro.mall: INFO
+    root: INFO

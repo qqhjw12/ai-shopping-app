@@ -1,0 +1,121 @@
+name: shopping-ai
+
+# 路线 A：mall 二次开发 + AI 服务外置
+# 本 compose 负责「AI 基础设施 + AI Gateway」。
+# Dify（导购/客服/问答/文案/售后中枢）为独立大栈，见 docs 的 M2+ 说明，可单独 docker compose up。
+# mall 本体（Java/Spring Boot）在你本机按 macrozheng/mall 文档启动，AI Gateway 通过 MALL_BASE_URL 调它。
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: shopping-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # 首次启动后拉取嵌入模型： docker exec shopping-ollama ollama pull nomic-embed-text
+    # 离线演示小模型（可选）： docker exec shopping-ollama ollama pull qwen2.5:0.5b
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: shopping-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: shopping-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  ai-gateway:
+    build: ./ai-gateway
+    container_name: shopping-ai-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - RUN_MODE=docker
+      - EMBEDDING_PROVIDER=ollama
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_EMBED_MODEL=nomic-embed-text
+      - QDRANT_URL=http://qdrant:6333
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      # mall 在宿主机运行时用 host.docker.internal；容器化时改服务名
+      - MALL_BASE_URL=http://host.docker.internal:8081
+      - VECTOR_WEIGHT=0.6
+      - KEYWORD_WEIGHT=0.4
+      # ===== M5 加固（来自 .env；生产务必设置 AI_GATEWAY_API_KEY，并显式配置 CORS_ORIGINS） =====
+      - AI_GATEWAY_API_KEY=${AI_GATEWAY_API_KEY:-}
+      - RATE_LIMIT_PER_MIN=${RATE_LIMIT_PER_MIN:-120}
+      - RATE_LIMIT_WINDOW_MS=60000
+      - TRUST_PROXY=${TRUST_PROXY:-false}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5500}
+    depends_on:
+      - ollama
+      - qdrant
+      - elasticsearch
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # ── mall 本体（AI 集成模块） ──────────────────────────────────────────────
+  # 数据库：自动导入 db/01-mall.sql（由 scripts/setup-mall-ai-env.sh 从 mall fork 复制而来）。
+  mall-mysql:
+    image: mysql:8.0
+    container_name: shopping-mall-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MALL_DB_ROOT_PASSWORD:-mall}
+      - MYSQL_DATABASE=mall
+      - MYSQL_USER=mall
+      - MYSQL_PASSWORD=mall
+    ports:
+      - "3307:3306"
+    volumes:
+      - mall_mysql_data:/var/lib/mysql
+      - ./db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pmall"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # mall-ai：独立只读集成服务（端口 8081），由 Maven 容器编译，无需本机 JDK。
+  # 构建上下文必须是 mall fork 根目录（含 mall-ai 模块、mall-common、mall-mbg）。
+  mall-ai:
+    build:
+      context: ./mall-fork
+      dockerfile: mall-ai/Dockerfile
+    container_name: shopping-mall-ai
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_HOST=mall-mysql
+      - DB_PORT=3306
+      - DB_USER=mall
+      - DB_PASSWORD=mall
+      - AI_GATEWAY_KEY=${AI_GATEWAY_KEY:-}
+    depends_on:
+      mall-mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  qdrant_data:
+  es_data:
+  mall_mysql_data:

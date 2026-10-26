@@ -1,0 +1,36 @@
+{
+  "app_name": "运营文案生成",
+  "app_mode": "workflow",
+  "description": "运营同事在 Dify 控制台自助使用的「无代码后台」：填入商品信息、卖点、语气、平台，一键产出多版本标题/详情/种草文案。",
+  "entry_inputs": {
+    "product_name": "商品名称",
+    "brand": "品牌",
+    "category": "分类",
+    "price": "价格（文本）",
+    "selling_points": "卖点，用、分隔",
+    "tone": "语气：专业 / 活泼 / 种草 / 促销",
+    "platform": "平台：通用 / 淘宝 / 抖音 / 小红书",
+    "count": "产出条数（文本，如 3）"
+  },
+  "graph": [
+    {
+      "node": "start",
+      "desc": "接收上述 entry_inputs 作为工作流变量"
+    },
+    {
+      "node": "llm",
+      "model": "deepseek-chat 或 通义千问-plus（在 Dify 模型供应商处切换）",
+      "prompt": "你是一名资深电商运营文案。\n商品：{{#start.product_name#}}（{{#start.brand#}} / {{#start.category#}}），价格 {{#start.price#}}。\n核心卖点：{{#start.selling_points#}}。\n语气：{{#start.tone#}}；投放平台：{{#start.platform#}}；产出 {{#start.count#}} 条。\n请输出 JSON：{ \"titles\": [标题...], \"detail\": \"商品详情文案\", \"social\": [种草短文...], \"hashtags\": [话题标签...] }。\n要求：标题带价格锚点与卖点；详情突出参数与场景；种草文案口语化、有情绪；不要编造未提供的参数。"
+    },
+    {
+      "node": "end",
+      "outputs": {
+        "titles": "= llm.titles",
+        "detail": "= llm.detail",
+        "social": "= llm.social",
+        "hashtags": "= llm.hashtags"
+      }
+    }
+  ],
+  "ops_note": "运营同事可在 Dify 控制台直接修改上面的 prompt 与模型，无需写代码——这就是交付给运营的「无代码后台」。改完点「发布」即生效。"
+}

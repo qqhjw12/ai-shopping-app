@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI 购物助手 · 网页版</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- 顶栏：品牌 + 智能搜索 + 导航 + 购物车 -->
+    <header class="topbar">
+      <a class="brand" href="#/">🛍️ AI 购物助手</a>
+
+      <form id="search-form" class="search" role="search">
+        <input
+          id="search-input"
+          type="search"
+          placeholder="智能搜索：降噪耳机 / 预算 1000 的礼物 / 办公神器…"
+          autocomplete="off"
+        />
+        <button type="submit">搜索</button>
+      </form>
+
+      <nav class="nav">
+        <a href="#/" data-nav="home">首页</a>
+        <a href="#/products" data-nav="products">商品</a>
+        <a href="#/tools" data-nav="tools">AI 工具箱</a>
+      </nav>
+
+      <button id="cart-btn" class="cart-btn" aria-label="购物车">
+        🛒 <span id="cart-count" class="cart-count">0</span>
+      </button>
+    </header>
+
+    <!-- 主视图（由路由渲染） -->
+    <main id="view" class="view"></main>
+
+    <footer class="footer">
+      <span>Route A · macrozheng/mall + Dify · 网页版 Demo（AI 导购 / 客服 / 问答 / 搜索 / 文案 / 售后）</span>
+    </footer>
+
+    <!-- 购物车抽屉 -->
+    <div id="cart-drawer" class="drawer hidden" aria-hidden="true"></div>
+    <div id="overlay" class="overlay hidden"></div>
+
+    <!-- 商品详情 / 通用弹窗挂载点 -->
+    <div id="modal-root"></div>
+
+    <!-- AI 助手浮窗（导购 / 客服 / 问答） -->
+    <div id="ai-widget" class="ai-widget">
+      <button id="ai-fab" class="ai-fab" aria-label="打开 AI 助手">🤖</button>
+      <div id="ai-panel" class="ai-panel hidden">
+        <div class="ai-header">
+          <div class="ai-tabs">
+            <button class="ai-tab active" data-tab="guide">导购</button>
+            <button class="ai-tab" data-tab="chat">客服</button>
+            <button class="ai-tab" data-tab="qa">问答</button>
+          </div>
+          <button id="ai-close" class="ai-close" aria-label="关闭">×</button>
+        </div>
+        <div id="ai-context" class="ai-context hidden"></div>
+        <div id="ai-messages" class="ai-messages"></div>
+        <form id="ai-form" class="ai-input-row">
+          <input id="ai-input" placeholder="和 AI 助手聊聊…" autocomplete="off" />
+          <button type="submit">发送</button>
+        </form>
+      </div>
+    </div>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>

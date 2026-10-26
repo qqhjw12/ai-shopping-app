@@ -1,0 +1,23 @@
+# 环境变量（含密钥，禁止提交；仅 .env.example 入库）
+.env
+.env.local
+
+# 生成的 TLS 证书 / 私钥（一键脚本产出）
+nginx/tls/
+
+# mall fork（克隆产物）与本地导入库
+mall-fork/
+db/
+
+# 依赖 / 构建产物
+node_modules/
+.mvn/
+target/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.log
+
+# 本地记忆 / 工作区元数据（非项目代码）
+.workbuddy/

@@ -1,0 +1,29 @@
+# docker-compose.nginx.yml
+# ───────────────────────────────────────────────────────────────────────────
+# nginx 反向代理覆盖文件：与 docker-compose.yml 合并后共享 shopping-ai_default 网络，
+# 从而能用服务名 ai-gateway 解析到网关。一键启用见 scripts/setup-https-proxy.sh。
+#
+# 启动： docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d nginx
+# 变量 HTTPS_PORT / DOMAIN / GATEWAY_UPSTREAM / AI_GATEWAY_API_KEY 由脚本 export 注入。
+# ───────────────────────────────────────────────────────────────────────────
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: shopping-nginx
+    depends_on:
+      - ai-gateway
+    ports:
+      - "${HTTPS_PORT:-8443}:${HTTPS_PORT:-8443}"
+    volumes:
+      # envsubst 模板（容器启动时渲染到 /etc/nginx/conf.d/default.conf）
+      - ./nginx/templates:/etc/nginx/templates:ro
+      # TLS 证书（自签名或正式证书，文件名固定 fullchain.pem / privkey.pem）
+      - ./nginx/tls:/etc/nginx/tls:ro
+      # 静态前端
+      - ./web:/usr/share/nginx/html:ro
+    environment:
+      - AI_GATEWAY_API_KEY=${AI_GATEWAY_API_KEY:-}
+      - HTTPS_PORT=${HTTPS_PORT:-8443}
+      - DOMAIN=${DOMAIN:-localhost}
+      - GATEWAY_UPSTREAM=${GATEWAY_UPSTREAM:-ai-gateway:8080}
+    restart: unless-stopped

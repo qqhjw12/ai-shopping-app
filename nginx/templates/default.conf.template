@@ -1,0 +1,74 @@
+# nginx 反向代理模板（由 official nginx 镜像在容器启动时做 envsubst 渲染）。
+# 仅引用 ${HTTPS_PORT} / ${DOMAIN} / ${GATEWAY_UPSTREAM} / ${AI_GATEWAY_API_KEY} 四个环境变量，
+# 其余 $host / $scheme / $proxy_add_x_forwarded_for 等为 nginx 内置变量，不被 envsubst 替换。
+# 容器挂载：./nginx/tls -> /etc/nginx/tls（证书），./web -> /usr/share/nginx/html（静态前端）。
+
+server {
+    listen       ${HTTPS_PORT} ssl;
+    listen       [::]:${HTTPS_PORT} ssl;
+    server_name  ${DOMAIN};
+
+    # ---- TLS（证书由脚本生成自签名，或挂载正式证书到同名路径） ----
+    ssl_certificate     /etc/nginx/tls/fullchain.pem;
+    ssl_certificate_key /etc/nginx/tls/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # ---- 安全响应头 ----
+    server_tokens off;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options    "nosniff" always;
+    add_header X-Frame-Options           "DENY" always;
+    add_header Referrer-Policy           "no-referrer" always;
+    add_header Content-Security-Policy    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'" always;
+
+    client_max_body_size 2m;
+
+    # ---- 静态前端（同源托管，浏览器免跨域） ----
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # ---- 反向代理到 AI Gateway，并在网关侧注入 API Key ----
+    # 关键：前端不再持有密钥；X-API-Key 由 nginx 注入，且覆盖任何客户端自带头（防伪造）。
+    # SSE 流式（导购/客服逐字渲染）：关闭代理缓冲、关闭分块缓冲，避免被攒批后一次性下发。
+    location /api/ {
+        proxy_pass http://${GATEWAY_UPSTREAM};
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-API-Key         "${AI_GATEWAY_API_KEY}";
+
+        # SSE 透传关键项
+        proxy_buffering          off;
+        proxy_cache              off;
+        chunked_transfer_encoding on;
+        proxy_set_header         X-Accel-Buffering no;
+
+        proxy_connect_timeout 30s;
+        proxy_read_timeout    300s;   # 流式回答可能较长
+        proxy_send_timeout    120s;
+    }
+
+    # 健康检查 / 就绪探针也透传，便于外部 LB 经反代探活
+    location = /health {
+        proxy_pass http://${GATEWAY_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location = /ready {
+        proxy_pass http://${GATEWAY_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
