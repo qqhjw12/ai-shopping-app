@@ -2,6 +2,7 @@
 import { updateCartBadge } from './ui.js';
 import { renderHome, renderProducts, renderSearch, renderCartDrawer, renderProductDetail, openProductDetail } from './views.js';
 import { renderTools } from './tools.js';
+import { renderAnalytics } from './analytics.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
 import { createRouter, navigate } from './router.js';
 
@@ -25,6 +26,7 @@ document.getElementById('cart-btn').addEventListener('click', () => renderCartDr
 function setActiveNav(path) {
   const key = path === '/' ? 'home'
     : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') ? 'products'
+    : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
     : '';
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.nav === key));
@@ -38,6 +40,7 @@ function dispatch({ path, query }) {
   else if (path === '/search') renderSearch(view, query.q);
   else if (path.startsWith('/product/')) renderProductDetail(view, decodeURIComponent(path.slice('/product/'.length)), query.from);
   else if (path === '/tools') renderTools(view);
+  else if (path.startsWith('/analytics')) renderAnalytics(view);
   else renderHome(view);
 }
 

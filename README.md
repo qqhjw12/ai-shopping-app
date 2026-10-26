@@ -20,6 +20,7 @@
   - [方式 C：HTTPS 反向代理（nginx 一键脚本）](#方式-chttps-反向代理nginx-一键脚本)
 - [环境变量](#环境变量)
 - [API 一览](#api-一览)
+  - [推荐来源埋点（全链路数据闭环）](#推荐来源埋点全链路数据闭环)
 - [部署演示站点（GitHub Pages + Actions）](#部署演示站点github-pages--actions)
 - [演示模式（前端离线兜底）](#演示模式前端离线兜底)
 - [安全与配置](#安全与配置)
@@ -46,6 +47,7 @@
 |------|------|------|
 | 🔍 智能搜索 | 顶栏搜索 | 向量 + 关键词混合检索，首页 / 列表 / 搜索页通用 |
 | 📦 商品详情 | `#/product/:id` | 真实路由，可深链分享；含「相关推荐」、来源渠道色条与埋点 |
+| 📊 分析看板 | 顶栏「📊 分析」 | 渠道占比 / 行为分布 / Top 商品 / 最近事件流，按渠道着色，数据来自埋点聚合 |
 | 🤖 AI 导购 | 浮窗「导购」 | 一句话需求 → 导购话术（SSE 逐字）+ 商品卡片 |
 | 💬 智能客服 | 浮窗「客服」 | 多轮对话（SSE 逐字），可接 Dify 知识库 |
 | ❓ 商品问答 | 浮窗「问答」/ 详情页「问我这件商品」 | 按商品聚焦问答，SSE 逐字 + 关联商品卡片 |
@@ -107,10 +109,12 @@
 │   ├── index.html
 │   ├── styles.css
 │   └── js/                  # api / state / ui / router / views / assistant / tools / app
+│       ├── track.js         # 埋点上报（fire-and-forget）+ stats 拉取
+│       ├── analytics.js     # 分析看板（渠道占比 / 行为分布 / Top 商品 / 事件流）
 │       ├── demo.js          # 演示模式标志（网关不可达时置位）
 │       └── demo-data.js     # 内置示例商品库（离线兜底）
 ├── ai-gateway/              # Node.js 后端网关（local / docker 双模式）
-│   ├── src/                 # server / config / middleware / search / guide / difyClient …
+│   ├── src/                 # server / config / middleware / search / guide / difyClient / trackStore …
 │   ├── Dockerfile
 │   └── dify-workflows/      # Dify 工作流 spec（售后 / 文案）
 ├── mall-ai/                 # macrozheng/mall 的 AI 增强模块（Java）
@@ -211,18 +215,43 @@ bash scripts/setup-https-proxy.sh
 | POST | `/api/ai/copywrite` | 运营文案 `{ product, sellingPoints, tone, platform, count }` |
 | POST | `/api/ai/aftersale` | 订单售后 `{ userId, orderId, query }` |
 | POST | `/api/track` | 推荐来源埋点 `{ event, source?, productId?, userId?, meta? }`（202 异步落 ES/内存） |
-| GET  | `/api/track/stats` | 渠道分析聚合 `?productId=&source=`，返回 `{ total, bySource, recent }` |
+| GET  | `/api/track/stats` | 多维聚合 `?productId=&source=`，返回 `{ total, byEvent, bySource, byProduct, recent }` |
 | GET  | `/health` · `/ready` | 健康检查 / 依赖探针 |
 
 > 流式响应格式：`data: {"text":"…"}` 逐段 → `data: {"products"/"results"/"conversationId", mode}` 结构化 → `data: [DONE]`。
 
-### 推荐来源埋点（来源闭环）
+### 推荐来源埋点（全链路数据闭环）
 
-详情页支持深链 `#/product/:id?from=<渠道>`，进入即**自动上报** `view_product` 事件，并渲染一条按渠道区分颜色的**来源色条**；详情页还会 best-effort 展示「共 N 次浏览，最多来自 X」的渠道分析。
+详情页支持深链 `#/product/:id?from=<渠道>`，进入即**自动上报** `view_product` 事件，并渲染一条按渠道区分颜色的**来源色条**；详情页还会 best-effort 展示「共 N 次浏览，最多来自 X」的渠道分析。顶栏「📊 分析」进入 `#/analytics` 看板，可看全站渠道占比、行为分布、Top 商品与最近事件流。
 
-- **前端**：`web/js/track.js` 用 fire-and-forget 上报（`retries:0`，失败静默）；`SOURCE_META` 定义 5 个渠道的文案与主题色（首页/列表/搜索/导购/相关推荐）。
-- **后端**：`POST /api/track` 返回 `202` 后异步落库——`docker` 模式写 **Elasticsearch**（索引 `<esIndex>_events`，默认 `products_events`，动态映射自动建）；`local` 模式写**内存环形缓冲**（演示，重启清空）。`GET /api/track/stats` 提供聚合，`docker` 模式走 ES `terms` 聚合。
-- **安全**：埋点失败不影响浏览；`docker` 模式下 ES 写入带 2s 超时与 best-effort 容错，绝不阻塞主请求。
+**事件（全链路 6 类）**
+
+| 事件 | 触发点 | 携带 source |
+|------|--------|-------------|
+| `view_product` | 进入商品详情页 | 首页 / 列表 / 搜索 / 导购 / 相关推荐 / 分析看板 |
+| `search` | 搜索页产出结果 | `search`（meta 带 query + 命中数） |
+| `add_to_cart` | 商品卡片 / 详情页加购 | 该商品所在渠道 |
+| `guide_recommend_click` | 点击 AI 导购推荐卡 | `guide` |
+| `qa_recommend_click` | 点击商品问答推荐卡 | `qa` |
+| `share` | 复制分享链接 | 当前详情页来源 |
+
+**渠道与配色**（`SOURCE_META`，前端色条 / 看板 / 归因共用一套）
+
+| 渠道 | 文案 | 色值 |
+|------|------|------|
+| `home` | 首页精选 | `#2e7d32` |
+| `list` | 商品列表 | `#1565c0` |
+| `search` | 智能搜索 | `#ef6c00` |
+| `guide` | AI 导购推荐 | `#6a1b9a` |
+| `rec` | 相关推荐 | `#00838f` |
+| `qa` | AI 问答推荐 | `#ad1457` |
+| `analytics` | 分析看板 | `#455a64` |
+
+**实现要点**
+
+- **前端**：`web/js/track.js` 为 fire-and-forget 上报（`retries:0`，失败静默，同 `event+source+productId` 2s 内去重）；`web/js/analytics.js` 渲染看板，网关不可达时显示友好空状态而非报错。
+- **后端**：`POST /api/track` 返回 `202` 后异步落库——`docker` 模式写 **Elasticsearch**（索引 `<esIndex>_events`，默认 `products_events`，启动时 best-effort 预建 keyword/date 映射模板）；`local` 模式写**内存环形缓冲**（上限 1000，演示用，重启清空）。`GET /api/track/stats` 提供聚合，`docker` 模式走 ES `terms` + `top_hits`，`local` 模式走 JS 聚合。
+- **安全**：埋点失败不影响浏览；ES 写入带 2s 超时与 best-effort 容错，绝不阻塞主请求；埋点内容仅含事件名/渠道/商品 ID/匿名 userId，不含密码与令牌。
 
 ---
 
@@ -252,6 +281,7 @@ bash scripts/setup-https-proxy.sh
 
 - 商品列表 / 详情 / 搜索 / 相关推荐：网关不可达时，自动回退到内置示例商品库（`web/js/demo-data.js`），页面顶部显示「演示模式」提示条。
 - AI 导购 / 客服 / 问答 / 文案 / 售后：演示模式下给出友好提示，引导本地启动网关后体验。
+- 分析看板 `#/analytics`：演示模式下用**内置示例统计**兜底（顶部明确标注「示例数据」，不冒充真实埋点）；埋点上报本身静默失败，不影响浏览。
 - 接入真实网关后（同源或 `?api=`），自动切换为实时数据，提示条消失。
 
 ---

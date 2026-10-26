@@ -3,6 +3,7 @@ import { streamApi, ApiError } from './api.js';
 import { el, productThumb, fmtPrice } from './ui.js';
 import { getUserId } from './state.js';
 import { isDemoMode } from './demo.js';
+import { trackEvent } from './track.js';
 
 const messagesEl = () => document.getElementById('ai-messages');
 const inputEl = () => document.getElementById('ai-input');
@@ -30,8 +31,16 @@ function say(toTab, text, who = 'user') {
   if (toTab === tab) scrollBottom();
 }
 
-function miniCard(p) {
-  return el('div', { class: 'mini-card', onclick: () => productDetailHandler(p) }, [
+function miniCard(p, kind) {
+  return el('div', {
+    class: 'mini-card',
+    onclick: () => {
+      // 导购/问答推荐卡片点击打点（渠道归因）
+      const event = kind === 'guide' ? 'guide_recommend_click' : 'qa_recommend_click';
+      trackEvent({ event, source: kind, productId: p.id });
+      productDetailHandler(p);
+    },
+  }, [
     el('div', { class: 'thumb' }, productThumb(p)),
     el('div', {}, [
       el('div', { class: 'nm' }, p.name),
@@ -92,7 +101,7 @@ async function sendGuide(text) {
       }
       if (ev.products && !wrap._cards) {
         wrap._cards = true;
-        wrap.appendChild(el('div', { class: 'mini-cards' }, ev.products.map(miniCard)));
+        wrap.appendChild(el('div', { class: 'mini-cards' }, ev.products.map((p) => miniCard(p, 'guide'))));
       }
     },
   });
@@ -137,7 +146,7 @@ async function sendQA(text) {
       }
       if (ev.results && ev.results.length && !wrap._cards) {
         wrap._cards = true;
-        wrap.appendChild(el('div', { class: 'mini-cards' }, ev.results.map(miniCard)));
+        wrap.appendChild(el('div', { class: 'mini-cards' }, ev.results.map((p) => miniCard(p, 'qa'))));
       }
     },
   });

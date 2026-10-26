@@ -337,3 +337,68 @@ button.ghost:hover { background: #eef2ff; }
 .demo-banner b {
   background: #fa8c16; color: #fff; padding: 1px 8px; border-radius: 6px; font-size: 12px; flex: none;
 }
+
+/* ---------- 分析看板（来源与行为） ---------- */
+.analytics { display: flex; flex-direction: column; gap: 16px; }
+
+.stat-cards {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.stat-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow);
+}
+.stat-val { font-size: 26px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+.stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+.analytics-block {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 18px 8px; box-shadow: var(--shadow);
+}
+.analytics-block h3 {
+  margin: 0 0 14px; font-size: 15px; font-weight: 600; color: var(--text);
+}
+
+.bar-row {
+  display: grid; grid-template-columns: minmax(88px, 132px) 1fr 48px;
+  align-items: center; gap: 12px; padding: 6px 0;
+}
+.bar-row:hover .bar-label { color: var(--primary); }
+.bar-label {
+  font-size: 13px; color: var(--text); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; transition: color .15s;
+}
+.bar {
+  height: 10px; background: #eef1f6; border-radius: 999px; overflow: hidden;
+}
+.bar > span {
+  display: block; height: 100%; border-radius: 999px;
+  min-width: 3px; transition: width .5s cubic-bezier(.22, .61, .36, 1);
+}
+.bar-val {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+
+.evt-list { display: flex; flex-direction: column; }
+.evt-row {
+  display: grid; grid-template-columns: 68px 1fr 1fr 1.4fr;
+  gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--border);
+  font-size: 13px; align-items: center;
+}
+.evt-row:last-child { border-bottom: none; }
+.evt-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.evt-event { font-weight: 600; color: var(--text); }
+.evt-source { color: var(--primary); }
+.evt-product {
+  color: var(--muted); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+
+@media (max-width: 640px) {
+  .bar-row { grid-template-columns: minmax(72px, 96px) 1fr 40px; gap: 8px; }
+  .evt-row { grid-template-columns: 58px 1fr 1.2fr; }
+  .evt-product { display: none; }
+  .stat-val { font-size: 22px; }
+}

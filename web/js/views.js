@@ -111,7 +111,7 @@ export async function renderHome(view) {
     ensureDemoBanner(view);
     const featured = products.slice(0, 8);
     const gridEl = el('div', { class: 'grid' },
-      featured.map((p) => productCard(p, { onDetail: (p) => openProductDetail(p, 'home'), onAddCart: (p) => doAdd(p) })),
+      featured.map((p) => productCard(p, { onDetail: (p) => openProductDetail(p, 'home'), onAddCart: (p) => doAdd(p, 'home') })),
     );
     grid.replaceWith(gridEl);
   } catch (err) {
@@ -119,7 +119,9 @@ export async function renderHome(view) {
   }
 }
 
-function doAdd(p) {
+function doAdd(p, source) {
+  // 加购埋点（含来源渠道归因）
+  trackEvent({ event: 'add_to_cart', source: source || 'unknown', productId: p.id });
   addToCart(p, 1);
   updateCartBadge();
   toast(`已加入购物车：${p.name}`, 'ok');
@@ -149,7 +151,7 @@ export async function renderProducts(view, { category } = {}) {
     const list = active === '全部' ? products : products.filter((p) => p.category === active);
     grid.innerHTML = '';
     if (!list.length) grid.appendChild(el('div', { class: 'cart-empty' }, '该分类暂无商品'));
-    list.forEach((p) => grid.appendChild(productCard(p, { onDetail: (p) => openProductDetail(p, 'list'), onAddCart: doAdd })));
+    list.forEach((p) => grid.appendChild(productCard(p, { onDetail: (p) => openProductDetail(p, 'list'), onAddCart: (p) => doAdd(p, 'list') })));
   } catch (err) {
     banner(grid, friendly(err), 'err');
   }
@@ -169,10 +171,12 @@ export async function renderSearch(view, query) {
   try {
     const results = await searchProducts(query, 12);
     ensureDemoBanner(view);
+    // 搜索埋点（含查询词与命中数）
+    trackEvent({ event: 'search', source: 'search', meta: { query, count: results.length } });
     grid.innerHTML = '';
     if (!results.length) grid.appendChild(el('div', { class: 'cart-empty' }, '没有找到相关商品，换个说法或放宽条件试试？'));
     results.forEach((p) => {
-      const card = productCard(p, { onDetail: (p) => openProductDetail(p, 'search'), onAddCart: doAdd });
+      const card = productCard(p, { onDetail: (p) => openProductDetail(p, 'search'), onAddCart: (p) => doAdd(p, 'search') });
       // 在卡片底部附加 AI 相关度说明
       card.querySelector('.body').appendChild(
         el('div', { class: 'reason' }, `AI 智能匹配度 ${(Number(p.score) * 100).toFixed(0)}%`),
@@ -198,8 +202,10 @@ export const SOURCE_META = {
   search:{ label: '智能搜索',     color: '#ef6c00' },
   guide: { label: 'AI 导购推荐',  color: '#6a1b9a' },
   rec:   { label: '相关推荐',     color: '#00838f' },
+  qa:    { label: 'AI 问答推荐',  color: '#ad1457' },
+  analytics: { label: '分析看板', color: '#455a64' },
 };
-const SOURCE_LABELS = Object.fromEntries(
+export const SOURCE_LABELS = Object.fromEntries(
   Object.entries(SOURCE_META).map(([k, v]) => [k, v.label]),
 );
 
@@ -279,7 +285,7 @@ function buildDetailPage(p, from) {
         p.tags && p.tags.length ? el('div', { class: 'tags' }, p.tags.map((t) => el('span', { class: 'tag' }, t))) : null,
         el('p', { class: 'desc' }, p.description || '暂无描述'),
         el('div', { class: 'actions' }, [
-          el('button', { onclick: () => { addToCart(p, 1); updateCartBadge(); toast(`已加入购物车：${p.name}`, 'ok'); } }, '加入购物车'),
+          el('button', { onclick: () => doAdd(p, from || 'detail') }, '加入购物车'),
           el('button', { class: 'ghost', onclick: () => askProductQA(p) }, '问我这件商品'),
           el('button', { class: 'ghost', onclick: () => askGuide(`介绍一下「${p.name}」，适合什么人群和场景？`) }, 'AI 导购推荐'),
           el('button', { class: 'ghost', onclick: () => copyShareLink(p, from) }, '🔗 复制分享链接'),
@@ -305,7 +311,7 @@ function buildDetailPage(p, from) {
         relGrid.appendChild(el('div', { class: 'cart-empty' }, '暂无相似商品'));
       } else {
         list.forEach((r) =>
-          relGrid.appendChild(productCard(r, { onDetail: (r) => openProductDetail(r, 'rec'), onAddCart: doAdd })),
+          relGrid.appendChild(productCard(r, { onDetail: (r) => openProductDetail(r, 'rec'), onAddCart: (r) => doAdd(r, 'rec') })),
         );
       }
     } catch (err) {
@@ -317,6 +323,8 @@ function buildDetailPage(p, from) {
 }
 
 function copyShareLink(p, from) {
+  // 分享埋点（带来源渠道，便于归因「经哪个渠道被分享出去」）
+  trackEvent({ event: 'share', source: from || 'direct', productId: p.id });
   const url = `${location.origin}${location.pathname}#/product/${p.id}` + (from ? `?from=${encodeURIComponent(from)}` : '');
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(

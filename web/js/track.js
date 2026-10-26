@@ -33,8 +33,20 @@ export async function trackEvent(payload) {
 
 /** 拉取某商品的渠道分析（best-effort，失败返回 null） */
 export async function fetchProductStats(productId) {
+  return fetchStats({ productId });
+}
+
+/**
+ * 拉取多维聚合分析（best-effort，失败返回 null）。
+ * 返回 { total, byEvent, bySource, byProduct, recent }。
+ * @param {{productId?:string, source?:string}} [filter]
+ */
+export async function fetchStats(filter = {}) {
+  const qs = new URLSearchParams();
+  if (filter.productId) qs.set('productId', filter.productId);
+  if (filter.source) qs.set('source', filter.source);
   try {
-    const d = await api(`/api/track/stats?productId=${encodeURIComponent(productId)}`, { retries: 0 });
+    const d = await api(`/api/track/stats?${qs.toString()}`, { retries: 0 });
     return d.stats || null;
   } catch {
     return null;

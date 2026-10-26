@@ -14,7 +14,7 @@ import * as difyClient from './difyClient.js';
 import { guideShopping, streamGuide } from './guide.js';
 import { generateCopywriting } from './copywrite.js';
 import { handleAfterSale } from './aftersale.js';
-import { trackEvent, getTrackStats } from './trackStore.js';
+import { trackEvent, getTrackStats, ensureTrackIndex } from './trackStore.js';
 
 async function readJson(req) {
   let body = '';
@@ -445,6 +445,8 @@ server.listen(config.port, async () => {
   });
   const warns = startupWarnings();
   for (const w of warns) log.warn('config', { msg: w });
+  // 埋点索引模板：docker 模式 best-effort 建（ES 不可用时静默跳过）
+  ensureTrackIndex().catch(() => {});
   try {
     const n = await seed();
     log.info('seed', { count: n });
