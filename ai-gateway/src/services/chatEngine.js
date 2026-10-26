@@ -138,14 +138,30 @@ function productLine(p, idx) {
   return `${idx ? `${idx}. ` : ''}${p.name}（${p.brand}）¥${p.price}${extra.length ? `｜${extra.join('｜')}` : ''}`;
 }
 
+/**
+ * AI 推荐卡（导购 / 客服 / 问答共用）。
+ * 字段必须与网关 /api/products 的 toSummary 保持一致——否则前端拿不到 coverColor，
+ * 推荐卡会退化成无图的统一灰底，与商品列表的观感不一致。
+ */
 function toCard(p, reason) {
   return {
     id: p.id,
     name: p.name,
     price: p.price,
+    originalPrice: p.originalPrice ?? null,
     pic: p.pic || '',
+    coverColor: p.coverColor || '',
+    highlight: p.highlight || '',
     brand: p.brand || '',
     category: p.category || '',
+    categoryId: p.categoryId || '',
+    subCategory: p.subCategory || '',
+    subCategoryId: p.subCategoryId || '',
+    rating: p.rating ?? 4.8,
+    reviewsCount: p.reviewsCount ?? 0,
+    sales: p.sales ?? 0,
+    stock: p.totalStock ?? null,
+    tags: p.tags || [],
     reason: reason || (p.description || '').slice(0, 40),
   };
 }
