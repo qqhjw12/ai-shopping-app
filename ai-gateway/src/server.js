@@ -1,3 +1,4 @@
+import './quiet.js';
 import http from 'node:http';
 import { config, useReal, startupWarnings } from './config.js';
 import { log } from './logger.js';
@@ -10,11 +11,11 @@ import {
 import * as vectorStore from './vectorStore.js';
 import * as searchStore from './searchStore.js';
 import { seed, hybridSearch, listAllProducts } from './search.js';
-import * as difyClient from './difyClient.js';
-import { guideShopping, streamGuide } from './guide.js';
 import { generateCopywriting } from './copywrite.js';
 import { handleAfterSale } from './aftersale.js';
 import { trackEvent, getTrackStats, ensureTrackIndex } from './trackStore.js';
+import { ensureSeeded } from './db/seedDb.js';
+import * as chatEngine from './services/chatEngine.js';
 
 async function readJson(req) {
   let body = '';
@@ -78,8 +79,9 @@ function probeDeps() {
 // 业务路由（不含中间件/探针）
 async function route(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/seed') {
+    const dbInfo = ensureSeeded();
     const n = await seed();
-    return send(res, 200, { seeded: n });
+    return send(res, 200, { seeded: n, db: dbInfo });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/search') {
@@ -135,36 +137,43 @@ async function route(req, res, url) {
         await handleChatStream(res, { ...parsed, query });
         return;
       }
-      const r = await difyClient.chat({
-        mode: 'customer-service',
+      const r = await chatEngine.chatReply({
+        mode: 'chat',
         query,
         userId: parsed.userId || 'anonymous',
         conversationId: parsed.conversationId,
       });
-      return send(res, 200, { type: 'customer-service', ...r });
+      return send(res, 200, {
+        type: 'customer-service',
+        answer: r.answer,
+        conversationId: r.conversationId,
+        mode: r.mode,
+        intent: r.intent,
+      });
     } catch (e) {
       return sendError(res, e.status || 500, e.message, req.reqId);
     }
   }
 
-  // 客服流式（SSE）：docker 走 Dify 逐字，否则本地 FAQ 打字机
+  // 客服流式（SSE）：对话引擎逐字回传（配了 LLM 走真实流式，否则本地打字机）
   async function handleChatStream(res, parsed) {
     sseInit(res);
-    let conversationId = null;
     try {
-      const mode = await difyClient.streamChat(
+      const r = await chatEngine.chatReplyStream(
         {
-          mode: 'customer-service',
+          mode: 'chat',
           query: parsed.query,
           userId: parsed.userId || 'anonymous',
           conversationId: parsed.conversationId,
         },
         (t) => sseWrite(res, { text: t }),
-        (cid) => {
-          conversationId = cid;
-        },
       );
-      sseWrite(res, { conversationId, mode });
+      sseWrite(res, {
+        products: r.cards,
+        conversationId: r.conversationId,
+        mode: r.mode,
+        intent: r.intent,
+      });
     } catch (e) {
       sseWrite(res, { error: e.message });
     } finally {
@@ -182,14 +191,21 @@ async function route(req, res, url) {
         await handleQaStream(res, { ...parsed, query });
         return;
       }
-      const r = await difyClient.chat({
+      const r = await chatEngine.chatReply({
         mode: 'product-qa',
         query,
         userId: parsed.userId || 'anonymous',
         conversationId: parsed.conversationId,
         productId: parsed.productId,
       });
-      return send(res, 200, { type: 'product-qa', ...r });
+      return send(res, 200, {
+        type: 'product-qa',
+        answer: r.answer,
+        results: r.cards,
+        conversationId: r.conversationId,
+        mode: r.mode,
+        intent: r.intent,
+      });
     } catch (e) {
       return sendError(res, e.status || 500, e.message, req.reqId);
     }
@@ -205,14 +221,21 @@ async function route(req, res, url) {
         await handleGuideStream(res, { ...parsed, message });
         return;
       }
-      const r = await guideShopping({
-        message,
+      const r = await chatEngine.chatReply({
+        mode: 'guide',
+        query: message,
         userId: parsed.userId || 'anonymous',
-        budget: parsed.budget,
-        category: parsed.category,
-        topK: parsed.topK,
+        conversationId: parsed.conversationId,
       });
-      return send(res, 200, { type: 'shopping-guide', ...r });
+      return send(res, 200, {
+        type: 'shopping-guide',
+        intro: r.answer,
+        answer: r.answer,
+        products: r.cards,
+        conversationId: r.conversationId,
+        mode: r.mode,
+        intent: r.intent,
+      });
     } catch (e) {
       return sendError(res, e.status || 500, e.message, req.reqId);
     }
@@ -222,17 +245,21 @@ async function route(req, res, url) {
   async function handleGuideStream(res, parsed) {
     sseInit(res);
     try {
-      const { cards, mode } = await streamGuide(
+      const r = await chatEngine.chatReplyStream(
         {
-          message: parsed.message,
+          mode: 'guide',
+          query: parsed.message,
           userId: parsed.userId || 'anonymous',
-          budget: parsed.budget,
-          category: parsed.category,
-          topK: parsed.topK,
+          conversationId: parsed.conversationId,
         },
         (t) => sseWrite(res, { text: t }),
       );
-      sseWrite(res, { products: cards, mode });
+      sseWrite(res, {
+        products: r.cards,
+        mode: r.mode,
+        conversationId: r.conversationId,
+        intent: r.intent,
+      });
     } catch (e) {
       sseWrite(res, { error: e.message });
     } finally {
@@ -243,25 +270,24 @@ async function route(req, res, url) {
   // 商品问答流式（SSE）：逐字回传答案，最后回传关联商品卡片
   async function handleQaStream(res, parsed) {
     sseInit(res);
-    let conversationId = null;
-    let results = [];
-    let mode = null;
     try {
-      mode = await difyClient.streamProductQa(
+      const r = await chatEngine.chatReplyStream(
         {
+          mode: 'product-qa',
           query: parsed.query,
           userId: parsed.userId || 'anonymous',
           conversationId: parsed.conversationId,
           productId: parsed.productId,
         },
         (t) => sseWrite(res, { text: t }),
-        (cid, m, r) => {
-          conversationId = cid;
-          mode = m;
-          results = r || [];
-        },
       );
-      sseWrite(res, { productId: parsed.productId || null, results, conversationId, mode });
+      sseWrite(res, {
+        productId: parsed.productId || null,
+        results: r.cards,
+        conversationId: r.conversationId,
+        mode: r.mode,
+        intent: r.intent,
+      });
     } catch (e) {
       sseWrite(res, { error: e.message });
     } finally {
@@ -437,17 +463,27 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// 启动前先确保 SQLite 结构与种子就绪（同步执行、几十毫秒），避免请求早于建表
+try {
+  const dbInfo = ensureSeeded();
+  log.info('db', { file: config.dbFile, ...dbInfo });
+} catch (e) {
+  log.error('db_init', { err: e.message });
+}
+
 server.listen(config.port, async () => {
   log.info('listen', {
     port: config.port,
     runMode: config.runMode,
     embedding: config.embeddingProvider,
+    llm: config.llm.apiKey ? `${config.llm.model} @ ${config.llm.baseUrl}` : 'disabled(本地引擎)',
   });
   const warns = startupWarnings();
   for (const w of warns) log.warn('config', { msg: w });
   // 埋点索引模板：docker 模式 best-effort 建（ES 不可用时静默跳过）
   ensureTrackIndex().catch(() => {});
   try {
+    // 把商品写进检索索引（向量 + 关键词）
     const n = await seed();
     log.info('seed', { count: n });
   } catch (e) {

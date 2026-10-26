@@ -1,11 +1,10 @@
 import { config, useReal } from './config.js';
 import { log } from './logger.js';
+import { recordEvent, stats as sqlStats } from './repositories/trackRepo.js';
 
 // 埋点事件落地：docker 模式写 Elasticsearch（<esIndex>_events 索引，启动期建索引模板）；
-// local 模式写内存环形缓冲（演示用，重启清空）。两者均为 best-effort，不阻塞主请求。
+// local 模式写 SQLite（track_events 表，重启不丢，聚合走 SQL）。两者均为 best-effort，不阻塞主请求。
 const ES_INDEX = (config.esIndex || 'products') + '_events';
-const MEMORY_CAP = 1000;
-const memory = [];
 
 /**
  * 写入一条埋点事件（发送即忘，内部自吞错误）。
@@ -41,34 +40,22 @@ export async function trackEvent(raw) {
     return 'es';
   }
 
-  memory.push(doc);
-  if (memory.length > MEMORY_CAP) memory.shift();
-  return 'memory';
+  // local 模式：落 SQLite（重启不丢，聚合走 SQL）
+  try {
+    recordEvent(doc);
+    return 'sqlite';
+  } catch (e) {
+    log.warn('track_sqlite', { err: e.message });
+    return 'sqlite';
+  }
 }
-
 /**
  * 聚合统计，支持按 productId / source 过滤。返回全链路多维聚合，供分析看板使用。
  * @param {{productId?:string, source?:string}} [filter]
  */
 export async function getTrackStats(filter = {}) {
   if (useReal() && config.elasticsearchUrl) return esStats(filter);
-  return memoryStats(filter);
-}
-
-function memoryStats({ productId, source } = {}) {
-  const rows = memory.filter(
-    (d) => (!productId || d.productId === productId) && (!source || d.source === source),
-  );
-  const byEvent = {}, bySource = {}, byProduct = {};
-  rows.forEach((d) => {
-    byEvent[d.event] = (byEvent[d.event] || 0) + 1;
-    bySource[d.source] = (bySource[d.source] || 0) + 1;
-    if (d.productId) byProduct[d.productId] = (byProduct[d.productId] || 0) + 1;
-  });
-  const recent = rows.slice(-50).reverse().map((d) => ({
-    event: d.event, source: d.source, productId: d.productId, userId: d.userId, ts: d.ts,
-  }));
-  return { total: rows.length, byEvent, bySource, byProduct, recent };
+  return sqlStats(filter);
 }
 
 async function esStats({ productId, source } = {}) {

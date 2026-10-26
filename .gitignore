@@ -5,9 +5,12 @@
 # 生成的 TLS 证书 / 私钥（一键脚本产出）
 nginx/tls/
 
-# mall fork（克隆产物）与本地导入库
-mall-fork/
-db/
+# mall fork（克隆产物）与本地导入库（仅根目录的 db/，不要误伤 src/db）
+/mall-fork/
+/db/
+
+# 本地 SQLite 数据文件（运行时生成，seedDb 可重建，不入库）
+ai-gateway/data/
 
 # 依赖 / 构建产物
 node_modules/

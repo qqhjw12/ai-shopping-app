@@ -47,7 +47,21 @@ export const config = {
   rateLimitWindowMs: Number(env.RATE_LIMIT_WINDOW_MS || 60000),
   // 若 Gateway 前置了反向代理（如 nginx），从 X-Forwarded-For 取真实客户端 IP
   trustProxy: env.TRUST_PROXY === 'true',
+  // 本地 SQLite 数据文件（local 模式的商品/订单/会话/埋点全部落这里，重启不丢）
+  dbFile: env.DB_FILE || 'data/shop.db',
+  // 可选：OpenAI 兼容大模型（DeepSeek / 通义 / Kimi / OpenAI 皆可）。
+  // 未配置 LLM_API_KEY 时自动使用内置本地对话引擎（零外部依赖）。
+  llm: {
+    baseUrl: (env.LLM_BASE_URL || 'https://api.deepseek.com/v1').replace(/\/+$/, ''),
+    apiKey: env.LLM_API_KEY || '',
+    model: env.LLM_MODEL || 'deepseek-chat',
+    temperature: Number(env.LLM_TEMPERATURE || 0.5),
+    timeoutMs: Number(env.LLM_TIMEOUT_MS || 30000),
+  },
 };
+
+// 是否启用真实大模型（配置了 Key 才启用，避免无谓请求）
+export const llmEnabled = () => !!config.llm.apiKey;
 
 // 启动期告警（仅打印一次）
 export function startupWarnings() {

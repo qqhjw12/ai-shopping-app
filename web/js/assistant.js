@@ -112,7 +112,7 @@ async function sendChat(text) {
   await streamRun('chat', {
     path: '/api/ai/chat',
     body: { message: text, userId: getUserId(), conversationId: conversationId || undefined, stream: true },
-    makeWrap: () => el('div', { class: 'ai-msg bot' }),
+    makeWrap: () => el('div', { class: 'ai-msg bot clickable-cards' }),
     onEvent: (wrap, ev) => {
       if (ev.text != null) {
         let tn = wrap._tn;
@@ -122,6 +122,10 @@ async function sendChat(text) {
           wrap.appendChild(tn);
         }
         tn.textContent += ev.text;
+      }
+      if (ev.products && ev.products.length && !wrap._cards) {
+        wrap._cards = true;
+        wrap.appendChild(el('div', { class: 'mini-cards' }, ev.products.map((p) => miniCard(p, 'guide'))));
       }
       if (ev.conversationId) conversationId = ev.conversationId;
     },

@@ -2,15 +2,17 @@ import { config } from './config.js';
 import { embed } from './embeddings.js';
 import * as vectorStore from './vectorStore.js';
 import * as searchStore from './searchStore.js';
-import { sampleProducts } from './data/products.js';
+import * as productRepo from './repositories/productRepo.js';
 
-const byId = new Map(sampleProducts.map((p) => [p.id, p]));
+// 商品来源：local 模式读 SQLite（64 款真实目录），docker 模式读 mall。
+const byId = new Map();
 
-// 把 mall 商品写入向量库 + 搜索库
+// 把商品写入向量库 + 搜索库
 export async function seed() {
   const products = await (await import('./mallClient.js')).fetchProducts();
   const points = [];
   const payloads = [];
+  byId.clear();
   for (const p of products) {
     const text = [p.name, p.description, (p.tags || []).join(' '), p.category, p.brand].join(' ');
     const vector = await embed(text);
@@ -61,10 +63,10 @@ export async function hybridSearch(query, topK = 5) {
 // 按 id 取单个商品（兼容数字 / 字符串 id），供商品问答按 productId 聚焦
 export function getProductById(id) {
   if (id == null) return null;
-  return byId.get(id) || byId.get(Number(id)) || byId.get(String(id)) || null;
+  return byId.get(id) || byId.get(Number(id)) || byId.get(String(id)) || productRepo.getProductById(id) || null;
 }
 
-// 返回全部已索引商品，供前端商品页 / 演示使用
+// 返回全部已索引商品，供前端商品页 / 演示使用（索引未就绪时直接查库）
 export function listAllProducts() {
-  return [...byId.values()];
+  return byId.size ? [...byId.values()] : productRepo.listProducts();
 }

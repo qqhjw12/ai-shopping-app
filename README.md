@@ -11,6 +11,9 @@
 
 - [项目简介](#项目简介)
 - [功能特性](#功能特性)
+- [数据层与对话引擎](#数据层与对话引擎)
+  - [SQLite 数据库（local 模式）](#sqlite-数据库local-模式)
+  - [对话引擎（srcserviceschatenginejs）](#对话引擎srcserviceschatenginejs)
 - [系统架构](#系统架构)
 - [技术栈](#技术栈)
 - [目录结构](#目录结构)
@@ -56,6 +59,53 @@
 
 ---
 
+## 数据层与对话引擎
+
+### SQLite 数据库（local 模式）
+
+用 Node 22 内置的 `node:sqlite`，**零依赖、零安装、单文件持久化**（`ai-gateway/data/shop.db`），开启 WAL 与外键约束，结构通过版本化迁移管理（`PRAGMA user_version`）。
+
+| 表 | 用途 |
+|---|---|
+| `categories` | 类目（8 个：手机数码 / 电脑办公 / 音频耳机 / 家用电器 / 服饰鞋包 / 食品生鲜 / 家居家具 / 运动户外） |
+| `products` | 商品主数据（64 款，含品牌 / 现价 / 原价 / 标签 / 评分 / 销量） |
+| `product_skus` | 规格变体与库存（150 个 SKU，按阶梯定价） |
+| `users` / `addresses` | 演示用户与收货地址 |
+| `orders` / `order_items` | 订单与订单项（含物流公司、运单号、状态机） |
+| `reviews` | 商品真实评价（供问答引用口碑） |
+| `faqs` / `policies` | 客服 FAQ 与退换货 / 物流 / 质保 / 发票 / 支付政策 |
+| `conversations` / `messages` | 会话与消息（多轮上下文、可回放，重启不丢） |
+| `track_events` | 埋点事件（替代原内存环形缓冲，聚合走 SQL） |
+
+`npm run db:seed` 幂等灌数据，`npm run db:reset` 清空重灌；两端都在启动时自动执行迁移 + 缺数据才种子。
+
+### 对话引擎（`src/services/chatEngine.js`）
+
+**先检索真实数据，再组织语言**——价格、库存、物流、政策一律查 SQLite，绝不交给模型编造。
+
+```
+用户输入 → 意图识别 → SQLite 检索 → 事实草稿 ─┬─ 未配 LLM：直接作为答案（规则模板）
+                                              └─ 配了 LLM：连同商品/政策/订单上下文喂给模型润色
+```
+
+| 意图 | 触发示例 | 数据来源 |
+|---|---|---|
+| `greeting` / `thanks` | 你好 / 谢谢 | 类目与商品统计 |
+| `recommend` | 预算1500的降噪耳机、送礼500以内 | 预算 + 类目 + 标签多条件 SQL |
+| `price` / `stock` | 声海耳机多少钱 / 有货吗 | `products` + `product_skus` |
+| `compare` | 这两款哪个好 | 双商品对比（价格/评分/销量/标签） |
+| `logistics` | SO2026… 到哪了、我买的笔记本到哪了 | `orders` + `order_items`（按商品名匹配订单） |
+| `aftersale` | 七天无理由怎么退、保修多久、开发票 | `policies` + `faqs` + 订单状态 |
+| `product-detail` | 详情页「问我这件商品」 | 商品详情 + SKU + 真实评价 |
+
+要点：
+
+- **中文关键词匹配**：没有分词器，就用「商品标签 + 品牌 + 类目 + 常见名词」组词表做最长匹配，`预算1500的降噪耳机` 能正确命中「降噪」而不是整句 LIKE。
+- **多轮上下文**：预算 / 类目 / 上次商品写入 `conversations.context`，所以「有货吗」「那便宜点的呢」能承接上文。
+- **LLM 可选且可降级**：配 `LLM_API_KEY` 走 OpenAI 兼容协议（支持 SSE 流式）；模型调用失败自动回退本地引擎，服务不会因此不可用。商品卡片始终由网关检索产出，不依赖模型。
+
+---
+
 ## 系统架构
 
 ```
@@ -70,6 +120,8 @@
 │  ├─ /api/products · /api/products/:id · /api/search          │
 │  ├─ /api/ai/{guide,chat,qa,copywrite,aftersale}  (SSE 流式)  │
 │  ├─ 混合检索: vectorStore(Qdrant) + searchStore(ES)          │
+│  ├─ 本地数据: SQLite（商品/SKU/订单/会话/埋点）              │
+│  ├─ 对话引擎: 意图识别 + SQL 检索 (+ 可选 LLM 润色)          │
 │  └─ Dify 编排: 客服 / 问答 / 导购 Agent / 文案 / 售后         │
 └───────┬───────────────────────┬──────────────────────────────┘
         │ (docker 模式)          │ (可选) HTTPS 终止 + 注入 API Key
@@ -93,6 +145,8 @@
 
 - **前端**：原生 HTML + CSS + ES Module（无框架、无打包器）；hash 路由、Fetch + SSE。
 - **后端**：Node.js 20+（ESM，仅用内置模块 + 少量依赖）；`http` 自建服务，分层架构。
+- **本地数据**：SQLite（Node 22 内置 `node:sqlite`，零依赖零安装，单文件持久化 + 版本化迁移）。
+- **对话**：内置意图识别 + SQL 检索引擎；可选接 OpenAI 兼容大模型（DeepSeek / 通义 / Kimi / OpenAI）。
 - **检索 / 模型**：Qdrant（向量）、Elasticsearch（关键词）、Ollama（嵌入，可换 `local` 哈希嵌入）。
 - **AI 中枢**：Dify（智能客服 / 商品问答 / 导购 Agent / 运营文案 / 订单售后 工作流）。
 - **电商底座**：macrozheng/mall（商品 & 订单）+ `mall-ai` 自定义模块。
@@ -114,7 +168,13 @@
 │       ├── demo.js          # 演示模式标志（网关不可达时置位）
 │       └── demo-data.js     # 内置示例商品库（离线兜底）
 ├── ai-gateway/              # Node.js 后端网关（local / docker 双模式）
-│   ├── src/                 # server / config / middleware / search / guide / difyClient / trackStore …
+│   ├── src/
+│   │   ├── db/              # SQLite：connection / schema(迁移) / seedDb(种子)
+│   │   ├── repositories/    # 仓储层：product / order / conversation / track
+│   │   ├── services/        # chatEngine(对话引擎) / llmClient(可选大模型)
+│   │   ├── data/catalog.js  # 商品目录种子（64 款 / 8 类目 / 150 SKU）
+│   │   └── server / config / middleware / search / copywrite / aftersale …
+│   ├── data/shop.db         # 本地数据库（gitignore，可 db:reset 重建）
 │   ├── Dockerfile
 │   └── dify-workflows/      # Dify 工作流 spec（售后 / 文案）
 ├── mall-ai/                 # macrozheng/mall 的 AI 增强模块（Java）
@@ -134,12 +194,13 @@
 
 ### 方式 A：本地零依赖演示（推荐先跑这个）
 
-无需 Docker，网关用内存商品库 + 本地哈希嵌入 + 打字机式 SSE：
+无需 Docker、无需安装数据库：网关内置 **SQLite**（Node 22 自带 `node:sqlite`）与**本地对话引擎**，首次启动自动建表并灌入 64 款商品。
 
 ```bash
 # 1) 启动后端网关（local 模式，默认 :8080）
 cd ai-gateway
-RUN_MODE=local node src/server.js
+npm start            # 等价于 node --disable-warning=ExperimentalWarning src/server.js
+#    首次启动会自动建库 + 种子：data/shop.db（64 商品 / 150 SKU / 订单 / 评价 / FAQ）
 
 # 2) 另开终端，启动静态前端（任意静态服务器均可）
 cd web
@@ -150,6 +211,13 @@ python -m http.server 5500        # 或 npx serve .
 #    跨端口时显式指定网关：http://localhost:5500/?api=http://localhost:8080
 ```
 
+数据库维护命令：
+
+```bash
+npm run db:seed      # 幂等：缺数据才灌
+npm run db:reset     # 清空业务表后重灌（商品/订单/评价/FAQ/会话/埋点）
+```
+
 冒烟测试：
 
 ```bash
@@ -157,7 +225,18 @@ curl -s http://localhost:8080/api/products | head
 curl -s -X POST http://localhost:8080/api/search -H 'Content-Type: application/json' \
   -d '{"query":"降噪耳机","topK":3}'
 curl -s -N -X POST http://localhost:8080/api/ai/guide -H 'Content-Type: application/json' \
-  -d '{"message":"预算1000的办公耳机","userId":"demo","stream":true}'
+  -d '{"message":"预算1500的降噪耳机","userId":"demo","stream":true}'
+# 多轮：把上一轮返回的 conversationId 带上，即可承接上下文
+curl -s -N -X POST http://localhost:8080/api/ai/chat -H 'Content-Type: application/json' \
+  -d '{"message":"有货吗","userId":"demo","conversationId":"<上一步的 id>","stream":true}'
+```
+
+**想让 AI 更聪明？** 在 `.env` 里填三行即可从「内置引擎」升级为真大模型（OpenAI 兼容，DeepSeek / 通义 / Kimi / OpenAI 均可）：
+
+```bash
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_API_KEY=sk-xxxxxxxx
+LLM_MODEL=deepseek-chat
 ```
 
 ### 方式 B：Docker 真实服务（Qdrant / ES / Ollama / Dify / mall）
@@ -193,6 +272,9 @@ bash scripts/setup-https-proxy.sh
 | 变量 | 说明 |
 |------|------|
 | `RUN_MODE` | `local`（降级演示） / `docker`（真实服务） |
+| `DB_FILE` | SQLite 数据文件路径，默认 `data/shop.db`（相对 `ai-gateway/`） |
+| `LLM_API_KEY` | 可选。填写后启用 OpenAI 兼容大模型；留空走内置对话引擎 |
+| `LLM_BASE_URL` / `LLM_MODEL` | 大模型地址与模型名（默认 DeepSeek） |
 | `EMBEDDING_PROVIDER` | `local`（哈希嵌入，零依赖） / `ollama` |
 | `DIFY_*_API_KEY` | 各 AI 模块的 Dify App Key（配置后启用真实流式） |
 | `CORS_ORIGINS` | 显式允许来源，**生产严禁 `*`**；留空仅放行本地演示来源 |
