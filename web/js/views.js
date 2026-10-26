@@ -6,6 +6,7 @@ import { askGuide, askProductQA } from './assistant.js';
 import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
 import { setDemoMode, isDemoMode } from './demo.js';
+import { trackEvent, fetchProductStats } from './track.js';
 
 // 商品缓存（列表/详情复用，避免重复请求）
 let productsCache = null;
@@ -190,14 +191,17 @@ export function openProductDetail(p, source) {
   navigate(`#/product/${p.id}` + (source ? `?from=${encodeURIComponent(source)}` : ''));
 }
 
-// 来源埋点文案映射（用于详情页来源提示与分享链接归因）
-const SOURCE_LABELS = {
-  home: '首页精选',
-  list: '商品列表',
-  search: '智能搜索',
-  guide: 'AI 导购推荐',
-  rec: '相关推荐',
+// 来源渠道元信息：文案 + 主题色（详情页色条、分享归因、埋点均复用）
+export const SOURCE_META = {
+  home:  { label: '首页精选',     color: '#2e7d32' },
+  list:  { label: '商品列表',     color: '#1565c0' },
+  search:{ label: '智能搜索',     color: '#ef6c00' },
+  guide: { label: 'AI 导购推荐',  color: '#6a1b9a' },
+  rec:   { label: '相关推荐',     color: '#00838f' },
 };
+const SOURCE_LABELS = Object.fromEntries(
+  Object.entries(SOURCE_META).map(([k, v]) => [k, v.label]),
+);
 
 // 按 ID 取商品：先查列表缓存，未命中再走网关详情端点（深链直达也支持）。
 export async function getProductById(id) {
@@ -233,13 +237,37 @@ export async function renderProductDetail(view, id, from) {
   ensureDemoBanner(view);
   container.innerHTML = '';
   container.appendChild(buildDetailPage(p, from));
+  // 上报「查看商品」埋点（含来源渠道），best-effort
+  trackEvent({ event: 'view_product', source: from || 'direct', productId: p.id });
+  // 拉取本商品渠道分析，best-effort 展示（演示站点未连网关时静默）
+  fetchProductStats(p.id).then((stats) => {
+    if (!stats || !stats.total) return;
+    const line = container.querySelector('.source-stats');
+    if (!line) return;
+    const top = Object.entries(stats.bySource).sort((a, b) => b[1] - a[1])[0];
+    const topLabel = top && SOURCE_LABELS[top[0]] ? SOURCE_LABELS[top[0]] : top && top[0];
+    line.textContent = topLabel
+      ? `🔢 共 ${stats.total} 次浏览，最多来自「${topLabel}」`
+      : `🔢 共 ${stats.total} 次浏览`;
+  });
 }
 
 function buildDetailPage(p, from) {
   const children = [];
-  // 来源埋点提示：深链带 ?from= 时回显渠道，便于分享归因
-  if (from && SOURCE_LABELS[from]) {
-    children.push(el('div', { class: 'source-hint' }, `📍 来自：${SOURCE_LABELS[from]}`));
+  // 来源渠道色条：深链带 ?from= 时回显渠道，颜色按渠道区分（视觉引导 + 分享归因）
+  if (from && SOURCE_META[from]) {
+    const meta = SOURCE_META[from];
+    children.push(
+      el('div', {
+        class: 'source-bar',
+        style: `--src-color:${meta.color}`,
+      }, [
+        el('span', { class: 'dot' }),
+        el('span', {}, `来自：${meta.label}`),
+      ]),
+    );
+    // 渠道分析提示行（异步填充）
+    children.push(el('div', { class: 'source-stats' }, ''));
   }
   children.push(
     el('div', { class: 'detail-head' }, [

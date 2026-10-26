@@ -14,6 +14,7 @@ import * as difyClient from './difyClient.js';
 import { guideShopping, streamGuide } from './guide.js';
 import { generateCopywriting } from './copywrite.js';
 import { handleAfterSale } from './aftersale.js';
+import { trackEvent, getTrackStats } from './trackStore.js';
 
 async function readJson(req) {
   let body = '';
@@ -286,6 +287,28 @@ async function route(req, res, url) {
     }
   }
 
+  // 推荐来源埋点 + 渠道分析（来源闭环数据）
+  if (req.method === 'POST' && url.pathname === '/api/track') {
+    const parsed = await readJson(req);
+    if (!parsed || !parsed.event) return sendError(res, 400, 'event required', req.reqId);
+    // 发送即忘：先回 202，异步落 ES / 内存，不阻塞主流程
+    trackEvent({
+      event: parsed.event,
+      source: parsed.source,
+      productId: parsed.productId,
+      userId: parsed.userId || 'anonymous',
+      meta: parsed.meta,
+    }).catch(() => {});
+    return send(res, 202, { ok: true });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/track/stats') {
+    const productId = url.searchParams.get('productId') || undefined;
+    const source = url.searchParams.get('source') || undefined;
+    const stats = await getTrackStats({ productId, source });
+    return send(res, 200, { stats });
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/ai/aftersale') {
     const parsed = await readJson(req);
     if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
@@ -315,6 +338,8 @@ async function route(req, res, url) {
         'POST /api/ai/guide {message, userId?, budget?, category?, topK?}',
         'POST /api/ai/copywrite {product, sellingPoints?, tone?, platform?, count?}',
         'POST /api/ai/aftersale {userId?, orderId?, query?}',
+        'POST /api/track {event, source?, productId?, userId?, meta?} (推荐来源埋点，202 异步落 ES/内存)',
+        'GET /api/track/stats?productId=&source= (渠道分析聚合)',
       ],
     });
   }

@@ -45,7 +45,7 @@
 | 模块 | 入口 | 说明 |
 |------|------|------|
 | 🔍 智能搜索 | 顶栏搜索 | 向量 + 关键词混合检索，首页 / 列表 / 搜索页通用 |
-| 📦 商品详情 | `#/product/:id` | 真实路由，可深链分享；含「相关推荐」与来源埋点 |
+| 📦 商品详情 | `#/product/:id` | 真实路由，可深链分享；含「相关推荐」、来源渠道色条与埋点 |
 | 🤖 AI 导购 | 浮窗「导购」 | 一句话需求 → 导购话术（SSE 逐字）+ 商品卡片 |
 | 💬 智能客服 | 浮窗「客服」 | 多轮对话（SSE 逐字），可接 Dify 知识库 |
 | ❓ 商品问答 | 浮窗「问答」/ 详情页「问我这件商品」 | 按商品聚焦问答，SSE 逐字 + 关联商品卡片 |
@@ -210,9 +210,19 @@ bash scripts/setup-https-proxy.sh
 | POST | `/api/ai/qa` | 商品问答（SSE）`{ query, userId, productId, stream }` |
 | POST | `/api/ai/copywrite` | 运营文案 `{ product, sellingPoints, tone, platform, count }` |
 | POST | `/api/ai/aftersale` | 订单售后 `{ userId, orderId, query }` |
+| POST | `/api/track` | 推荐来源埋点 `{ event, source?, productId?, userId?, meta? }`（202 异步落 ES/内存） |
+| GET  | `/api/track/stats` | 渠道分析聚合 `?productId=&source=`，返回 `{ total, bySource, recent }` |
 | GET  | `/health` · `/ready` | 健康检查 / 依赖探针 |
 
 > 流式响应格式：`data: {"text":"…"}` 逐段 → `data: {"products"/"results"/"conversationId", mode}` 结构化 → `data: [DONE]`。
+
+### 推荐来源埋点（来源闭环）
+
+详情页支持深链 `#/product/:id?from=<渠道>`，进入即**自动上报** `view_product` 事件，并渲染一条按渠道区分颜色的**来源色条**；详情页还会 best-effort 展示「共 N 次浏览，最多来自 X」的渠道分析。
+
+- **前端**：`web/js/track.js` 用 fire-and-forget 上报（`retries:0`，失败静默）；`SOURCE_META` 定义 5 个渠道的文案与主题色（首页/列表/搜索/导购/相关推荐）。
+- **后端**：`POST /api/track` 返回 `202` 后异步落库——`docker` 模式写 **Elasticsearch**（索引 `<esIndex>_events`，默认 `products_events`，动态映射自动建）；`local` 模式写**内存环形缓冲**（演示，重启清空）。`GET /api/track/stats` 提供聚合，`docker` 模式走 ES `terms` 聚合。
+- **安全**：埋点失败不影响浏览；`docker` 模式下 ES 写入带 2s 超时与 best-effort 容错，绝不阻塞主请求。
 
 ---
 
