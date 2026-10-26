@@ -179,7 +179,7 @@
 │   └── dify-workflows/      # Dify 工作流 spec（售后 / 文案）
 ├── mall-ai/                 # macrozheng/mall 的 AI 增强模块（Java）
 ├── nginx/                   # 反代模板（envsubst，密钥不入库）
-├── scripts/                 # setup-https-proxy.sh / setup-mall-ai-env.sh
+├── scripts/                 # dev-local.sh(一键起前后端) / setup-https-proxy.sh / setup-mall-ai-env.sh
 ├── docker-compose*.yml      # 网关 / nginx / dify / 全家桶
 ├── docs/                    # 实施记录与方案文档
 ├── .env.example             # 环境变量模板（真实密钥勿提交）
@@ -195,6 +195,15 @@
 ### 方式 A：本地零依赖演示（推荐先跑这个）
 
 无需 Docker、无需安装数据库：网关内置 **SQLite**（Node 22 自带 `node:sqlite`）与**本地对话引擎**，首次启动自动建表并灌入 64 款商品。
+
+**一键启动（推荐）**：
+
+```bash
+bash scripts/dev-local.sh
+# 网关 :8080 + 前端 :5500 一起起，就绪后打印访问地址；Ctrl+C 一并停止
+```
+
+手动分两步：
 
 ```bash
 # 1) 启动后端网关（local 模式，默认 :8080）
