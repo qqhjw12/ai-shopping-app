@@ -3,15 +3,23 @@ import { updateCartBadge } from './ui.js';
 import { renderHome, renderProducts, renderSearch, renderCartDrawer, renderProductDetail, openProductDetail } from './views.js';
 import { renderTools } from './tools.js';
 import { renderAnalytics } from './analytics.js';
+import { renderCheckout } from './checkout.js';
+import { renderOrders, renderFavorites } from './account.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
 import { createRouter, navigate } from './router.js';
+import { getUserId, loadCart, onCartChange } from './state.js';
+
+// 推荐卡带来源跳转
+setProductDetailHandler((p) => openProductDetail(p, 'guide'));
+
+/* ---------------- 购物车：服务端优先，离线回落 ---------------- */
+updateCartBadge();
+// 购物车变化时刷新角标（加购/删改/服务端合并都会触发）
+onCartChange(() => updateCartBadge());
+// 拉取服务端购物车（演示模式下静默保持本地数据）
+loadCart();
 
 const view = document.getElementById('view');
-
-// 商品详情由助手内的推荐卡片触发（跳转至路由页，支持深链 + 来源埋点）
-setProductDetailHandler((p) => openProductDetail(p, 'guide'));
-// 购物车角标初始刷新
-updateCartBadge();
 
 /* ---------------- 顶栏交互 ---------------- */
 document.getElementById('search-form').addEventListener('submit', (e) => {
@@ -28,6 +36,7 @@ function setActiveNav(path) {
     : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') ? 'products'
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
+    : path.startsWith('/checkout') || path.startsWith('/orders') || path.startsWith('/favorites') ? 'account'
     : '';
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.nav === key));
 }
@@ -41,6 +50,9 @@ function dispatch({ path, query }) {
   else if (path.startsWith('/product/')) renderProductDetail(view, decodeURIComponent(path.slice('/product/'.length)), query.from);
   else if (path === '/tools') renderTools(view);
   else if (path.startsWith('/analytics')) renderAnalytics(view);
+  else if (path === '/checkout') renderCheckout(view);
+  else if (path === '/orders') renderOrders(view);
+  else if (path === '/favorites') renderFavorites(view);
   else renderHome(view);
 }
 

@@ -106,6 +106,47 @@ function hashInt(str, mod) {
   return Math.abs(h) % mod;
 }
 
+// ---------- 视觉与卖点派生 ----------
+
+/** HSL → HEX（用于按类目主色生成同源封面渐变，保证同品类协调、每个商品又不同） */
+function hslToHex(h, s, l) {
+  const hn = ((h % 360) + 360) % 360;
+  const S = s / 100;
+  const L = l / 100;
+  const k = (n) => (n + hn / 30) % 12;
+  const a = S * Math.min(L, 1 - L);
+  const f = (n) => L - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const to = (n) => Math.round(255 * f(n)).toString(16).padStart(2, '0');
+  return `#${to(0)}${to(8)}${to(4)}`;
+}
+
+// 每个类目一个基准色相，商品在此基础上微调 ±13°，视觉成体系又各不相同
+const CATEGORY_HUE = {
+  phone: 232, computer: 192, audio: 268, appliance: 168,
+  apparel: 338, food: 36, home: 26, sports: 142,
+};
+
+// 服务承诺（详情页标签，按类目差异化，贴近真实电商）
+const CATEGORY_PROMISES = {
+  phone: ['正品保障', '顺丰包邮', '一年质保', '七天无理由'],
+  computer: ['正品保障', '顺丰包邮', '一年质保', '七天无理由'],
+  audio: ['正品保障', '顺丰包邮', '一年质保', '七天无理由'],
+  appliance: ['正品保障', '送货上门', '三年质保', '七天无理由'],
+  apparel: ['正品保障', '尺码助手', '七天无理由', '运费险'],
+  food: ['产地直发', '冷链配送', '坏果包赔', '保质期保障'],
+  home: ['正品保障', '送货上门', '三年质保', '七天无理由'],
+  sports: ['正品保障', '顺丰包邮', '一年质保', '七天无理由'],
+};
+
+/** 从长描述里摘一句最有信息量的话作为「一句话卖点」 */
+function deriveHighlight(desc) {
+  const first = String(desc).split(/[，,。；;]/).map((s) => s.trim()).filter(Boolean)[0] || String(desc);
+  if (first.length <= 22) return first;
+  // 优先取含数字的那句（参数最像卖点），否则截断
+  const withNum = String(desc).split(/[，,。；;]/).find((s) => /\d/.test(s) && s.length <= 26);
+  return (withNum || first).slice(0, 24);
+}
+
 export function buildCatalog() {
   const products = [];
   const skus = [];
@@ -114,6 +155,9 @@ export function buildCatalog() {
     const reviews = 60 + hashInt(id + 'r', 2800);
     const rating = Number((4.4 + hashInt(id + 'g', 60) / 100).toFixed(1));
     const sales = 120 + hashInt(id + 's', 18000);
+    const baseHue = CATEGORY_HUE[categoryId] ?? 210;
+    const hueShift = hashInt(id + 'c', 27) - 13; // -13..13
+    const tagList = tags.split(',').map((t) => t.trim()).filter(Boolean);
     products.push({
       id,
       name,
@@ -122,12 +166,16 @@ export function buildCatalog() {
       price,
       originalPrice,
       description: desc,
-      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+      tags: tagList,
       rating: Math.min(5, rating),
       reviewsCount: reviews,
       sales,
       status: 'on_sale',
       sort: idx,
+      // 视觉：双色渐变封面（前端用它渲染程序化商品图）
+      coverColor: `${hslToHex(baseHue + hueShift, 68, 52)},${hslToHex(baseHue + hueShift + 26, 74, 66)}`,
+      highlight: deriveHighlight(desc),
+      highlights: CATEGORY_PROMISES[categoryId] || ['正品保障', '七天无理由'],
     });
     specs.forEach((spec, i) => {
       skus.push({
@@ -203,3 +251,100 @@ export const DEMO_POLICIES = [
   ['invoice', '发票说明', '支持电子普通发票，个人 / 企业抬头均可，订单完成后可在订单详情申请。'],
   ['payment', '支付方式', '微信支付、支付宝、银行卡、货到付款（部分商品）。'],
 ];
+
+// ---------- 评价：覆盖全部商品 ----------
+// 真实感的口碑数据让「商品问答」有内容可引用；按类目给不同的表述池，
+// 再按商品评分决定星级分布，避免出现「4.3 分却全是五星好评」的穿帮。
+const REVIEW_POOL = {
+  phone: {
+    good: ['{n}到手第一感觉是做工扎实，屏幕细腻，日常重度用一天下来还剩不少电。', '给家里人买的第一台{n}，上手没有难度，系统干净没广告。', '冲着口碑买的{n}，实际体验确实对得起这个价位。', '物流很快，隔天就到。{n}整体很均衡，挑不出明显短板。'],
+    mid: ['{n}整体满意，就是包装里配件比较基础，自己另外配了壳和膜。', '性能没问题，不过机身稍重，单手操作久了会累，介意的建议先去线下摸一摸。'],
+    bad: ['{n}价格挺香，但预装应用有点多，到手需要手动清理一遍。'],
+  },
+  computer: {
+    good: ['{n}性能释放很足，剪视频和开一堆网页都不卡，风扇声音也不吵。', '轻薄是真的轻，通勤背着没负担，屏幕观感在这个价位很能打。', '办公用{n}绰绰有余，开机快，接口也够日常用。', '散热比我上一台好太多，长时间高负载也没出现降频。'],
+    mid: ['{n}性能没得挑，就是接口偏少，出门得随身带个扩展坞。', '屏幕素质很好，但原装电源适配器略大，便携性打了一点折扣。'],
+    bad: ['{n}配置对得起价格，唯独扬声器音量偏小，看视频建议外接音箱。'],
+  },
+  audio: {
+    good: ['{n}降噪很实在，地铁和飞机上开一半就够安静了，续航也很顶。', '音质偏均衡，人声干净，长时间听不累耳朵。', '通勤党强推{n}，戴一天下来耳朵也不胀痛。', '连接稳定不断连，切歌和通话切换都很顺。'],
+    mid: ['{n}音质和降噪都在线，就是收纳盒略大，塞牛仔裤口袋有点鼓。', '整体很满意，唯一遗憾是没有配套 App 做自定义 EQ。'],
+    bad: ['{n}日常听够用，但如果你追求极致细节，可能还得上更高端的型号。'],
+  },
+  appliance: {
+    good: ['{n}装上就能用，操作简单，家里长辈也能很快上手。', '运行噪音控制得很好，晚上开着几乎听不见。', '用了小半个月，{n}效果稳定，能耗也比老款低不少。', '客服很耐心，安装师傅上门准时，体验很好。'],
+    mid: ['{n}功能没问题，只是体积比想象中大，下单前建议先量好位置。', '效果满意，说明书偏简略，摸索了一会儿才上手。'],
+    bad: ['{n}价格合适，但配件需要另外买，希望后续能标配。'],
+  },
+  apparel: {
+    good: ['{n}版型正，面料厚实不廉价，洗过一次没变形没掉色。', '面料很舒服，穿上身不挑人，日常通勤都能搭。', '尺码标准，按平时的号买的刚好合适。', '{n}细节处理到位，走线整齐，这个价位很值了。'],
+    mid: ['{n}款式喜欢，面料比预期薄一点，冬天可能得加内搭。', '颜色和图片基本一致，颜色略有色差但能接受。'],
+    bad: ['{n}整体不错，就是版型偏宽松，喜欢修身的建议选小一号。'],
+  },
+  food: {
+    good: ['回购第二单了，{n}一直很稳定，家里人也都认可。', '包装严实没有破损，{n}打开就是很正的香味。', '分量足、日期新鲜，这个价格买到这个品质很划算。', '{n}品质稳定，日常做菜调味都很合适。'],
+    mid: ['东西不错，物流到手时箱子有点压皱，不影响食用。', '{n}品质没问题，就是分量比想象中少一些。'],
+    bad: ['{n}口味偏清淡，重口的朋友可能觉得不够味。'],
+  },
+  home: {
+    good: ['{n}安装简单，半小时搞定，坐上去支撑感明显不一样。', '做工扎实没有异味，用料实在，稳当不晃。', '久坐党福音，用了{n}之后腰确实舒服多了。', '颜值在线，放在家里不突兀，朋友来了都问链接。'],
+    mid: ['{n}整体满意，物流是送到楼下，自己搬上楼有点吃力。', '体验不错，组装螺丝如果能多给几个备用就更好了。'],
+    bad: ['{n}性价比可以，外观件有轻微毛刺，不影响使用。'],
+  },
+  sports: {
+    good: ['周末实测{n}，功能都到位，收纳起来也不占地方。', '做工意外地扎实，细节处理比同价位的好不少。', '{n}轻便好带，出门随手塞包里没有负担。', '带着{n}出去玩了一趟，全程没掉链子。'],
+    mid: ['{n}实用性没问题，就是收纳袋偏紧，收的时候要花点耐心。', '整体满意，随机配件如果能配个备用件就更贴心了。'],
+    bad: ['{n}够用就好，别抱太专业的期待，入门玩是合适的。'],
+  },
+};
+
+const REVIEWERS = ['小舟', '阿泽', '一只鹿', '老周', '橙子味的猫', '海边的卡夫卡', 'Nana', '路过的风', '大熊', '半山的脸'];
+
+/**
+ * 为每个商品生成 3 条评价。星级分布由商品评分决定：
+ * 4.8 分以上偏好评、4.4 分以下掺一条中评，避免「低分却清一色五星」的自相矛盾。
+ */
+export function deriveReviews(products) {
+  const out = [];
+  for (const p of products) {
+    const pool = REVIEW_POOL[p.categoryId] || REVIEW_POOL.phone;
+    const short = p.brand && p.name.startsWith(p.brand) ? p.name.slice(p.brand.length).trim() : p.name;
+    const stars = p.rating >= 4.8 ? [5, 5, 4] : p.rating >= 4.6 ? [5, 5, 4] : p.rating >= 4.4 ? [5, 4, 4] : [5, 4, 3];
+    stars.forEach((star, i) => {
+      const bucket = star === 5 ? pool.good : star === 4 ? pool.mid : pool.bad;
+      const idx = hashInt(p.id + 'rv' + i, bucket.length);
+      out.push({
+        productId: p.id,
+        rating: star,
+        content: bucket[idx].replace('{n}', short),
+        author: REVIEWERS[hashInt(p.id + 'au' + i, REVIEWERS.length)],
+        daysAgo: 2 + hashInt(p.id + 'dy' + i, 40),
+      });
+    });
+  }
+  return out;
+}
+
+// 演示购物车（让「登录即有商品」有东西可看，非必填）
+// [商品ID, SKU 序号(从1开始，0 表示默认), 数量]
+export const DEMO_CART = [
+  ['p017', 1, 1],
+  ['p009', 1, 1],
+  ['p042', 0, 2],
+];
+
+// 演示收藏
+export const DEMO_FAVORITES = ['p018', 'p011', 'p049', 'p026'];
+
+// 优惠券模板：[id, 名称, 类型, 门槛, 面额/折扣百分数, 有效天数]
+export const DEMO_COUPONS = [
+  ['cp_new', '新人专享券', 'amount', 0, 20, 30],
+  ['cp_100', '满 100 减 15', 'amount', 100, 15, 30],
+  ['cp_500', '满 500 减 60', 'amount', 500, 60, 30],
+  ['cp_1000', '满 1000 减 150', 'amount', 1000, 150, 30],
+  ['cp_vip', '会员日 9 折券', 'discount', 0, 10, 15],
+  ['cp_2000', '满 2000 减 300', 'amount', 2000, 300, 60],
+];
+
+// 演示用户已领取的券
+export const DEMO_USER_COUPONS = ['cp_new', 'cp_500', 'cp_vip'];

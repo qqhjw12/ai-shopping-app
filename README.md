@@ -25,6 +25,7 @@
 - [API 一览](#api-一览)
   - [推荐来源埋点（全链路数据闭环）](#推荐来源埋点全链路数据闭环)
 - [部署演示站点（GitHub Pages + Actions）](#部署演示站点github-pages--actions)
+- [商品视觉（程序化 SVG）](#商品视觉程序化-svg)
 - [演示模式（前端离线兜底）](#演示模式前端离线兜底)
 - [安全与配置](#安全与配置)
 - [许可证](#许可证)
@@ -36,9 +37,9 @@
 本仓库是「宏之蓝 / macrozheng mall」生态的一个 AI 增强示例（Route A）：
 
 - **后端 `ai-gateway`**：Node.js（ESM）网关，提供商品检索、AI 导购/客服/问答流式接口，以及对 Dify 中枢的编排。
-  - `RUN_MODE=local`：内置内存商品库 + 本地哈希嵌入 + 打字机式 SSE，**零外部依赖即可演示**。
+  - `RUN_MODE=local`：内置 **SQLite 数据库**（64 款商品 / 150 SKU / 192 评价 / 订单 / 购物车）+ 本地哈希嵌入 + 本地对话引擎，**零外部依赖即可演示**。
   - `RUN_MODE=docker`：接入真实 Qdrant（向量）、Elasticsearch（关键词）、Ollama（嵌入）、Dify（智能客服 / 商品问答 / 导购 Agent / 运营文案 / 订单售后），失败自动降级。
-- **前端 `web/`**：原生 ES Module 单页应用，hash 路由、购物车本地持久化、AI 浮窗（导购/客服/问答均 SSE 逐字渲染）、商品详情深链分享（含来源埋点）。
+- **前端 `web/`**：原生 ES Module 单页应用，hash 路由、购物车服务端持久化（离线回落 localStorage）、AI 浮窗（导购/客服/问答均 SSE 逐字渲染）、商品详情深链分享（含来源埋点）、程序化生成的 SVG 商品图。
 
 适合作为**作品集 / 面试项目**：架构清晰、工程规范、可一键本地演示，也能切换到生产级 docker 栈。
 
@@ -49,7 +50,12 @@
 | 模块 | 入口 | 说明 |
 |------|------|------|
 | 🔍 智能搜索 | 顶栏搜索 | 向量 + 关键词混合检索，首页 / 列表 / 搜索页通用 |
-| 📦 商品详情 | `#/product/:id` | 真实路由，可深链分享；含「相关推荐」、来源渠道色条与埋点 |
+| 📦 商品详情 | `#/product/:id` | 真实路由，可深链分享；SKU 规格切换联动价格库存、192 条真实评价、服务承诺、相关推荐、来源渠道色条与埋点 |
+| 🛒 购物车 | 顶栏购物车抽屉 | 服务端持久化，换设备/清缓存不丢；数量增减、删除、库存不足提示 |
+| 🧾 结算下单 | `#/checkout` | 收货地址选择 + 优惠券勾选 + 金额明细（满 99 包邮）+ 提交订单 + 支付 |
+| 📦 我的订单 | `#/orders` | 订单状态机（待支付/已支付/已发货/已完成）、去支付、再次购买、物流信息 |
+| ❤️ 我的收藏 | `#/favorites` | 服务端收藏夹，详情页「♡ 收藏」同步，可取消 |
+| 🎨 商品视觉 | 全局 | **程序化 SVG 商品图**：按商品数据生成「渐变底 + 类目线稿」，零外部依赖、离线可用 |
 | 📊 分析看板 | 顶栏「📊 分析」 | 渠道占比 / 行为分布 / Top 商品 / 最近事件流，按渠道着色，数据来自埋点聚合 |
 | 🤖 AI 导购 | 浮窗「导购」 | 一句话需求 → 导购话术（SSE 逐字）+ 商品卡片 |
 | 💬 智能客服 | 浮窗「客服」 | 多轮对话（SSE 逐字），可接 Dify 知识库 |
@@ -68,16 +74,28 @@
 | 表 | 用途 |
 |---|---|
 | `categories` | 类目（8 个：手机数码 / 电脑办公 / 音频耳机 / 家用电器 / 服饰鞋包 / 食品生鲜 / 家居家具 / 运动户外） |
-| `products` | 商品主数据（64 款，含品牌 / 现价 / 原价 / 标签 / 评分 / 销量） |
+| `products` | 商品主数据（64 款，含品牌 / 现价 / 原价 / 标签 / 评分 / 销量 / 封面渐变色 / 一句话卖点 / 服务承诺） |
 | `product_skus` | 规格变体与库存（150 个 SKU，按阶梯定价） |
-| `users` / `addresses` | 演示用户与收货地址 |
-| `orders` / `order_items` | 订单与订单项（含物流公司、运单号、状态机） |
-| `reviews` | 商品真实评价（供问答引用口碑） |
+| `users` / `addresses` | 演示用户与收货地址（下单时自动为新用户建档 + 默认地址） |
+| `orders` / `order_items` | 订单与订单项（含物流公司、运单号、状态机、金额拆分） |
+| `reviews` | 商品评价（**192 条，覆盖全部 64 款**，带作者与星级，供问答引用口碑） |
+| `cart_items` | 购物车（服务端持久化，按 user+sku 唯一，重复加购累加） |
+| `favorites` | 收藏夹 |
+| `coupons` / `user_coupons` | 优惠券模板与用户卡包（满减 / 折扣，领用核销） |
 | `faqs` / `policies` | 客服 FAQ 与退换货 / 物流 / 质保 / 发票 / 支付政策 |
 | `conversations` / `messages` | 会话与消息（多轮上下文、可回放，重启不丢） |
 | `track_events` | 埋点事件（替代原内存环形缓冲，聚合走 SQL） |
 
+种子规模：**64 商品 / 150 SKU / 8 类目 / 192 评价 / 5 订单 / 8 FAQ / 5 政策 / 6 张券**。
 `npm run db:seed` 幂等灌数据，`npm run db:reset` 清空重灌；两端都在启动时自动执行迁移 + 缺数据才种子。
+
+### 购物交易链路（后端）
+
+`/api/cart` → `/api/orders/preview` → `/api/orders` → `/api/orders/:id/pay`，全流程落在 SQLite：
+
+- **下单在一个事务里完成**：校验库存 → 算钱（商品小计 / 运费 / 优惠）→ 扣 SKU 库存 → 建订单与订单项 → 清空已购购物车项 → 核销优惠券。任一环节失败全部回滚。
+- **运费规则与 FAQ 政策一致**：满 99 包邮，否则 10 元（券前/券后金额以商品小计减优惠后判定）。
+- **库存不足返回 409** 并提示剩余件数，而非静默失败；重复支付返回 409，订单按 `userId` 隔离（查他人订单 404）。。
 
 ### 对话引擎（`src/services/chatEngine.js`）
 
@@ -111,16 +129,18 @@
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  浏览器（web/ 原生 ES Module 单页应用）                       │
-│   hash 路由 · 购物车(localStorage) · AI 浮窗(SSE 逐字)        │
+│   hash 路由 · 购物车(服务端+离线镜像) · AI 浮窗(SSE 逐字)   │
+│   程序化 SVG 商品图 · 结算/订单/收藏 · hash 来源埋点          │
 └───────────────┬─────────────────────────────────────────────┘
                 │  fetch /api/*（同源 或 ?api= 覆盖）
                 ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  ai-gateway (Node.js ESM)                                    │
 │  ├─ /api/products · /api/products/:id · /api/search          │
+│  ├─ /api/cart · /api/orders · /api/favorites · /api/coupons   │
 │  ├─ /api/ai/{guide,chat,qa,copywrite,aftersale}  (SSE 流式)  │
 │  ├─ 混合检索: vectorStore(Qdrant) + searchStore(ES)          │
-│  ├─ 本地数据: SQLite（商品/SKU/订单/会话/埋点）              │
+│  ├─ SQLite: 商品/SKU/订单/购物车/收藏/券/会话/埋点            │
 │  ├─ 对话引擎: 意图识别 + SQL 检索 (+ 可选 LLM 润色)          │
 │  └─ Dify 编排: 客服 / 问答 / 导购 Agent / 文案 / 售后         │
 └───────┬───────────────────────┬──────────────────────────────┘
@@ -163,16 +183,21 @@
 │   ├── index.html
 │   ├── styles.css
 │   └── js/                  # api / state / ui / router / views / assistant / tools / app
+│       ├── art.js           # 程序化商品图：双色渐变 + 8 类目线稿（SVG）
+│       ├── checkout.js      # 结算页：地址 + 优惠券 + 金额明细 + 提交 + 支付
+│       ├── account.js       # 我的订单 / 我的收藏
 │       ├── track.js         # 埋点上报（fire-and-forget）+ stats 拉取
 │       ├── analytics.js     # 分析看板（渠道占比 / 行为分布 / Top 商品 / 事件流）
 │       ├── demo.js          # 演示模式标志（网关不可达时置位）
-│       └── demo-data.js     # 内置示例商品库（离线兜底）
+│       └── demo-data.js     # 内置示例商品库（离线兜底，由 catalog 生成）
 ├── ai-gateway/              # Node.js 后端网关（local / docker 双模式）
 │   ├── src/
-│   │   ├── db/              # SQLite：connection / schema(迁移) / seedDb(种子)
+│   │   ├── db/              # SQLite：connection / schema(版本迁移 v1-v3) / seedDb(种子)
 │   │   ├── repositories/    # 仓储层：product / order / conversation / track
+│   │   │                    #          cart(购物车) / user(收藏·券·地址)
 │   │   ├── services/        # chatEngine(对话引擎) / llmClient(可选大模型)
-│   │   ├── data/catalog.js  # 商品目录种子（64 款 / 8 类目 / 150 SKU）
+│   │   │                    #          orderService(下单事务·金额·库存)
+│   │   ├── data/catalog.js  # 商品目录种子（64 款 / 8 类目 / 150 SKU / 192 评价）
 │   │   └── server / config / middleware / search / copywrite / aftersale …
 │   ├── data/shop.db         # 本地数据库（gitignore，可 db:reset 重建）
 │   ├── Dockerfile
@@ -297,15 +322,32 @@ bash scripts/setup-https-proxy.sh
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET  | `/api/products` | 商品列表 |
-| GET  | `/api/products/:id` | 商品详情 |
+| GET  | `/api/products` | 商品列表（含封面色 / 卖点 / 评分 / 销量） |
+| GET  | `/api/products/:id` | 商品详情（含 SKU、评价、相关推荐） |
+| GET  | `/api/categories` | 类目列表（带商品数） |
 | POST | `/api/search` | 混合检索 `{ query, topK }` |
+| GET  | `/api/cart?userId=` | 购物车（服务端持久化） |
+| POST | `/api/cart` | 加购 `{ userId, productId, skuId?, qty }`，返回最新购物车 |
+| PATCH | `/api/cart` | 改数量 `{ userId, itemId, qty }`（≤0 视为移除） |
+| DELETE | `/api/cart` | 带 `itemId` 删单项，否则清空 |
+| POST | `/api/orders/preview` | 结算预览（不算钱不写库）：商品小计 / 运费 / 优惠 / 实付 |
+| POST | `/api/orders` | 下单（事务：校验库存→扣库存→建单→清购物车→核销券） |
+| GET  | `/api/orders?userId=` | 我的订单列表 |
+| GET  | `/api/orders/:id?userId=` | 订单详情（按用户隔离） |
+| POST | `/api/orders/:id/pay?userId=` | 支付（演示：pending → paid，幂等） |
+| GET  | `/api/favorites?userId=` | 收藏列表 |
+| POST | `/api/favorites` | 收藏切换 `{ userId, productId }`，返回 `favorited` |
+| DELETE | `/api/favorites` | 取消收藏 `?userId=&productId=` |
+| GET  | `/api/coupons?userId=&amount=` | 卡券包（标注可用性与可省金额） |
+| POST | `/api/coupons` | 领券 `{ userId, couponId }` |
+| GET  | `/api/addresses?userId=` | 收货地址列表 |
+| POST | `/api/addresses` | 新增/更新地址 `{ userId, receiver, region, … }` |
 | POST | `/api/ai/guide` | AI 导购（SSE）`{ message, userId, stream }` |
 | POST | `/api/ai/chat` | 智能客服（SSE）`{ message, userId, conversationId, stream }` |
 | POST | `/api/ai/qa` | 商品问答（SSE）`{ query, userId, productId, stream }` |
 | POST | `/api/ai/copywrite` | 运营文案 `{ product, sellingPoints, tone, platform, count }` |
 | POST | `/api/ai/aftersale` | 订单售后 `{ userId, orderId, query }` |
-| POST | `/api/track` | 推荐来源埋点 `{ event, source?, productId?, userId?, meta? }`（202 异步落 ES/内存） |
+| POST | `/api/track` | 推荐来源埋点 `{ event, source?, productId?, userId?, meta? }`（202 异步落库） |
 | GET  | `/api/track/stats` | 多维聚合 `?productId=&source=`，返回 `{ total, byEvent, bySource, byProduct, recent }` |
 | GET  | `/health` · `/ready` | 健康检查 / 依赖探针 |
 
@@ -366,11 +408,31 @@ bash scripts/setup-https-proxy.sh
 
 ---
 
+---
+
+## 商品视觉（程序化 SVG）
+
+演示数据没有真实商品图。为避免「外链图床引入网络依赖 + 版权风险」，项目选择**按数据现场绘制**：
+
+```
+商品数据 → coverColor（双色） + categoryId（线稿） + id（光斑微调） → SVG
+```
+
+- **双色渐变**：`coverColor` 由类目基准色相加商品级色相偏移生成（±13°），同类目成体系、每款又不同。
+- **类目线稿**：8 套简约 line-art（手机 / 笔记本 / 耳机 / 家电 / T恤 / 碗 / 椅子 / 帐篷），白色描边叠在渐变上。
+- **零外部请求**：纯 SVG 字符串，GitHub Pages 离线可用；悬浮时整图轻微放大。
+
+同一商品封面永远一致，因为颜色来自数据库字段而非随机数。
+
+---
+
 ## 演示模式（前端离线兜底）
 
 为让 GitHub Pages 这类**未连接后端**的纯静态站点也能展示完整店面，前端做了优雅降级：
 
-- 商品列表 / 详情 / 搜索 / 相关推荐：网关不可达时，自动回退到内置示例商品库（`web/js/demo-data.js`），页面顶部显示「演示模式」提示条。
+- 商品列表 / 详情 / 搜索 / 相关推荐：网关不可达时，自动回退到内置示例商品库（`web/js/demo-data.js`，由 `catalog.js` 生成，含 64 款商品及其 SKU 与评价），页面顶部显示「演示模式」提示条。
+- 购物车：服务端不可用时回落到 localStorage，恢复连接后自动补传。
+- 结算 / 订单 / 收藏：演示模式下给出明确提示或模拟结果路径，不会产生真实交易。
 - AI 导购 / 客服 / 问答 / 文案 / 售后：演示模式下给出友好提示，引导本地启动网关后体验。
 - 分析看板 `#/analytics`：演示模式下用**内置示例统计**兜底（顶部明确标注「示例数据」，不冒充真实埋点）；埋点上报本身静默失败，不影响浏览。
 - 接入真实网关后（同源或 `?api=`），自动切换为实时数据，提示条消失。

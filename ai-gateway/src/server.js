@@ -16,6 +16,33 @@ import { handleAfterSale } from './aftersale.js';
 import { trackEvent, getTrackStats, ensureTrackIndex } from './trackStore.js';
 import { ensureSeeded } from './db/seedDb.js';
 import * as chatEngine from './services/chatEngine.js';
+import * as productRepo from './repositories/productRepo.js';
+import * as cartRepo from './repositories/cartRepo.js';
+import * as userRepo from './repositories/userRepo.js';
+import * as orderService from './services/orderService.js';
+
+/** 卡片/列表用商品视图（统一字段，避免各处各写一份 mapper 导致缺字段） */
+function toSummary(p) {
+  return {
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    originalPrice: p.originalPrice ?? null,
+    pic: p.pic || '',
+    coverColor: p.coverColor || '',
+    highlight: p.highlight || '',
+    highlights: p.highlights || [],
+    brand: p.brand || '',
+    category: p.category || '',
+    categoryId: p.categoryId || '',
+    description: p.description || '',
+    tags: p.tags || [],
+    rating: p.rating ?? 4.8,
+    reviewsCount: p.reviewsCount ?? 0,
+    sales: p.sales ?? 0,
+    stock: p.totalStock ?? null,
+  };
+}
 
 async function readJson(req) {
   let body = '';
@@ -95,36 +122,184 @@ async function route(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/products') {
-    const products = listAllProducts().map((p) => ({
-      id: p.id,
-      name: p.name,
-      price: p.price,
-      pic: p.pic || '',
-      brand: p.brand || '',
-      category: p.category || '',
-      description: p.description || '',
-      tags: p.tags || [],
-    }));
+    const products = listAllProducts().map(toSummary);
     return send(res, 200, { count: products.length, products });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/categories') {
+    return send(res, 200, { categories: productRepo.listCategories() });
   }
 
   if (req.method === 'GET' && url.pathname.startsWith('/api/products/')) {
     const id = decodeURIComponent(url.pathname.slice('/api/products/'.length));
-    const all = listAllProducts();
-    const p = all.find((x) => x.id === id);
+    const p = productRepo.getProductDetail(id);
     if (!p) return sendError(res, 404, 'product not found', req.reqId);
     return send(res, 200, {
       product: {
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        pic: p.pic || '',
-        brand: p.brand || '',
-        category: p.category || '',
-        description: p.description || '',
-        tags: p.tags || [],
+        ...toSummary(p),
+        skus: p.skus || [],
+        reviews: p.reviews || [],
+        priceRange: p.priceRange || null,
       },
+      related: productRepo.similarProducts(id, 4).map(toSummary),
     });
+  }
+
+  // ===== 交易链路：购物车 / 订单 / 收藏 / 优惠券 =====
+  // 统一错误出口：业务异常自带 status（如库存不足 409），其余按 400 处理
+  const guarded = (fn, status = 200) => {
+    try {
+      const data = fn();
+      if (data === null || data === undefined) return sendError(res, 404, 'not found', req.reqId);
+      return send(res, status, data);
+    } catch (e) {
+      return sendError(res, e.status || 400, e.message, req.reqId);
+    }
+  };
+
+  if (url.pathname === '/api/cart') {
+    if (req.method === 'GET') {
+      const userId = url.searchParams.get('userId') || 'anonymous';
+      return guarded(() => cartRepo.listCart(userId));
+    }
+    if (req.method === 'POST') {
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      if (!parsed.productId) return sendError(res, 400, 'productId required', req.reqId);
+      return guarded(() => ({
+        ...cartRepo.addToCart({
+          userId: parsed.userId || 'anonymous',
+          productId: parsed.productId,
+          skuId: parsed.skuId || null,
+          qty: Number(parsed.qty || 1),
+        }),
+        ...cartRepo.listCart(parsed.userId || 'anonymous'),
+      }), 201);
+    }
+    if (req.method === 'PATCH') {
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      if (!parsed.itemId) return sendError(res, 400, 'itemId required', req.reqId);
+      const userId = parsed.userId || 'anonymous';
+      return guarded(() => {
+        cartRepo.updateQty(userId, parsed.itemId, Number(parsed.qty));
+        return cartRepo.listCart(userId);
+      });
+    }
+    if (req.method === 'DELETE') {
+      // 带 itemId 删单项，否则清空
+      const userId = url.searchParams.get('userId') || 'anonymous';
+      const itemId = url.searchParams.get('itemId');
+      return guarded(() => {
+        if (itemId) cartRepo.removeItem(userId, Number(itemId));
+        else cartRepo.clearCart(userId);
+        return cartRepo.listCart(userId);
+      });
+    }
+  }
+
+  if (url.pathname === '/api/orders') {
+    if (req.method === 'GET') {
+      const userId = url.searchParams.get('userId') || 'anonymous';
+      return guarded(() => ({ orders: orderService.listOrders(userId) }));
+    }
+    if (req.method === 'POST') {
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      return guarded(() => {
+        const order = orderService.createOrder({
+          userId: parsed.userId || 'anonymous',
+          items: parsed.items,
+          addressId: parsed.addressId || null,
+          couponId: parsed.couponId || null,
+          remark: parsed.remark || '',
+        });
+        return { order: { ...order, _preview: undefined } };
+      }, 201);
+    }
+  }
+
+  if (url.pathname === '/api/orders/preview' && req.method === 'POST') {
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    return guarded(() => orderService.previewOrder({
+      userId: parsed.userId || 'anonymous',
+      items: parsed.items,
+      addressId: parsed.addressId || null,
+      couponId: parsed.couponId || null,
+    }));
+  }
+
+  const payMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/pay$/);
+  if (payMatch && req.method === 'POST') {
+    const userId = url.searchParams.get('userId') || 'anonymous';
+    return guarded(() => ({ order: orderService.payOrder(decodeURIComponent(payMatch[1]), userId) }));
+  }
+
+  if (url.pathname.startsWith('/api/orders/') && req.method === 'GET') {
+    const userId = url.searchParams.get('userId') || 'anonymous';
+    const orderId = decodeURIComponent(url.pathname.slice('/api/orders/'.length));
+    return guarded(() => {
+      const order = orderService.getOrder(orderId, userId);
+      if (!order) throw Object.assign(new Error('订单不存在'), { status: 404 });
+      return { order };
+    });
+  }
+
+  if (url.pathname === '/api/favorites') {
+    if (req.method === 'GET') {
+      const userId = url.searchParams.get('userId') || 'anonymous';
+      return guarded(() => ({ favorites: userRepo.listFavorites(userId), ids: userRepo.favoriteIds(userId) }));
+    }
+    if (req.method === 'POST') {
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      if (!parsed.productId) return sendError(res, 400, 'productId required', req.reqId);
+      const userId = parsed.userId || 'anonymous';
+      return guarded(() => ({ favorited: userRepo.toggleFavorite(userId, parsed.productId), ids: userRepo.favoriteIds(userId) }));
+    }
+    if (req.method === 'DELETE') {
+      const userId = url.searchParams.get('userId') || 'anonymous';
+      const productId = url.searchParams.get('productId');
+      return guarded(() => {
+        if (productId) userRepo.removeFavorite(userId, productId);
+        return { ids: userRepo.favoriteIds(userId) };
+      });
+    }
+  }
+
+  if (url.pathname === '/api/coupons') {
+    if (req.method === 'GET') {
+      const userId = url.searchParams.get('userId') || 'anonymous';
+      const amount = Number(url.searchParams.get('amount') || 0);
+      return guarded(() => ({ coupons: userRepo.listCoupons(userId, amount) }));
+    }
+    if (req.method === 'POST') {
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      if (!parsed.couponId) return sendError(res, 400, 'couponId required', req.reqId);
+      const userId = parsed.userId || 'anonymous';
+      return guarded(() => ({ ...userRepo.takeCoupon(userId, parsed.couponId), coupons: userRepo.listCoupons(userId) }), 201);
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/addresses') {
+    const userId = url.searchParams.get('userId') || 'anonymous';
+    return guarded(() => ({ addresses: userRepo.listAddresses(userId) }));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/addresses') {
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    if (!parsed.receiver || !parsed.region) return sendError(res, 400, 'receiver and region required', req.reqId);
+    const userId = parsed.userId || 'anonymous';
+    return guarded(
+      () => ({
+        ...userRepo.saveAddress(userId, parsed),
+        addresses: userRepo.listAddresses(userId),
+      }),
+      201,
+    );
   }
 
   if (req.method === 'POST' && url.pathname === '/api/ai/chat') {
@@ -359,6 +534,15 @@ async function route(req, res, url) {
         'POST /api/seed',
         'POST /api/search {query, topK}',
         'GET /api/products',
+        'GET /api/products/:id (含 SKU / 评价 / 相关推荐)',
+        'GET /api/categories',
+        'GET|POST|PATCH|DELETE /api/cart?userId= (购物车：增删改查，服务端持久化)',
+        'POST /api/orders/preview {userId, items?, addressId?, couponId?} (结算预览)',
+        'GET /api/orders?userId= · POST /api/orders {userId, items, addressId?, couponId?}',
+        'GET /api/orders/:id?userId= · POST /api/orders/:id/pay?userId=',
+        'GET|POST|DELETE /api/favorites?userId= (收藏夹：POST 为切换)',
+        'GET|POST /api/coupons?userId=&amount= (卡券包 / 领券)',
+        'GET /api/addresses?userId=',
         'POST /api/ai/chat {message, userId?, conversationId?}',
         'POST /api/ai/qa {query, userId?, conversationId?, productId?} (stream:true 时 SSE 逐字，末尾回传 results)',
         'POST /api/ai/guide {message, userId?, budget?, category?, topK?}',

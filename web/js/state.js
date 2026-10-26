@@ -1,4 +1,7 @@
-// 购物车 + 匿名 userId：购物车持久化在 localStorage，userId 在 sessionStorage（多轮上下文用）。
+// 购物车 + 匿名 userId。
+// 购物车以服务端（SQLite）为真相源：同一账号换设备/清缓存不丢。
+// 网关不可达时（GitHub Pages 演示模式）自动回落到 localStorage，行为与原来一致。
+import { api } from './api.js';
 
 const CART_KEY = 'shop_cart';
 const UID_KEY = 'uid';
@@ -12,16 +15,43 @@ export function getUserId() {
   return id;
 }
 
-export function getCart() {
+/* ---------- 本地镜像（同步读写，保证 UI 立刻响应） ---------- */
+
+const listeners = new Set();
+
+export function onCartChange(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function keyOf(productId, skuId) {
+  return skuId ? `${productId}::${skuId}` : String(productId);
+}
+
+function readLocal() {
   try {
-    return JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+    const arr = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+    return Array.isArray(arr) ? arr : [];
   } catch {
     return [];
   }
 }
 
-function saveCart(cart) {
+function writeLocal(cart) {
   localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  listeners.forEach((fn) => {
+    try {
+      fn(cart);
+    } catch {
+      /* 单个订阅者出错不影响其他订阅者 */
+    }
+  });
+}
+
+/* ---------- 对外同步接口（保持与旧实现同名，现有调用点无需改动） ---------- */
+
+export function getCart() {
+  return readLocal();
 }
 
 export function cartCount() {
@@ -32,31 +62,137 @@ export function cartTotal() {
   return getCart().reduce((s, i) => s + i.price * i.qty, 0);
 }
 
-export function addToCart(product, qty = 1) {
-  const cart = getCart();
-  const found = cart.find((i) => i.id === product.id);
-  if (found) found.qty += qty;
-  else cart.push({ id: product.id, name: product.name, price: product.price, pic: product.pic || '', brand: product.brand || '', qty });
-  saveCart(cart);
+export function addToCart(product, qty = 1, skuId = null) {
+  const cart = readLocal();
+  const key = keyOf(product.id, skuId || product.skuId);
+  const found = cart.find((i) => (i.__key || i.id) === key);
+  if (found) {
+    found.qty += qty;
+  } else {
+    cart.push({
+      // 旧代码按 productId 使用 id；itemId 为服务端主键，用于增删改
+      id: product.id,
+      productId: product.id,
+      skuId: skuId || null,
+      itemId: null,
+      __key: key,
+      name: product.name,
+      price: product.price,
+      pic: product.pic || '',
+      coverColor: product.coverColor || '',
+      brand: product.brand || '',
+      spec: product.spec || '',
+      categoryId: product.categoryId || '',
+      qty,
+    });
+  }
+  writeLocal(cart);
+  pushAdd(product.id, skuId || null, qty);
   return cart;
 }
 
 export function setQty(id, qty) {
-  const cart = getCart();
-  const it = cart.find((i) => i.id === id);
+  const key = String(id);
+  const cart = readLocal();
+  const it = cart.find((i) => (i.__key || i.id) === key || String(i.productId) === key || String(i.itemId) === key);
   if (!it) return cart;
   if (qty <= 0) return removeFromCart(id);
   it.qty = qty;
-  saveCart(cart);
+  writeLocal(cart);
+  if (it.itemId) {
+    api('/api/cart', { method: 'PATCH', body: { userId: getUserId(), itemId: it.itemId, qty }, retries: 0 })
+      .then((d) => d && Array.isArray(d.items) && mergeServer(d))
+      .catch(() => {});
+  }
   return cart;
 }
 
 export function removeFromCart(id) {
-  const cart = getCart().filter((i) => i.id !== id);
-  saveCart(cart);
-  return cart;
+  const key = String(id);
+  const cart = readLocal();
+  const it = cart.find((i) => (i.__key || i.id) === key || String(i.productId) === key || String(i.itemId) === key);
+  const next = cart.filter((i) => i !== it);
+  writeLocal(next);
+  if (it && it.itemId) {
+    api(`/api/cart?userId=${encodeURIComponent(getUserId())}&itemId=${it.itemId}`, { method: 'DELETE', retries: 0 })
+      .catch(() => {});
+  }
+  return next;
 }
 
 export function clearCart() {
-  localStorage.removeItem(CART_KEY);
+  writeLocal([]);
+  api(`/api/cart?userId=${encodeURIComponent(getUserId())}`, { method: 'DELETE', retries: 0 }).catch(() => {});
+}
+
+/* ---------- 服务端同步 ---------- */
+
+/** 服务端购物车 → 本地镜像（保留服务端主键，供后续增删改） */
+function mergeServer(d) {
+  if (!d || !Array.isArray(d.items)) return;
+  const items = d.items.map((s) => ({
+    id: s.productId,
+    productId: s.productId,
+    skuId: s.skuId || null,
+    itemId: s.id,
+    __key: keyOf(s.productId, s.skuId),
+    name: s.name,
+    price: s.price,
+    pic: '',
+    coverColor: s.coverColor || '',
+    brand: s.brand || '',
+    spec: s.spec || '',
+    stock: s.stock,
+    insufficient: s.insufficient,
+    qty: s.qty,
+  }));
+  writeLocal(items);
+}
+
+function pushAdd(productId, skuId, qty) {
+  api('/api/cart', {
+    method: 'POST',
+    body: { userId: getUserId(), productId, skuId, qty },
+    retries: 0,
+  })
+    .then((d) => mergeServer(d))
+    .catch(() => {
+      /* 演示模式 / 离线：本地镜像已生效，静默降级 */
+    });
+}
+
+/** 离线期间累加的购物车，恢复连接后补传 */
+async function pushLocal() {
+  const cart = readLocal();
+  if (!cart.length) return;
+  const userId = getUserId();
+  for (const i of cart) {
+    try {
+      await api('/api/cart', {
+        method: 'POST',
+        body: { userId, productId: i.productId, skuId: i.skuId, qty: i.qty },
+        retries: 0,
+      });
+    } catch {
+      return; // 网关仍不可用，停止重试
+    }
+  }
+}
+
+/**
+ * 启动时拉取服务端购物车。
+ * 服务端有数据则以服务端为准；服务端为空而本地有离线数据时补传。
+ * @returns {Promise<Array|null>} null 表示网关不可达（演示模式）
+ */
+export async function loadCart() {
+  try {
+    const d = await api(`/api/cart?userId=${encodeURIComponent(getUserId())}`, { retries: 0 });
+    if (d && Array.isArray(d.items)) {
+      if (d.items.length) mergeServer(d);
+      else await pushLocal();
+    }
+    return getCart();
+  } catch {
+    return null;
+  }
 }

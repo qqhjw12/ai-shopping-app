@@ -31,6 +31,10 @@ function mapProduct(row) {
     rating: row.rating,
     reviewsCount: row.reviews_count,
     sales: row.sales,
+    // 视觉：双色渐变封面 + 一句话卖点 + 服务承诺（前端据此渲染程序化商品图）
+    coverColor: row.cover_color || '',
+    highlight: row.highlight || '',
+    highlights: safeJson(row.highlights, []),
     pic: '',
   };
 }
@@ -69,9 +73,14 @@ export function getProductDetail(id) {
     .prepare('SELECT id, spec, price, stock, status FROM product_skus WHERE product_id = ? ORDER BY price')
     .all(p.id);
   p.reviews = db
-    .prepare('SELECT rating, content, created_at FROM reviews WHERE product_id = ? ORDER BY id DESC LIMIT 3')
+    .prepare('SELECT rating, content, author, created_at FROM reviews WHERE product_id = ? ORDER BY id DESC LIMIT 6')
     .all(p.id);
   p.totalStock = p.skus.reduce((s, k) => s + k.stock, 0);
+  // 价格区间：多 SKU 定价不同时，列表展示「¥x 起」
+  const prices = p.skus.map((s) => s.price);
+  p.priceRange = prices.length > 1 && Math.min(...prices) !== Math.max(...prices)
+    ? [Math.min(...prices), Math.max(...prices)]
+    : null;
   return p;
 }
 

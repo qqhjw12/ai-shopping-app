@@ -9,12 +9,16 @@ import { migrate, SCHEMA_VERSION } from './schema.js';
 import {
   CATEGORIES,
   buildCatalog,
+  deriveReviews,
   DEMO_USERS,
   DEMO_ADDRESSES,
   DEMO_ORDERS,
-  DEMO_REVIEWS,
   DEMO_FAQS,
   DEMO_POLICIES,
+  DEMO_CART,
+  DEMO_FAVORITES,
+  DEMO_COUPONS,
+  DEMO_USER_COUPONS,
 } from '../data/catalog.js';
 
 function countOf(db, table) {
@@ -26,11 +30,11 @@ function resetTables(db) {
   for (const t of [
     'messages', 'conversations', 'track_events', 'order_items', 'orders',
     'reviews', 'addresses', 'product_skus', 'products', 'users', 'categories',
-    'faqs', 'policies',
+    'faqs', 'policies', 'cart_items', 'favorites', 'user_coupons', 'coupons',
   ]) {
     db.exec(`DELETE FROM ${t}`);
   }
-  db.exec("DELETE FROM sqlite_sequence WHERE name IN ('order_items','reviews','messages','track_events','faqs')");
+  db.exec("DELETE FROM sqlite_sequence WHERE name IN ('order_items','reviews','messages','track_events','faqs','cart_items','favorites','user_coupons')");
 }
 
 function daysAgo(n) {
@@ -58,13 +62,15 @@ export function ensureSeeded({ reset = false } = {}) {
 
     const insProd = db.prepare(`
       INSERT OR REPLACE INTO products
-        (id, name, brand, category_id, price, original_price, description, tags, rating, reviews_count, sales, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, name, brand, category_id, price, original_price, description, tags,
+         rating, reviews_count, sales, status, cover_color, highlight, highlights)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const p of products) {
       insProd.run(
         p.id, p.name, p.brand, p.categoryId, p.price, p.originalPrice,
         p.description, JSON.stringify(p.tags), p.rating, p.reviewsCount, p.sales, p.status,
+        p.coverColor, p.highlight, JSON.stringify(p.highlights),
       );
     }
 
@@ -98,12 +104,44 @@ export function ensureSeeded({ reset = false } = {}) {
       insItem.run(id, productId, p.name, p.price, qty);
     }
 
+    // 评价覆盖全部商品（每款 3 条，星级与商品评分匹配）
     const insReview = db.prepare(
-      'INSERT INTO reviews (product_id, user_id, rating, content, created_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO reviews (product_id, user_id, rating, content, author, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     );
-    for (const [pid, rating, content] of DEMO_REVIEWS) {
-      insReview.run(pid, 'u_demo', rating, content, daysAgo(3 + (pid.charCodeAt(3) % 20)));
+    for (const r of deriveReviews(products)) {
+      insReview.run(r.productId, 'u_demo', r.rating, r.content, r.author, daysAgo(r.daysAgo));
     }
+
+    // 演示购物车（SKU 序号 0 表示取该商品的第一个规格）
+    const insCart = db.prepare(
+      'INSERT INTO cart_items (user_id, product_id, sku_id, qty, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    for (const [pid, skuNo, qty] of DEMO_CART) {
+      const p = byId.get(pid);
+      if (!p) continue;
+      const skuId = skuNo ? `${pid}-s${skuNo}` : `${pid}-s1`;
+      const now = daysAgo(1);
+      insCart.run('u_demo', pid, skuId, qty, now, now);
+    }
+
+    const insFav = db.prepare('INSERT INTO favorites (user_id, product_id, created_at) VALUES (?, ?, ?)');
+    DEMO_FAVORITES.forEach((pid, i) => {
+      if (byId.get(pid)) insFav.run('u_demo', pid, daysAgo(5 + i * 2));
+    });
+
+    const insCoupon = db.prepare(
+      'INSERT OR REPLACE INTO coupons (id, title, kind, threshold, amount, expire_days) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    for (const [id, title, kind, threshold, amount, days] of DEMO_COUPONS) {
+      insCoupon.run(id, title, kind, threshold, amount, days);
+    }
+
+    const insUserCoupon = db.prepare(
+      'INSERT INTO user_coupons (user_id, coupon_id, status, claimed_at) VALUES (?, ?, ?, ?)',
+    );
+    DEMO_USER_COUPONS.forEach((cid, i) => {
+      insUserCoupon.run('u_demo', cid, 'unused', daysAgo(6 - i));
+    });
 
     const insFaq = db.prepare('INSERT INTO faqs (topic, question, answer, keywords) VALUES (?, ?, ?, ?)');
     for (const [topic, q, a, kw] of DEMO_FAQS) {
@@ -139,6 +177,10 @@ if (isMain) {
     reviews: countOf(db, 'reviews'),
     faqs: countOf(db, 'faqs'),
     policies: countOf(db, 'policies'),
+    reviews: countOf(db, 'reviews'),
+    cartItems: countOf(db, 'cart_items'),
+    favorites: countOf(db, 'favorites'),
+    coupons: countOf(db, 'coupons'),
   };
   console.log(JSON.stringify(stats, null, 2));
 }

@@ -1,5 +1,6 @@
 // 通用 UI 助手：DOM 构建、价格格式化、加载/错误态、商品卡片、弹窗、抽屉、toast。
 import { cartCount } from './state.js';
+import { productArt } from './art.js';
 
 /** 轻量 DOM 构建器 */
 export function el(tag, props = {}, children = []) {
@@ -20,6 +21,27 @@ export function el(tag, props = {}, children = []) {
 
 export const fmtPrice = (p) => (p == null ? '' : `¥${Number(p).toLocaleString()}`);
 
+/** 星级文本（★★★★☆），商品卡与评价列表共用 */
+export function starText(rating) {
+  const r = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+  return '★'.repeat(r) + '☆'.repeat(5 - r);
+}
+
+/** 销量人性化：过万显示「1.2万」 */
+export function fmtSales(n) {
+  const v = Number(n) || 0;
+  if (v >= 10000) return `${(v / 10000).toFixed(1).replace(/\.0$/, '')}万`;
+  return String(v);
+}
+
+/** 折扣：原价与现价有差时返回「8.9 折」字样，否则 null */
+export function discountText(p) {
+  const o = Number(p && p.originalPrice);
+  const c = Number(p && p.price);
+  if (!o || !c || o <= c) return null;
+  return `${((c / o) * 10).toFixed(1).replace(/\.0$/, '')}折`;
+}
+
 /** 错误/提示 banner（清空父容器后渲染） */
 export function banner(parent, msg, kind = 'err') {
   parent.innerHTML = '';
@@ -32,14 +54,10 @@ export function loading(parent, text = '加载中…') {
   parent.appendChild(el('div', { class: 'loading' }, [el('span', { class: 'spinner' }), text]));
 }
 
-/** 商品缩略图：无 pic 时用类目 emoji 占位 */
-const CATEGORY_EMOJI = {
-  手机: '📱', 耳机: '🎧', 笔记本: '💻', 家具: '🪑',
-  服装: '👕', 食品: '☕', 小家电: '🔌', 图书: '📚', 美妆: '💄',
-};
+/** 商品缩略图：优先真实图片，否则用程序化生成的 SVG 封面 */
 export function productThumb(p) {
-  if (p && p.pic) return el('img', { src: p.pic, alt: p.name || '', style: 'width:100%;height:100%;object-fit:cover' });
-  return document.createTextNode((p && CATEGORY_EMOJI[p.category]) || '🛒');
+  if (p && p.pic) return el('img', { src: p.pic, alt: p.name || '', loading: 'lazy', style: 'width:100%;height:100%;object-fit:cover' });
+  return productArt(p);
 }
 
 /**
@@ -48,12 +66,35 @@ export function productThumb(p) {
  * @param {{onDetail?:Function, onAddCart?:Function, extra?:Function}} handlers
  */
 export function productCard(p, { onDetail, onAddCart, extra } = {}) {
+  const off = discountText(p);
+  const hasRating = Number(p.rating) > 0;
   return el('div', { class: 'pcard' }, [
-    el('div', { class: 'thumb' }, productThumb(p)),
+    el('div', { class: 'thumb', onclick: () => onDetail && onDetail(p) }, [
+      productThumb(p),
+      off ? el('span', { class: 'badge-off' }, off) : null,
+      Number(p.totalStock) === 0 ? el('span', { class: 'badge-out' }, '暂时缺货') : null,
+    ]),
     el('div', { class: 'body' }, [
-      el('div', { class: 'name' }, p.name),
-      el('div', { class: 'meta' }, `${p.brand || ''} ${p.category || ''}`.trim()),
-      el('div', { class: 'price' }, fmtPrice(p.price)),
+      el('div', { class: 'name', onclick: () => onDetail && onDetail(p) }, p.name),
+      p.highlight ? el('div', { class: 'hl' }, p.highlight) : el('div', { class: 'meta' }, `${p.brand || ''} · ${p.category || ''}`.trim()),
+      el('div', { class: 'price-row' }, [
+        el('span', { class: 'price' }, fmtPrice(p.price)),
+        p.originalPrice && p.originalPrice > p.price
+          ? el('del', { class: 'price-old' }, fmtPrice(p.originalPrice))
+          : null,
+      ]),
+      hasRating || p.sales
+        ? el('div', { class: 'stat' }, [
+            hasRating
+              ? el('span', { class: 'stars' }, [
+                  el('b', {}, starText(p.rating)),
+                  el('span', {}, ` ${Number(p.rating).toFixed(1)}`),
+                ])
+              : null,
+            p.reviewsCount ? el('span', { class: 'cnt' }, `${fmtSales(p.reviewsCount)} 条评价`) : null,
+            p.sales ? el('span', { class: 'cnt' }, `已售 ${fmtSales(p.sales)}`) : null,
+          ])
+        : null,
       p.tags && p.tags.length
         ? el('div', { class: 'tags' }, p.tags.slice(0, 3).map((t) => el('span', { class: 'tag' }, t)))
         : null,

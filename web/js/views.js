@@ -1,7 +1,10 @@
 // 商店前台视图：首页 / 商品列表 / 智能搜索 / 商品详情 / 购物车抽屉。
 import { api, ApiError } from './api.js';
-import { el, fmtPrice, loading, banner, productCard, productThumb, openDrawer, closeDrawer, toast, updateCartBadge } from './ui.js';
-import { addToCart, setQty, removeFromCart, clearCart, cartTotal } from './state.js';
+import {
+  el, fmtPrice, discountText, starText, fmtSales,
+  loading, banner, productCard, productThumb, openDrawer, closeDrawer, toast, updateCartBadge,
+} from './ui.js';
+import { addToCart, setQty, removeFromCart, clearCart, getUserId } from './state.js';
 import { askGuide, askProductQA } from './assistant.js';
 import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
@@ -119,12 +122,12 @@ export async function renderHome(view) {
   }
 }
 
-function doAdd(p, source) {
+function doAdd(p, source, skuId) {
   // 加购埋点（含来源渠道归因）
   trackEvent({ event: 'add_to_cart', source: source || 'unknown', productId: p.id });
-  addToCart(p, 1);
+  addToCart(p, 1, skuId || null);
   updateCartBadge();
-  toast(`已加入购物车：${p.name}`, 'ok');
+  toast(`已加入购物车：${p.name}${p.spec ? `（${p.spec}）` : ''}`, 'ok');
 }
 
 /* ---------------- 商品列表 ---------------- */
@@ -203,22 +206,38 @@ export const SOURCE_META = {
   guide: { label: 'AI 导购推荐',  color: '#6a1b9a' },
   rec:   { label: '相关推荐',     color: '#00838f' },
   qa:    { label: 'AI 问答推荐',  color: '#ad1457' },
+  fav:   { label: '收藏夹',       color: '#c2185b' },
+  detail:{ label: '商品详情',     color: '#546e7a' },
   analytics: { label: '分析看板', color: '#455a64' },
 };
 export const SOURCE_LABELS = Object.fromEntries(
   Object.entries(SOURCE_META).map(([k, v]) => [k, v.label]),
 );
 
-// 按 ID 取商品：先查列表缓存，未命中再走网关详情端点（深链直达也支持）。
+// 商品详情：优先走网关详情端点（一次拿到 SKU / 评价 / 相关推荐）；
+// 演示模式下由本地商品库组装等价结构，保证离线也能完整浏览。
+export async function fetchProductDetail(id) {
+  try {
+    const d = await api('/api/products/' + encodeURIComponent(id), { retries: 0 });
+    if (d && d.product) return { product: d.product, related: d.related || [] };
+  } catch {
+    /* 演示模式：回落到本地商品库 */
+  }
+  const list = await getProducts();
+  const p = list.find((x) => x.id === id) || null;
+  if (!p) return { product: null, related: [] };
+  return {
+    product: p,
+    related: list.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4),
+  };
+}
+
+// 按 ID 取商品：仅返回商品本体（列表缓存优先，给助手推荐卡等轻量场景用）
 export async function getProductById(id) {
   const cached = (await getProducts()).find((p) => p.id === id);
   if (cached) return cached;
-  try {
-    const d = await api('/api/products/' + encodeURIComponent(id));
-    return d.product || null;
-  } catch {
-    return null;
-  }
+  const { product } = await fetchProductDetail(id);
+  return product;
 }
 
 export async function renderProductDetail(view, id, from) {
@@ -229,8 +248,11 @@ export async function renderProductDetail(view, id, from) {
   loading(container, '加载商品中…');
 
   let p;
+  let related = [];
   try {
-    p = await getProductById(id);
+    const bundle = await fetchProductDetail(id);
+    p = bundle.product;
+    related = bundle.related || [];
   } catch (err) {
     banner(container, friendly(err), 'err');
     return;
@@ -242,7 +264,7 @@ export async function renderProductDetail(view, id, from) {
   }
   ensureDemoBanner(view);
   container.innerHTML = '';
-  container.appendChild(buildDetailPage(p, from));
+  container.appendChild(buildDetailPage(p, from, related));
   // 上报「查看商品」埋点（含来源渠道），best-effort
   trackEvent({ event: 'view_product', source: from || 'direct', productId: p.id });
   // 拉取本商品渠道分析，best-effort 展示（演示站点未连网关时静默）
@@ -258,7 +280,7 @@ export async function renderProductDetail(view, id, from) {
   });
 }
 
-function buildDetailPage(p, from) {
+function buildDetailPage(p, from, presetRelated = []) {
   const children = [];
   // 来源渠道色条：深链带 ?from= 时回显渠道，颜色按渠道区分（视觉引导 + 分享归因）
   if (from && SOURCE_META[from]) {
@@ -275,51 +297,173 @@ function buildDetailPage(p, from) {
     // 渠道分析提示行（异步填充）
     children.push(el('div', { class: 'source-stats' }, ''));
   }
+
+  /* ---- SKU 选择：切换规格时联动价格与库存 ---- */
+  const skus = p.skus || [];
+  let selected = skus[0] || null;
+
+  const priceLine = el('div', { class: 'detail-price' });
+  const stockLine = el('div', { class: 'detail-stock' });
+
+  function syncPrice() {
+    const unit = selected ? selected.price : p.price;
+    priceLine.innerHTML = '';
+    priceLine.appendChild(el('span', { class: 'price' }, fmtPrice(unit)));
+    const off = discountText({ price: unit, originalPrice: p.originalPrice });
+    if (p.originalPrice && p.originalPrice > unit) {
+      priceLine.appendChild(el('del', { class: 'price-old' }, fmtPrice(p.originalPrice)));
+    }
+    if (off) priceLine.appendChild(el('span', { class: 'badge-off' }, off));
+    const st = selected ? selected.stock : (p.totalStock ?? null);
+    stockLine.className = `detail-stock${st != null && st > 0 ? '' : ' out'}`;
+    stockLine.textContent =
+      st == null ? '' : st > 0 ? `现货 ${st} 件 · 付款后 48 小时内发出` : '该规格暂时缺货，可看看其它规格';
+  }
+  syncPrice();
+
+  const skuRow = el('div', { class: 'sku-row' }, [el('span', { class: 'sku-label' }, '选择规格')]);
+  skus.forEach((s) => {
+    skuRow.appendChild(el('button', {
+      class: 'sku' + (selected && s.id === selected.id ? ' active' : ''),
+      onclick: (e) => {
+        selected = s;
+        [...skuRow.querySelectorAll('.sku')].forEach((b) => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        syncPrice();
+      },
+    }, `${s.spec} · ${fmtPrice(s.price)}`));
+  });
+
   children.push(
     el('div', { class: 'detail-head' }, [
-      el('div', { class: 'thumb-lg' }, productThumb(p)),
+      el('div', { class: 'thumb-lg' }, [
+        productThumb(p),
+        discountText(p) ? el('span', { class: 'badge-off lg' }, discountText(p)) : null,
+      ]),
       el('div', { class: 'info' }, [
+        el('a', { class: 'crumb', href: `#/products?cat=${encodeURIComponent(p.category || '')}` },
+          `${p.brand || '精选好物'} · ${p.category || '全部商品'}`),
         el('h1', { class: 'name' }, p.name),
-        el('div', { class: 'price' }, fmtPrice(p.price)),
-        el('div', { class: 'meta' }, `${p.brand || '品牌未知'} · ${p.category || '未分类'}`),
-        p.tags && p.tags.length ? el('div', { class: 'tags' }, p.tags.map((t) => el('span', { class: 'tag' }, t))) : null,
-        el('p', { class: 'desc' }, p.description || '暂无描述'),
+        p.highlight ? el('div', { class: 'hl-lg' }, p.highlight) : null,
+        el('div', { class: 'rating-line' }, [
+          el('span', { class: 'stars' }, [el('b', {}, starText(p.rating)), el('span', {}, ` ${Number(p.rating || 0).toFixed(1)}`)]),
+          p.reviewsCount ? el('span', { class: 'cnt' }, `${fmtSales(p.reviewsCount)} 条评价`) : null,
+          p.sales ? el('span', { class: 'cnt' }, `已售 ${fmtSales(p.sales)}`) : null,
+        ]),
+        priceLine,
+        stockLine,
+        skus.length > 1 ? skuRow : null,
+        p.highlights && p.highlights.length
+          ? el('div', { class: 'promises' }, p.highlights.map((t) => el('span', { class: 'promise' }, `✓ ${t}`)))
+          : null,
+        p.tags && p.tags.length
+          ? el('div', { class: 'tags' }, p.tags.map((t) => el('span', { class: 'tag' }, t)))
+          : null,
         el('div', { class: 'actions' }, [
-          el('button', { onclick: () => doAdd(p, from || 'detail') }, '加入购物车'),
+          el('button', {
+            class: 'buy',
+            onclick: () => doAdd({ ...p, price: selected ? selected.price : p.price, spec: selected ? selected.spec : '' }, from || 'detail', selected && selected.id),
+          }, '加入购物车'),
+          el('button', { onclick: () => buyNow(p, selected, from) }, '立即购买'),
+          el('button', { class: 'ghost', onclick: () => toggleFavorite(p) }, '♡ 收藏'),
           el('button', { class: 'ghost', onclick: () => askProductQA(p) }, '问我这件商品'),
           el('button', { class: 'ghost', onclick: () => askGuide(`介绍一下「${p.name}」，适合什么人群和场景？`) }, 'AI 导购推荐'),
-          el('button', { class: 'ghost', onclick: () => copyShareLink(p, from) }, '🔗 复制分享链接'),
+          el('button', { class: 'ghost', onclick: () => copyShareLink(p, from) }, '🔗 复制分享'),
         ]),
       ]),
     ]),
   );
+
   const page = el('div', {}, children);
 
-  // 相关推荐：用商品名做智能搜索（排除自身）
+  /* ---- 详情主体：参数 + 评价 ---- */
+  const body = el('section', { class: 'detail-body' });
+  body.appendChild(el('div', { class: 'panel' }, [
+    el('h3', {}, '商品介绍'),
+    el('p', { class: 'desc-block' }, p.description || '暂无详细描述'),
+    skus.length
+      ? el('table', { class: 'sku-table' }, [
+          el('tbody', {}, [
+            el('tr', {}, [el('th', {}, '规格'), el('td', {}, skus.map((s) => s.spec).join(' / '))]),
+            el('tr', {}, [el('th', {}, '价格区间'), el('td', {}, `${fmtPrice(Math.min(...skus.map((s) => s.price)))} ~ ${fmtPrice(Math.max(...skus.map((s) => s.price)))}`)]),
+            el('tr', {}, [el('th', {}, '可售总量'), el('td', {}, `${skus.reduce((n, s) => n + s.stock, 0)} 件`)]),
+          ]),
+        ])
+      : null,
+  ]));
+
+  const revWrap = el('div', { class: 'panel' }, [el('h3', {}, `用户评价${p.reviewsCount ? `（${fmtSales(p.reviewsCount)}）` : ''}`)]);
+  const reviews = p.reviews || [];
+  if (reviews.length) {
+    reviews.forEach((r) => revWrap.appendChild(reviewCard(r)));
+  } else {
+    revWrap.appendChild(el('div', { class: 'cart-empty' }, '还没有评价，等你来写第一条 ✍️'));
+  }
+  body.appendChild(revWrap);
+  page.appendChild(body);
+
+  /* ---- 相关推荐：优先用详情接口返回的同osm相似款，缺失时再走搜索 ---- */
   const relatedWrap = el('section', { class: 'related' }, [
     el('div', { class: 'section-title' }, [el('h2', {}, '🤝 相关推荐')]),
-    loading(el('div', { class: 'grid' }), 'AI 正在找相似好物…'),
   ]);
+  const relGrid = el('div', { class: 'grid' });
+  relatedWrap.appendChild(relGrid);
   page.appendChild(relatedWrap);
-  const relGrid = relatedWrap.lastChild;
 
-  (async () => {
-    try {
-      const list = (await searchProducts(p.name, 6)).filter((r) => r.id !== p.id).slice(0, 4);
-      relGrid.innerHTML = '';
-      if (!list.length) {
-        relGrid.appendChild(el('div', { class: 'cart-empty' }, '暂无相似商品'));
-      } else {
-        list.forEach((r) =>
-          relGrid.appendChild(productCard(r, { onDetail: (r) => openProductDetail(r, 'rec'), onAddCart: (r) => doAdd(r, 'rec') })),
-        );
-      }
-    } catch (err) {
-      banner(relGrid, friendly(err), 'err');
+  const paintRelated = (list) => {
+    relGrid.innerHTML = '';
+    if (!list.length) {
+      relGrid.appendChild(el('div', { class: 'cart-empty' }, '暂无相似商品'));
+      return;
     }
-  })();
+    list.forEach((r) =>
+      relGrid.appendChild(productCard(r, { onDetail: (r) => openProductDetail(r, 'rec'), onAddCart: (r) => doAdd(r, 'rec') })),
+    );
+  };
+
+  if (presetRelated.length) {
+    paintRelated(presetRelated);
+  } else {
+    loading(relGrid, 'AI 正在找相似好物…');
+    searchProducts(p.name, 6)
+      .then((list) => paintRelated(list.filter((r) => r.id !== p.id).slice(0, 4)))
+      .catch((err) => banner(relGrid, friendly(err), 'err'));
+  }
 
   return page;
+}
+
+/** 用户评价卡片 */
+function reviewCard(r) {
+  return el('div', { class: 'review' }, [
+    el('div', { class: 'rv-head' }, [
+      el('span', { class: 'avatar' }, (r.author || '匿')[0]),
+      el('div', {}, [
+        el('div', { class: 'rv-name' }, r.author || '匿名用户'),
+        el('div', { class: 'stars sm' }, starText(r.rating)),
+      ]),
+      r.created_at ? el('span', { class: 'rv-date' }, String(r.created_at).slice(0, 10)) : null,
+    ]),
+    el('div', { class: 'rv-content' }, r.content),
+  ]);
+}
+
+/** 立即购买：单品直连结算页 */
+function buyNow(p, sku, from) {
+  addToCart({ ...p, price: sku ? sku.price : p.price, spec: sku ? sku.spec : '' }, 1, sku ? sku.id : null);
+  updateCartBadge();
+  navigate('#/checkout' + (from ? `?from=${encodeURIComponent(from)}` : ''));
+}
+
+/** 收藏切换（演示模式下仅本地提示，网关可用时同步服务端） */
+async function toggleFavorite(p) {
+  trackEvent({ event: 'favorite', source: 'detail', productId: p.id });
+  try {
+    const d = await api('/api/favorites', { method: 'POST', body: { userId: getUserId(), productId: p.id }, retries: 0 });
+    toast(d && d.favorited ? '已加入收藏 ❤️' : '已取消收藏', 'ok');
+  } catch {
+    toast(isDemoMode() ? '演示模式暂不支持收藏同步' : '收藏失败，请稍后重试', 'warn');
+  }
 }
 
 function copyShareLink(p, from) {
@@ -338,37 +482,39 @@ function copyShareLink(p, from) {
 
 /* ---------------- 购物车抽屉 ---------------- */
 export function renderCartDrawer() {
-  const cart = JSON.parse(localStorage.getItem('shop_cart') || '[]');
+  const cart = getCart();
+  const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const rows = cart.map((it) =>
+    el('div', { class: 'cart-item' }, [
+      el('div', { class: 'thumb' }, productThumb(it)),
+      el('div', { class: 'info' }, [
+        el('div', { class: 'nm' }, it.name),
+        it.spec ? el('div', { class: 'spec' }, it.spec) : null,
+        el('div', { class: 'pr' }, fmtPrice(it.price * it.qty)),
+        it.insufficient ? el('div', { class: 'warn-line' }, `库存不足，仅剩 ${it.stock} 件`) : null,
+        el('div', { class: 'qty' }, [
+          el('button', { onclick: () => { setQty(it.__key || it.id, it.qty - 1); renderCartDrawer(); updateCartBadge(); } }, '−'),
+          el('span', {}, String(it.qty)),
+          el('button', { onclick: () => { setQty(it.__key || it.id, it.qty + 1); renderCartDrawer(); updateCartBadge(); } }, '+'),
+          el('button', { class: 'ghost', onclick: () => { removeFromCart(it.__key || it.id); renderCartDrawer(); updateCartBadge(); } }, '删除'),
+        ]),
+      ]),
+    ]),
+  );
+
   const node = el('div', {}, [
     el('div', { class: 'modal-head' }, [
       el('h3', {}, `🛒 购物车（${cart.reduce((n, i) => n + i.qty, 0)}）`),
     ]),
-    cart.length
-      ? el('div', {}, cart.map((it) => el('div', { class: 'cart-item' }, [
-          el('div', { class: 'thumb' }, productThumb(it)),
-          el('div', { class: 'info' }, [
-            el('div', { class: 'nm' }, it.name),
-            el('div', { class: 'pr' }, fmtPrice(it.price)),
-            el('div', { class: 'qty' }, [
-              el('button', { onclick: () => { setQty(it.id, it.qty - 1); renderCartDrawer(); updateCartBadge(); } }, '−'),
-              el('span', {}, String(it.qty)),
-              el('button', { onclick: () => { setQty(it.id, it.qty + 1); renderCartDrawer(); updateCartBadge(); } }, '+'),
-              el('button', { class: 'ghost', onclick: () => { removeFromCart(it.id); renderCartDrawer(); updateCartBadge(); } }, '删除'),
-            ]),
-          ]),
-        ])))
-      : el('div', { class: 'cart-empty' }, '购物车还是空的，去挑点好物吧 🛍️'),
+    cart.length ? el('div', { class: 'cart-list' }, rows) : el('div', { class: 'cart-empty' }, '购物车还是空的，去挑点好物吧 🛍️'),
     el('div', { class: 'cart-foot' }, [
-      cart.length ? el('div', { class: 'cart-total' }, [el('span', {}, '合计'), el('span', {}, fmtPrice(cartTotal()))]) : null,
-      cart.length ? el('button', {
-        style: 'width:100%',
-        onclick: () => {
-          clearCart();
-          updateCartBadge();
-          closeDrawer();
-          toast('下单成功（演示，无真实支付）🎉', 'ok');
-        },
-      }, '结算') : null,
+      cart.length ? el('div', { class: 'cart-total' }, [el('span', {}, '合计'), el('span', { class: 'money' }, fmtPrice(total))]) : null,
+      cart.length
+        ? el('button', {
+            class: 'checkout',
+            onclick: () => { closeDrawer(); navigate('#/checkout'); },
+          }, '去结算')
+        : el('button', { class: 'ghost', onclick: () => { closeDrawer(); navigate('#/products'); } }, '去逛逛'),
     ]),
   ]);
   openDrawer(node);
