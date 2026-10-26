@@ -2,6 +2,7 @@
 import { api, ApiError } from './api.js';
 import { el, loading, banner, fmtPrice } from './ui.js';
 import { getUserId } from './state.js';
+import { isDemoMode } from './demo.js';
 
 function friendly(err) {
   return err instanceof ApiError ? err.message : '出错了，请稍后重试';
@@ -53,7 +54,8 @@ async function handleCopywrite(e, resultEl) {
     resultEl.appendChild(cwBlock('种草文案', data.social));
     resultEl.appendChild(cwBlock('话题标签', data.hashtags));
   } catch (err) {
-    banner(resultEl, friendly(err), 'err');
+    if (isDemoMode()) banner(resultEl, '演示模式：未连接 AI 网关，暂无法生成文案。本地启动 ai-gateway 后刷新即可使用。', 'warn');
+    else banner(resultEl, friendly(err), 'err');
   } finally {
     btn.disabled = false;
   }
@@ -81,7 +83,8 @@ async function handleAftersale(e, resultEl) {
       );
     });
   } catch (err) {
-    banner(resultEl, friendly(err), 'err');
+    if (isDemoMode()) banner(resultEl, '演示模式：未连接 AI 网关，暂无法查询订单。本地启动 ai-gateway 后刷新即可使用。', 'warn');
+    else banner(resultEl, friendly(err), 'err');
   } finally {
     btn.disabled = false;
   }

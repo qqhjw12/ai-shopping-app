@@ -2,6 +2,7 @@
 import { streamApi, ApiError } from './api.js';
 import { el, productThumb, fmtPrice } from './ui.js';
 import { getUserId } from './state.js';
+import { isDemoMode } from './demo.js';
 
 const messagesEl = () => document.getElementById('ai-messages');
 const inputEl = () => document.getElementById('ai-input');
@@ -64,7 +65,11 @@ async function streamRun(toTab, { path, body, makeWrap, onEvent }) {
   } catch (e) {
     typing.remove();
     if (wrap) wrap.remove();
-    say(toTab, friendly(e), 'bot');
+    if (isDemoMode()) {
+      say(toTab, '演示模式：当前未连接 AI 网关，暂无法生成回复。本地启动 ai-gateway 后刷新页面即可体验逐字 AI 能力。', 'bot');
+    } else {
+      say(toTab, friendly(e), 'bot');
+    }
   }
 }
 

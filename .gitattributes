@@ -1,0 +1,29 @@
+# 统一换行符：仓库内始终以 LF 存储，检出时按各平台自动转换。
+* text=auto eol=lf
+
+# 显式声明为文本，确保换行规范化与差异可读
+*.js    text
+*.mjs   text
+*.cjs   text
+*.ts    text
+*.css   text
+*.html  text
+*.json  text
+*.md    text
+*.yml   text
+*.yaml  text
+*.sh    text
+*.env.example  text
+
+# 二进制资源：不转换换行，也不做文本差异
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary
+*.pdf   binary

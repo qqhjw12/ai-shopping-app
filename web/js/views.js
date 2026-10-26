@@ -4,15 +4,65 @@ import { el, fmtPrice, loading, banner, productCard, productThumb, openDrawer, c
 import { addToCart, setQty, removeFromCart, clearCart, cartTotal } from './state.js';
 import { askGuide, askProductQA } from './assistant.js';
 import { navigate } from './router.js';
+import { demoProducts } from './demo-data.js';
+import { setDemoMode, isDemoMode } from './demo.js';
 
 // 商品缓存（列表/详情复用，避免重复请求）
 let productsCache = null;
 export async function getProducts() {
   if (!productsCache) {
-    const d = await api('/api/products');
-    productsCache = d.products || [];
+    try {
+      const d = await api('/api/products');
+      productsCache = d.products || [];
+    } catch (e) {
+      // 网关不可达（如 GitHub Pages 静态站点未连接后端）→ 回退内置演示商品库
+      setDemoMode(true);
+      productsCache = demoProducts.slice();
+    }
   }
   return productsCache;
+}
+
+// 演示模式提示条：仅在未连接网关时展示，说明当前为内置示例数据
+function demoBanner() {
+  return el('div', { class: 'demo-banner' }, [
+    el('b', {}, '演示模式'),
+    el('span', {}, '未连接 AI 网关，展示内置示例商品；AI 导购 / 客服 / 问答等交互需本地启动网关后体验（详见 README）。'),
+  ]);
+}
+function ensureDemoBanner(view) {
+  if (isDemoMode() && view && view.querySelector && !view.querySelector('.demo-banner')) {
+    view.insertBefore(demoBanner(), view.firstChild);
+  }
+}
+
+// 商品检索：优先走网关「向量 + 关键词混合检索」；网关不可达时本地对演示商品库做轻量匹配，
+// 保证搜索与相关推荐在纯静态演示站点也能工作。
+export async function searchProducts(query, topK = 12) {
+  try {
+    const d = await api('/api/search', { body: { query, topK } });
+    return d.results || [];
+  } catch (e) {
+    setDemoMode(true);
+    return demoSearch(query, topK);
+  }
+}
+
+function demoSearch(query, topK) {
+  const q = (query || '').toLowerCase().trim();
+  if (!q) return [];
+  return demoProducts
+    .map((p) => {
+      const hay = [p.name, p.brand, p.category, (p.tags || []).join(' '), p.description].join(' ').toLowerCase();
+      let score = 0;
+      if (hay.includes(q)) score += 1;
+      (p.tags || []).forEach((t) => { if (q.includes(t.toLowerCase())) score += 0.5; });
+      if (p.name.toLowerCase().includes(q)) score += 0.5;
+      return { ...p, score: Math.min(1, score) };
+    })
+    .filter((p) => p.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
 }
 export function resetProductsCache() {
   productsCache = null;
@@ -57,6 +107,7 @@ export async function renderHome(view) {
 
   try {
     const products = await getProducts();
+    ensureDemoBanner(view);
     const featured = products.slice(0, 8);
     const gridEl = el('div', { class: 'grid' },
       featured.map((p) => productCard(p, { onDetail: (p) => openProductDetail(p, 'home'), onAddCart: (p) => doAdd(p) })),
@@ -86,6 +137,7 @@ export async function renderProducts(view, { category } = {}) {
 
   try {
     const products = await getProducts();
+    ensureDemoBanner(view);
     const cats = categories(products);
     cats.forEach((c) => {
       chips.appendChild(el('button', {
@@ -114,8 +166,8 @@ export async function renderSearch(view, query) {
   }
   loading(grid, 'AI 正在理解你的需求…');
   try {
-    const d = await api('/api/search', { body: { query, topK: 12 } });
-    const results = d.results || [];
+    const results = await searchProducts(query, 12);
+    ensureDemoBanner(view);
     grid.innerHTML = '';
     if (!results.length) grid.appendChild(el('div', { class: 'cart-empty' }, '没有找到相关商品，换个说法或放宽条件试试？'));
     results.forEach((p) => {
@@ -178,6 +230,7 @@ export async function renderProductDetail(view, id, from) {
     container.appendChild(el('div', { class: 'cart-empty' }, '未找到该商品，可能已下架或链接有误。'));
     return;
   }
+  ensureDemoBanner(view);
   container.innerHTML = '';
   container.appendChild(buildDetailPage(p, from));
 }
@@ -218,8 +271,7 @@ function buildDetailPage(p, from) {
 
   (async () => {
     try {
-      const d = await api('/api/search', { body: { query: p.name, topK: 6 } });
-      const list = (d.results || []).filter((r) => r.id !== p.id).slice(0, 4);
+      const list = (await searchProducts(p.name, 6)).filter((r) => r.id !== p.id).slice(0, 4);
       relGrid.innerHTML = '';
       if (!list.length) {
         relGrid.appendChild(el('div', { class: 'cart-empty' }, '暂无相似商品'));

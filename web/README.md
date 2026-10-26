@@ -1,5 +1,7 @@
 # web 前端（AI 购物助手 · 网页版）
 
+> 仓库总文档（架构 / 运行 / API / 部署）见根目录 [../README.md](../README.md)。
+
 原生零依赖静态前端（HTML + CSS + ES Module），对接 `ai-gateway`。无需 `npm install`。
 
 ## 目录结构
