@@ -23,17 +23,23 @@ function localCopywrite({ product, sellingPoints, tone, platform, count }) {
 
   const titles = [];
   const social = [];
+  const priceText = price ? `${price}就能拿下` : '价格也很友好';
   for (let i = 0; i < n; i++) {
     const point = sp[i % sp.length];
-    titles.push(`【${brand || category || '新品'}】${name} ${point} ${price}`);
+    titles.push(`【${brand || category || '新品'}】${name} ${point}${price ? ' ' + price : ''}`);
     social.push(
-      `还在为选${category || '好物'}纠结？${name}真的香！${point}，${price}就能拿下，冲就完事了～ #${platform}`,
+      `还在为选${category || '好物'}纠结？${name}真的香！${point}，${priceText}，冲就完事了～ #${platform}`,
     );
   }
+  // 无品牌时不拼空括号；无价格时不写「现仅，」
+  const brandSuffix = brand ? `（${brand}）` : '';
+  const priceLine = price
+    ? `现仅${price}，适合追求品质的你，闭眼入不踩雷。`
+    : '进店可看完整参数与真实评价，拿不准随时问客服。';
   const detail =
-    `${name}（${brand}）\n` +
+    `${name}${brandSuffix}\n` +
     `主打${sp.join('、')}。${toneDesc}。\n` +
-    `现仅${price}，适合追求品质的你，闭眼入不踩雷。`;
+    priceLine;
   const hashtags = ['#好物推荐', `#${category || '购物'}`, `#${brand || '优选'}`];
 
   return { titles, detail, social, hashtags, mode: 'local' };

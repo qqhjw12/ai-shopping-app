@@ -1,13 +1,11 @@
 // 应用入口：装配路由、顶栏交互、AI 助手、购物车。
-import { updateCartBadge } from './ui.js';
+import { el, updateCartBadge } from './ui.js';
 import { renderHome, renderProducts, renderSearch, renderCartDrawer, renderProductDetail, openProductDetail } from './views.js';
 import { renderCategories } from './categories.js';
 import { renderCheckout } from './checkout.js';
 import { renderOrders, renderFavorites } from './account.js';
 import { renderTools } from './tools.js';
 import { renderAnalytics } from './analytics.js';
-import { renderCheckout } from './checkout.js';
-import { renderOrders, renderFavorites } from './account.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
 import { createRouter, navigate } from './router.js';
 import { getUserId, loadCart, onCartChange } from './state.js';
@@ -68,7 +66,25 @@ function dispatch({ path, query }) {
   else if (path === '/checkout') renderCheckout(view);
   else if (path === '/orders') renderOrders(view);
   else if (path === '/favorites') renderFavorites(view);
-  else renderHome(view);
+  else renderNotFound(view);
+}
+
+/* ---------------- 404：未知路由兜底 ---------------- */
+export function renderNotFound(v) {
+  v.innerHTML = '';
+  v.appendChild(
+    el('div', { class: 'notfound' }, [
+      el('div', { class: 'nf-code' }, '404'),
+      el('h2', {}, '这个页面走丢了'),
+      el('p', {}, '可能是链接过期，或者该页面已经搬走了。试试下面几个入口 👇'),
+      el('div', { class: 'nf-actions' }, [
+        el('a', { class: 'nf-btn', href: '#/' }, '回首页'),
+        el('a', { class: 'nf-btn ghost', href: '#/categories' }, '逛分类'),
+        el('a', { class: 'nf-btn ghost', href: '#/products' }, '全部商品'),
+        el('a', { class: 'nf-btn ghost', href: '#/orders' }, '我的订单'),
+      ]),
+    ]),
+  );
 }
 
 /* ---------------- 启动 ---------------- */

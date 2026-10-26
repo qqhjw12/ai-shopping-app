@@ -1028,3 +1028,38 @@ svg.art { display: block; width: 100%; height: 100%; }
   .cat-chip .ico { width: 34px; height: 34px; font-size: 18px; }
   .cat-chip .nm { font-size: 11.5px; }
 }
+
+/* ============================================================
+   404 兜底页
+   ============================================================ */
+.notfound {
+  max-width: 520px; margin: 40px auto; padding: 40px 28px;
+  text-align: center; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.nf-code {
+  font-size: 72px; font-weight: 800; line-height: 1; letter-spacing: -2px;
+  background: linear-gradient(135deg, var(--primary), #7c5cff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.notfound h2 { margin: 14px 0 8px; font-size: 20px; }
+.notfound p { margin: 0 0 22px; font-size: 14px; color: var(--muted); line-height: 1.7; }
+.nf-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.nf-btn {
+  display: inline-block; padding: 10px 20px; border-radius: var(--radius-sm);
+  background: var(--primary); color: #fff; font-size: 13.5px; font-weight: 600;
+  text-decoration: none; transition: transform .16s ease, box-shadow .16s ease, background .16s;
+}
+.nf-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.nf-btn.ghost {
+  background: #f3f5fa; color: var(--text-2); border: 1px solid var(--border);
+}
+.nf-btn.ghost:hover { background: var(--primary-l); color: var(--primary); border-color: rgba(59,98,246,.3); }
+
+@media (max-width: 700px) {
+  .notfound { margin: 20px 12px; padding: 30px 18px; }
+  .nf-code { font-size: 56px; }
+  .nf-actions { gap: 8px; }
+  .nf-btn { padding: 9px 15px; font-size: 13px; }
+}

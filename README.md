@@ -27,6 +27,7 @@
 - [部署演示站点（GitHub Pages + Actions）](#部署演示站点github-pages--actions)
 - [商品视觉（程序化 SVG）](#商品视觉程序化-svg)
 - [演示模式（前端离线兜底）](#演示模式前端离线兜底)
+- [本地自检](#本地自检)
 - [安全与配置](#安全与配置)
 - [许可证](#许可证)
 
@@ -208,7 +209,7 @@
 │   └── dify-workflows/      # Dify 工作流 spec（售后 / 文案）
 ├── mall-ai/                 # macrozheng/mall 的 AI 增强模块（Java）
 ├── nginx/                   # 反代模板（envsubst，密钥不入库）
-├── scripts/                 # dev-local.sh(一键起前后端) / setup-https-proxy.sh / setup-mall-ai-env.sh
+├── scripts/                 # dev-local.sh(一键起前后端) / check-web.mjs(前端自检) / setup-https-proxy.sh / setup-mall-ai-env.sh
 ├── docker-compose*.yml      # 网关 / nginx / dify / 全家桶
 ├── docs/                    # 实施记录与方案文档
 ├── .env.example             # 环境变量模板（真实密钥勿提交）
@@ -438,10 +439,37 @@ bash scripts/setup-https-proxy.sh
 
 - 商品列表 / 详情 / 搜索 / 相关推荐：网关不可达时，自动回退到内置示例商品库（`web/js/demo-data.js`，由 `catalog.js` 生成，含 256 款商品及其 SKU 与评价），页面顶部显示「演示模式」提示条。
 - 购物车：服务端不可用时回落到 localStorage，恢复连接后自动补传。
-- 结算 / 订单 / 收藏：演示模式下给出明确提示或模拟结果路径，不会产生真实交易。
+- **结算页**：拿不到服务端报价时按**与服务端一致的规则本地估算**（满 ¥99 包邮，否则 ¥10 运费），金额明细与「提交订单」按钮照常渲染，可走完「提交 → 模拟订单 → 购物车清空」的完整闭环，页面注明「本地估算、不产生真实交易」。这样演示站不会卡在「商品有价但看不到合计、也没有下单按钮」的死路上。
+- 订单 / 收藏：演示模式下给出明确空状态与重试入口，不会报错堆栈。
 - AI 导购 / 客服 / 问答 / 文案 / 售后：演示模式下给出友好提示，引导本地启动网关后体验。
 - 分析看板 `#/analytics`：演示模式下用**内置示例统计**兜底（顶部明确标注「示例数据」，不冒充真实埋点）；埋点上报本身静默失败，不影响浏览。
+- **未知路由**：渲染 404 兜底页（含首页 / 分类 / 全部商品 / 我的订单 四个入口），不再静默显示首页。
 - 接入真实网关后（同源或 `?api=`），自动切换为实时数据，提示条消失。
+
+---
+
+## 本地自检
+
+改完代码想快速确认「没把东西改坏」，按这三步走：
+
+```bash
+# 1) 前端模块真实加载（不只是语法解析）
+#    能抓到浏览器白屏级错误：重复 import、导入不存在的导出、顶层执行期异常
+node scripts/check-web.mjs
+
+# 2) 后端语法
+find ai-gateway/src -name '*.js' -exec node --check {} \;
+
+# 3) 网关冒烟（另开终端，起服务后）
+cd ai-gateway && npm start
+curl -s localhost:8080/health
+curl -s "localhost:8080/api/products?category=audio&sort=price_asc&limit=3"
+curl -s -N -X POST localhost:8080/api/ai/guide \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"预算1500的降噪耳机","userId":"demo","stream":true}'
+```
+
+> `node --check` 只做语法解析，**看不到**模块链接期错误（例如同名绑定重复 import 会让整个应用入口加载失败、页面白屏）。`check-web.mjs` 用极简 DOM 垫片把 16 个模块逐个 `import()` 一遍，并断言首屏能渲染、404 兜底可用。
 
 ---
 

@@ -61,6 +61,27 @@ export async function renderCheckout(view) {
     });
   }
 
+  // 与服务端 orderService 保持一致：满 99 包邮，否则 10 元运费
+  const FREE_SHIPPING_THRESHOLD = 99;
+  const SHIPPING_FEE = 10;
+
+  // 演示模式（网关不可达）下本地估算金额：规则与服务端一致，只是没有优惠券
+  function localPreview() {
+    const productAmount = cart.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 0), 0);
+    const discountAmount = 0;
+    const shippingFee = productAmount - discountAmount >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+    return {
+      items: cart.map((i) => ({ productId: i.productId, skuId: i.skuId, qty: i.qty, price: i.price, name: i.name })),
+      productAmount,
+      shippingFee,
+      discountAmount,
+      payAmount: productAmount - discountAmount + shippingFee,
+      address: { full: '演示模式：使用默认收货地址' },
+      coupon: null,
+      local: true,
+    };
+  }
+
   async function refreshPreview() {
     try {
       preview = await api('/api/orders/preview', {
@@ -68,6 +89,13 @@ export async function renderCheckout(view) {
         body: { userId, items: cart.map((i) => ({ productId: i.productId, skuId: i.skuId, qty: i.qty })), addressId, couponId },
       });
     } catch (e) {
+      // 演示模式：拿不到服务端报价就本地估算，保证金额明细与提交按钮都在，
+      // 否则用户会卡在「商品有价但看不到合计、也没有下单按钮」的死路上
+      if (isDemoMode()) {
+        preview = localPreview();
+        renderSum();
+        return true;
+      }
       preview = null;
       banner(sumBox, e.message || '结算信息获取失败', 'warn');
       return false;
@@ -94,7 +122,15 @@ export async function renderCheckout(view) {
     );
     const submitBtn = el('button', { class: 'buy submit', onclick: submit }, `提交订单 · ${fmtPrice(preview.payAmount)}`);
     if (isDemoMode()) {
-      sumBox.appendChild(el('div', { class: 'demo-note' }, '演示模式：提交后将模拟下单，不产生真实交易'));
+      sumBox.appendChild(
+        el(
+          'div',
+          { class: 'demo-note' },
+          preview.local
+            ? '演示模式：金额为本地估算（满 ¥99 包邮，否则 ¥10 运费）；提交后模拟下单，不产生真实交易'
+            : '演示模式：提交后将模拟下单，不产生真实交易',
+        ),
+      );
     }
     sumBox.appendChild(submitBtn);
   }

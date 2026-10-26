@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "dev": "node --disable-warning=ExperimentalWarning src/server.js",
-    "seed": "node --disable-warning=ExperimentalWarning src/seed.js",
+    "seed": "node --disable-warning=ExperimentalWarning src/db/seedDb.js",
     "db:seed": "node --disable-warning=ExperimentalWarning src/db/seedDb.js",
     "db:reset": "node --disable-warning=ExperimentalWarning src/db/seedDb.js --reset",
     "sync:dify": "node scripts/sync-products-to-dify.js"
