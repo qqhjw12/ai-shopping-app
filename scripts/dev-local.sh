@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 一键本地启动：AI 网关（:8080）+ 静态前端（:5500）
 # 用法：bash scripts/dev-local.sh
-# 首次运行会自动建库并灌入 64 款商品（ai-gateway/data/shop.db）
+# 首次运行会自动建库并灌入 256 款商品（ai-gateway/data/shop.db）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

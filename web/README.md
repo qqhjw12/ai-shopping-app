@@ -9,17 +9,28 @@
 ```
 web/
 ├── index.html        # 应用外壳：顶栏(智能搜索/导航/购物车) + 视图容器 + AI 助手浮窗 + 购物车抽屉
-├── styles.css        # 商店前台样式（响应式）
+├── styles.css        # 商店前台样式（响应式，含分类页 / 筛选栏 / 404）
 └── js/
-    ├── api.js        # 类型化 fetch 封装（4xx 不重试 / 5xx 重试 3 次 / 离线提示）
-    ├── state.js      # 购物车(localStorage) + 匿名 userId(sessionStorage)
-    ├── ui.js         # DOM 构建 / 弹窗 / 抽屉 / toast / 商品卡片复用
-    ├── router.js     # 极简 hash 路由
-├── views.js      # 首页 / 商品列表 / 智能搜索 / 商品详情(路由页) / 购物车
-├── assistant.js  # AI 助手浮窗：导购 / 客服 / 问答(均流式)
-├── tools.js      # AI 工具箱：运营文案 / 订单售后
-└── app.js        # 入口：装配路由与交互
+    ├── api.js        # 类型化 fetch 封装（4xx 不重试 / 5xx 重试 3 次 / 离线提示）+ SSE 流式解析
+    ├── state.js      # 购物车(服务端优先，localStorage 兜底) + 匿名 userId
+    ├── ui.js         # DOM 构建 / 弹窗 / 抽屉 / toast / 商品卡片 / 价格与星级格式化
+    ├── art.js        # 程序化商品图：双色渐变 + 16 套类目线稿（data-URI SVG，零外部请求）
+    ├── router.js     # 极简 hash 路由（#/product/:id?from=… 等）
+    ├── views.js      # 首页 / 分类专区 / 商品列表(侧栏筛选) / 搜索 / 商品详情 / 购物车抽屉
+    ├── categories.js # 分类浏览页（两级类目 + 商品封面拼图）
+    ├── checkout.js   # 结算页（地址 / 优惠券 / 金额明细 / 提交；演示模式本地估算）
+    ├── account.js    # 我的订单 / 我的收藏
+    ├── analytics.js  # 分析看板（渠道占比 / 行为分布 / Top 商品 / 事件流）
+    ├── assistant.js  # AI 助手浮窗：导购 / 客服 / 问答（均 SSE 逐字渲染）
+    ├── tools.js      # AI 工具箱：运营文案 / 订单售后
+    ├── track.js      # 埋点上报（fire-and-forget）+ 统计拉取
+    ├── demo.js       # 演示模式标志（网关不可达时置位）
+    ├── demo-data.js  # 内置商品库（由 catalog.js 生成，256 款离线兜底）
+    └── app.js        # 入口：装配路由、顶栏交互、AI 助手、购物车、404 兜底
 ```
+
+> 改完前端建议跑 `node ../scripts/check-web.mjs`（在仓库根目录执行 `node scripts/check-web.mjs`）：
+> 它会真实 `import()` 每个模块，能抓到 `node --check` 看不到的白屏级错误。
 
 ## 运行方式
 
