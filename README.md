@@ -403,6 +403,7 @@ bash scripts/setup-https-proxy.sh
 
 - **Free-Ecommerce-Products-Api**（GitHub 开源，开放使用）：含真实商品图（GitHub Pages 图床）与美元标价，覆盖美妆 / 电子 / 服饰 / 家居 / 健康 5 大类。
 - **Open Food Facts**（ODbL 开放数据库，CC-BY 商品图）：覆盖「食品生鲜」及合规的非食品类目（美妆个护 / 宠物粮 / 母婴 / 营养补剂），按 `categories_tags` 自动分流到对应一级类目，体量可达数十万款。
+- **Open Library**（开放图书元数据，封面为 Open Library 开放图）：覆盖「图书文娱」一级类目，按 subject 分流到二级类目（畅销图书 / 文创手作 / 乐器音像），只保留「有书名 + 有封面图」的真实书目，体量可达数万款。
 
 导入后每张商品图存为 `products.image_url`，前端在「图片不可达（离线 / 图床 404）」时**自动回退**到程序化 SVG 封面，绝不出现破图。
 
@@ -427,6 +428,12 @@ OFF_CAP=60000 npm run db:ingest -- --fetch
 # 只实时抓取指定家族（避开不可达库，其余从已提交缓存载入，不覆盖既有缓存）
 INGEST_FAMILIES=obf,opf npm run db:ingest -- --fetch
 
+# 只实时抓取图书（Open Library），其余从已提交缓存载入
+INGEST_FAMILIES=ol npm run db:ingest -- --fetch
+
+# 控制 Open Library 图书抓取上限（默认 25000）
+OL_CAP=30000 npm run db:ingest -- --fetch
+
 # 清空已导入的真实商品后重灌
 npm run db:ingest -- --reset
 ```
@@ -434,7 +441,7 @@ npm run db:ingest -- --reset
 要点：
 
 - **幂等**：真实商品以 `fe_` / `off_` 前缀独立 ID，与示例商品互不覆盖；重复运行安全（`INSERT OR REPLACE` + 事务批量写入）。
-- **高吞吐 + 多类目**：Open Food Facts 走 v2 搜索 API 分页抓取、按 `code` 去重、只保留「有商品名 + 有封面图」的真实条目；覆盖食品生鲜及合规非食品类目（美妆个护 / 宠物粮 / 母婴 / 营养补剂），按 `categories_tags` 自动分流到对应一级与二级类目；每个类目**增量落盘**，超时中断可续跑不丢进度。
+- **高吞吐 + 多类目**：Open Food Facts 走 v2 搜索 API 分页抓取、按 `code` 去重、只保留「有商品名 + 有封面图」的真实条目；覆盖食品生鲜及合规非食品类目（美妆个护 / 宠物粮 / 母婴 / 营养补剂），按 `categories_tags` 自动分流到对应一级与二级类目；每个类目**增量落盘**，超时中断可续跑不丢进度。Open Library 另按 subject 翻页抓取真实书目（只留带封面图者），覆盖「图书文娱」一级类目下的畅销图书 / 文创手作 / 乐器音像二级类目。
 - **演示包限幅**：数据库可以无限大，但 `web/js/demo-real-data.js` 默认按固定步长抽样至 `DEMO_CAP`（默认 3000）款，保证 GitHub Pages 首屏不被大文件拖慢；且每次导入**全量同步** fe_/off_ 商品（先清后插），重复运行不会产生重复评价。
 - **容错**：限流（429/5xx）自动重试退避；断网时 `--fetch` 回退到本地快照；实时抓取与已提交缓存**合并（按 `code` 去重、只增不减）**，主食品库间歇 503 部分失败时也不会回退已抓数据，多次运行可累积增量。
 - **避开不可达库**：OFF 未认证搜索每页最多返回约 100 条、深层分页（约第 11 页起）直接 401，故采用「多细分类目 `categories_tags` 浅分页」扩量；若某家族库临时不可达（如主食品库限流 503、商品事实库离线），用 `INGEST_FAMILIES=obf,opf` 只实时抓取在线家族、其余从已提交缓存载入，不拖慢整轮也不覆盖既有缓存。

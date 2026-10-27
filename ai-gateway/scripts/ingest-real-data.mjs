@@ -3,6 +3,7 @@
 // 借鉴 GitHub 上的开源数据项目，合规地抓取「开放许可」的商品数据填充数据库：
 //   - Free-Ecommerce-Products-Api (Kolzsticks)：开放使用，含真实商品图与美元标价
 //   - Open Food Facts：ODbL 开放数据库，CC-BY 商品图，适合做「食品生鲜」真实数据
+//   - Open Library：开放图书元数据（CC0 / 开放许可封面），适合做「图书文娱」真实数据
 //
 // 设计原则：只采用明确可商用的开放源，绝不抓取任何商业站点受保护数据（违反 ToS / 版权）。
 // 图片统一存 URL，前端在离线或图床不可达时回退到程序化 SVG 封面，保证不出现破图。
@@ -14,7 +15,8 @@
 //   npm run db:ingest -- --no-demo    # 不生成 web 演示数据
 //   npm run db:ingest -- --fetch --limit 5000   # 仅抓 5000 条做快速验证
 //   OFF_CAP=60000 npm run db:ingest -- --fetch  # 环境变量控制 Open Food Facts 抓取上限（默认 40000）
-//   INGEST_FAMILIES=obf,opf npm run db:ingest -- --fetch  # 只实时抓取指定家族（美妆/宠物），其余从缓存载入（避开不可达库）
+//   INGEST_FAMILIES=obf,opf,ol npm run db:ingest -- --fetch  # 只实时抓取指定家族（美妆/宠物/图书），其余从缓存载入（避开不可达库）
+//   OL_CAP=30000 npm run db:ingest -- --fetch  # 控制 Open Library 图书抓取上限（默认 25000）
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -36,11 +38,13 @@ const argv = process.argv.slice(2);
 const liIdx = argv.indexOf('--limit');
 const LIMIT = argv.find((a) => a.startsWith('--limit=')) || (liIdx !== -1 && argv[liIdx + 1] ? `--limit=${argv[liIdx + 1]}` : null);
 const OFF_CAP = LIMIT ? Number(LIMIT.split('=')[1]) || 40000 : Number(process.env.OFF_CAP || 40000);
+// Open Library（图书）抓取上限：默认 25000，可通过 OL_CAP 调整
+const OL_CAP = LIMIT ? Number(LIMIT.split('=')[1]) || 25000 : Number(process.env.OL_CAP || 25000);
 // 静态演示包上限：库可以无限大，但 web/js/demo-real-data.js 只保留代表性子集，保证 Pages 首屏速度
 const DEMO_CAP = Number(process.env.DEMO_CAP || 3000);
-// 真实商品 ID 前缀集合（fe_/off_/obf_/opf_/oprf_），用于全量同步时统一清理
-const REAL_PAT = "'fe_%' OR id LIKE 'off_%' OR id LIKE 'obf_%' OR id LIKE 'opf_%' OR id LIKE 'oprf_%'";
-const BRAND_PAT = "'br_fe_%' OR id LIKE 'br_off_%' OR id LIKE 'br_obf_%' OR id LIKE 'br_opf_%' OR id LIKE 'br_oprf_%'";
+// 真实商品 ID 前缀集合（fe_/off_/obf_/opf_/oprf_/ol_），用于全量同步时统一清理
+const REAL_PAT = "'fe_%' OR id LIKE 'off_%' OR id LIKE 'obf_%' OR id LIKE 'opf_%' OR id LIKE 'oprf_%' OR id LIKE 'ol_%'";
+const BRAND_PAT = "'br_fe_%' OR id LIKE 'br_off_%' OR id LIKE 'br_obf_%' OR id LIKE 'br_opf_%' OR id LIKE 'br_oprf_%' OR id LIKE 'br_ol_%'";
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 // 演示汇率（仅用于价格展示统一为人民币）
@@ -265,6 +269,49 @@ function mapOFF(p, prefix = 'off') {
   };
 }
 
+// ---------- Open Library 图书数据源（开放元数据，封面为 Open Library 开放图）----------
+// 图书是 Open Food Facts 家族无法覆盖的「其他类目」中，唯一可稳定爬取真实商品的开放源。
+// 按 subject 分流到「图书文娱」的二级类目（畅销图书 / 文创手作 / 乐器音像）。
+function mapOpenLibrary(p) {
+  const workKey = String(p.key || '').replace(/^\/works\//, '');
+  const id = `ol_${workKey || hashStr(p.title)}`;
+  if (!p.title) return null;
+  const author = (p.author_name && p.author_name[0]) || '佚名';
+  const sub = p._sub || 'book_read';
+  const subjectLabel = (p._subject || '').replace(/_/g, ' ');
+  const year = p.first_publish_year || '';
+  const price = rand(id, 22, 188);
+  const original = Math.round(price * 1.25);
+  const rating = 4.6;
+  const reviewsCount = rand(id, 6, 400);
+  const sales = reviewsCount * 5 + (hashStr(id) % 50);
+  const tags = ['正版图书', '纸质书', SNAME.get(sub) || '图书', subjectLabel].filter(Boolean);
+  const desc = `《${p.title}》${author !== '佚名' ? `由${author}所著` : ''}${year ? `，${year}年出版` : ''}，收录于「${subjectLabel || '综合'}」主题，正版馆藏、塑封发货。`;
+  const cover = p.cover_i ? `https://covers.openlibrary.org/b/id/${p.cover_i}-L.jpg` : '';
+  const brandId = `br_ol_${Buffer.from(author).toString('hex').slice(0, 16)}`;
+  return {
+    id,
+    name: p.title,
+    brand: author,
+    categoryId: 'book',
+    subCategoryId: sub,
+    price,
+    originalPrice: original,
+    description: desc,
+    tags,
+    rating,
+    reviewsCount,
+    sales,
+    coverColor: gradient('book', id),
+    highlight: SNAME.get(sub) || '正版好书',
+    highlights: ['正版图书', '塑封完好', '七天无理由', '破损包换'],
+    imageUrl: cover,
+    skus: [{ id: `${id}-s1`, spec: '标准装', price, stock: rand(id, 30, 200), status: 'on_sale' }],
+    reviews: makeReviews(id, rating),
+    brandId,
+  };
+}
+
 // ---------- 抓取 ----------
 async function fetchFreeEcom() {
   const res = await fetch('https://kolzsticks.github.io/Free-Ecommerce-Products-Api/main/products.json', {
@@ -435,6 +482,65 @@ async function fetchOFF() {
   return fetchOFFFamily(FAMILY_SOURCES[0].host, FAMILY_SOURCES[0].cats, FAMILY_SOURCES[0].key);
 }
 
+// ---------- Open Library 图书数据源 ----------
+// subject → 图书文娱二级类目：畅销图书 / 文创手作 / 乐器音像
+const OL_HOST = 'https://openlibrary.org';
+const OL_SUBJECTS = [
+  // 畅销图书
+  ['fiction', 'book_read'], ['fantasy', 'book_read'], ['science_fiction', 'book_read'],
+  ['romance', 'book_read'], ['mystery', 'book_read'], ['thriller', 'book_read'],
+  ['crime', 'book_read'], ['historical_fiction', 'book_read'], ['biography', 'book_read'],
+  ['history', 'book_read'], ['philosophy', 'book_read'], ['business', 'book_read'],
+  ['self_help', 'book_read'], ['young_adult', 'book_read'], ['horror', 'book_read'],
+  ['poetry', 'book_read'], ['comics', 'book_read'], ['travel', 'book_read'],
+  // 文创手作
+  ['art', 'book_hobby'], ['drawing', 'book_hobby'], ['painting', 'book_hobby'],
+  ['crafts', 'book_hobby'], ['photography', 'book_hobby'], ['design', 'book_hobby'],
+  ['calligraphy', 'book_hobby'], ['architecture', 'book_hobby'], ['gardening', 'book_hobby'],
+  // 乐器音像
+  ['music', 'book_instrument'], ['guitar', 'book_instrument'], ['piano', 'book_instrument'],
+  ['songbooks', 'book_instrument'], ['musicians', 'book_instrument'],
+];
+
+// 抓取 Open Library：按 subject 翻页，只保留「有书名 + 有封面图」的真实条目；
+// 合并已有缓存（只增不减），逐主题增量落盘（空结果不覆盖）；复用 fetchPage 的韧性重试。
+async function fetchOpenLibrary() {
+  const prior = loadCache('ol-products.json', []);
+  const seen = new Set(prior.map((p) => `ol_${String(p.key || '').replace(/^\/works\//, '')}`));
+  const out = [...prior];
+  let cap = OL_CAP;
+  for (const [subject, sub] of OL_SUBJECTS) {
+    if (out.length >= cap) break;
+    let page = 1;
+    while (page <= 15 && out.length < cap) {
+      const url = `${OL_HOST}/search.json?subject=${encodeURIComponent(subject)}&limit=50&page=${page}&fields=title,author_name,cover_i,first_publish_year,key`;
+      let j;
+      try {
+        j = await fetchPage(url);
+      } catch (e) {
+        console.warn(`    · ol:${subject}: 网络异常，跳过该主题（${e.message}）`);
+        break;
+      }
+      if (j === null || j === undefined) { console.warn(`    · ol:${subject}: 无更多数据`); break; }
+      const docs = j.docs || [];
+      if (!docs.length) break;
+      for (const d of docs) {
+        if (out.length >= cap) break;
+        const k = String(d.key || '').replace(/^\/works\//, '');
+        if (!k || seen.has(`ol_${k}`)) continue;
+        if (!d.title || !d.cover_i) continue; // 只保留有封面图的真实图书
+        seen.add(`ol_${k}`);
+        out.push({ ...d, _sub: sub, _subject: subject });
+      }
+      page++;
+      await sleep(200); // 礼貌限速
+    }
+    console.log(`    · ol:${subject}: 累计 ${out.length}`);
+    if (out.length) saveCache('ol-products.json', out); // 增量落盘；空则不覆盖已有缓存
+  }
+  return out;
+}
+
 function loadCache(name, fallback) {
   const f = resolve(CACHE_DIR, name);
   if (existsSync(f)) return JSON.parse(readFileSync(f, 'utf8'));
@@ -535,6 +641,7 @@ async function main() {
 
   const feRaw = [];
   const offRaw = [];
+  const olRaw = [];
   if (FETCH) {
     console.log('[*] 实时抓取 Free-Ecommerce-Products-Api ...');
     try {
@@ -546,7 +653,7 @@ async function main() {
       console.warn('[!] Free-Ecommerce 抓取失败，回退本地快照：', e.message);
       feRaw.push(...loadCache('freeecom-products.json', []));
     }
-    // INGEST_FAMILIES=obf,opf 时只实时抓取指定家族，其余直接从缓存载入，避免不可达库（503/超时）拖慢整轮
+    // INGEST_FAMILIES=obf,opf,ol 时只实时抓取指定家族，其余直接从缓存载入，避免不可达库（503/超时）拖慢整轮
     const onlyFam = process.env.INGEST_FAMILIES ? process.env.INGEST_FAMILIES.split(',').map((s) => s.trim()) : null;
     for (const src of FAMILY_SOURCES) {
       let r = [];
@@ -566,12 +673,32 @@ async function main() {
       offRaw.push(...r);
       console.log(`[*] ${src.key} 就绪 ${r.length} 条`);
     }
+    // Open Library（图书）—— 独立数据源，可被 INGEST_FAMILIES 包含（如 INGEST_FAMILIES=ol 只抓图书）
+    if (onlyFam && !onlyFam.includes('ol')) {
+      olRaw.push(...loadCache('ol-products.json', []));
+      console.log(`[*] ol 未列入实时抓取，载入缓存 ${olRaw.length} 条`);
+    } else {
+      console.log('[*] 实时抓取 Open Library（图书）...');
+      try {
+        const live = await fetchOpenLibrary();
+        if (live.length) olRaw.push(...live);
+      } catch (e) {
+        console.warn('[!] Open Library 抓取失败，回退本地快照：', e.message);
+      }
+      if (!olRaw.length) olRaw.push(...loadCache('ol-products.json', []));
+      console.log(`[*] ol 就绪 ${olRaw.length} 条`);
+    }
   } else {
     feRaw.push(...loadCache('freeecom-products.json', []));
     for (const src of FAMILY_SOURCES) offRaw.push(...loadFamilyCache(src.key));
+    olRaw.push(...loadCache('ol-products.json', []));
   }
 
-  const items = [...feRaw.map(mapFreeEcom), ...offRaw.map((p) => mapOFF(p, p._srcPrefix)).filter(Boolean)];
+  const items = [
+    ...feRaw.map(mapFreeEcom),
+    ...offRaw.map((p) => mapOFF(p, p._srcPrefix)).filter(Boolean),
+    ...olRaw.map(mapOpenLibrary).filter(Boolean),
+  ];
   if (!items.length) {
     console.warn('[!] 没有可导入的真实商品数据（请先 --fetch 或放置 .cache 快照）');
     return;
@@ -589,7 +716,7 @@ async function main() {
   const n = insertProducts(db, items);
   const dN = emitDemo(items);
   const total = db.prepare('SELECT COUNT(*) AS n FROM products').get().n;
-  console.log(`[✓] 导入真实商品 ${n} 款（Free-Ecommerce ${feRaw.length} + OFF 家族 ${offRaw.length}）`);
+  console.log(`[✓] 导入真实商品 ${n} 款（Free-Ecommerce ${feRaw.length} + OFF 家族 ${offRaw.length} + Open Library ${olRaw.length}）`);
   if (dN) console.log(`[✓] 已生成 web 演示数据 ${dN} 款 -> web/js/demo-real-data.js`);
   console.log(`[✓] 当前数据库商品总数：${total}（含原有演示数据 ${seeded.products}）`);
 }
