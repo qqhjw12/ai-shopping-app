@@ -74,13 +74,14 @@ export function renderNotFound(v) {
   v.innerHTML = '';
   v.appendChild(
     el('div', { class: 'notfound' }, [
+      el('span', { class: 'eyebrow' }, 'PAGE NOT FOUND'),
       el('div', { class: 'nf-code' }, '404'),
-      el('h2', {}, '这个页面走丢了'),
-      el('p', {}, '可能是链接过期，或者该页面已经搬走了。试试下面几个入口 👇'),
+      el('h2', {}, '这一页，暂时离席'),
+      el('p', {}, '可能是链接过期，或它已被移到别处。不妨从下面重新开始。'),
       el('div', { class: 'nf-actions' }, [
-        el('a', { class: 'nf-btn', href: '#/' }, '回首页'),
-        el('a', { class: 'nf-btn ghost', href: '#/categories' }, '逛分类'),
-        el('a', { class: 'nf-btn ghost', href: '#/products' }, '全部商品'),
+        el('a', { class: 'nf-btn', href: '#/' }, '回到首页'),
+        el('a', { class: 'nf-btn ghost', href: '#/categories' }, '浏览分类'),
+        el('a', { class: 'nf-btn ghost', href: '#/products' }, '全部甄选'),
         el('a', { class: 'nf-btn ghost', href: '#/orders' }, '我的订单'),
       ]),
     ]),

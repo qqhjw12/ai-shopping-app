@@ -157,6 +157,47 @@ async function sendQA(text) {
 }
 
 /* ---------------- UI 状态 ---------------- */
+function seedWelcome(t) {
+  if (containers[t].children.length) return;
+  const copy = {
+    guide: {
+      hint: '告诉我一个场景、预算，或只是某种感觉。',
+      prompts: [
+        ['1000 元内的礼物', '预算 1000 元以内、有质感的通勤礼物'],
+        ['通勤降噪', '推荐一款适合长时间办公的降噪耳机'],
+        ['居家氛围', '帮我挑一件能提升居家氛围的单品'],
+      ],
+      send: (text) => sendGuide(text),
+    },
+    chat: {
+      hint: '订单、物流、退换货，都由我替你处理。',
+      prompts: [
+        ['查询物流', '帮我查询一下最近的订单物流'],
+        ['退换货', '你们的退换货政策是什么？'],
+        ['优惠信息', '最近有什么优惠活动？'],
+      ],
+      send: (text) => sendChat(text),
+    },
+    qa: {
+      hint: '想了解材质、保养或适用人群，都可以问我。',
+      prompts: [
+        ['适合谁', '这件商品适合什么人群和场景？'],
+        ['材质细节', '这件商品的材质和工艺有什么特点？'],
+        ['如何保养', '这件商品平时应该怎么保养？'],
+      ],
+      send: (text) => sendQA(text),
+    },
+  }[t];
+  const welcome = el('div', { class: 'ai-welcome' }, [
+    el('span', { class: 'eyebrow' }, t === 'guide' ? 'CURATED FOR YOU' : t === 'chat' ? 'AT YOUR SERVICE' : 'ABOUT THE OBJECT'),
+    el('h3', {}, t === 'guide' ? '今天，想为生活添点什么？' : t === 'chat' ? '需要我替你处理什么？' : '关于这件物件，想知道什么？'),
+    el('p', {}, copy.hint),
+    el('div', { class: 'ai-chips' }, copy.prompts.map(([label, text]) =>
+      el('button', { type: 'button', onclick: () => copy.send(text) }, label))),
+  ]);
+  containers[t].appendChild(welcome);
+}
+
 function showTab(t) {
   tab = t;
   document.querySelectorAll('.ai-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === t));
@@ -176,15 +217,18 @@ function showTab(t) {
   inputEl().placeholder = ph;
   messagesEl().innerHTML = '';
   ensureContainers();
+  seedWelcome(t);
   messagesEl().appendChild(containers[t]);
   scrollBottom();
 }
 
 function openPanel() {
   document.getElementById('ai-panel').classList.remove('hidden');
+  document.getElementById('ai-widget').classList.add('is-open');
 }
 function closePanel() {
   document.getElementById('ai-panel').classList.add('hidden');
+  document.getElementById('ai-widget').classList.remove('is-open');
 }
 
 /* ---------------- 对外入口 ---------------- */

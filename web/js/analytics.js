@@ -80,7 +80,17 @@ function section(title, children) {
 
 export async function renderAnalytics(view) {
   view.innerHTML = '';
-  view.appendChild(el('div', { class: 'section-title' }, [el('h2', {}, '📊 来源与行为分析')]));
+  view.appendChild(el('header', { class: 'page-intro' }, [
+    el('div', { class: 'page-intro-copy' }, [
+      el('span', { class: 'eyebrow' }, 'THE OBSERVATORY'),
+      el('h1', { class: 'page-display' }, '来源与行为洞察'),
+      el('p', {}, '每一次浏览与选择，都在构成更准确的品味画像。'),
+    ]),
+    el('div', { class: 'page-intro-aside' }, [
+      el('span', { class: 'intro-count' }, 'LIVE SIGNALS'),
+      el('span', { class: 'intro-line', 'aria-hidden': 'true' }),
+    ]),
+  ]));
   const wrap = el('div', { class: 'analytics' });
   view.appendChild(wrap);
   loading(wrap, '加载分析数据…');

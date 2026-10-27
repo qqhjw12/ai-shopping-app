@@ -3,8 +3,9 @@ import { api, ApiError } from './api.js';
 import {
   el, fmtPrice, discountText, starText, fmtSales,
   loading, banner, productCard, productThumb, openModal, openDrawer, closeDrawer, toast, updateCartBadge, isRealPic,
+  revealCards, emptyEditorial,
 } from './ui.js';
-import { addToCart, setQty, removeFromCart, clearCart, getUserId } from './state.js';
+import { addToCart, setQty, removeFromCart, clearCart, getUserId, getCart } from './state.js';
 import { askGuide, askProductQA } from './assistant.js';
 import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
@@ -95,77 +96,304 @@ function categories(products) {
 }
 
 /* ---------------- 首页 ---------------- */
+// 编辑首屏的固定选品：优先呈现有真实图片、气质与主题一致的单品；
+// 若后端目录中没有这些 ID，再从当前商品库补齐，保证首页永远有内容。
+const EDITORIAL_PICKS = [
+  'obf_8005610295015',
+  'fe_29',
+  'p017',
+  'ol_OL498556W',
+  'off_7622210578464',
+  'p033',
+  'obf_3614273955546',
+  'p097',
+];
+
+function cleanDisplayName(name = '') {
+  return String(name).replace(/\s+-\s+.*$/, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+function pickEditorial(products, count = 8) {
+  const byId = new Map(products.map((p) => [String(p.id), p]));
+  const picked = [];
+  const used = new Set();
+  EDITORIAL_PICKS.forEach((id) => {
+    const p = byId.get(id);
+    if (p && !used.has(String(p.id))) {
+      picked.push(p);
+      used.add(String(p.id));
+    }
+  });
+
+  // 补齐时优先照顾未出现的类目，让首页保持编辑式的内容节奏，而不是同类商品堆叠。
+  const categories = new Set(picked.map((p) => p.categoryId));
+  const rest = products.filter((p) => !used.has(String(p.id)));
+  rest.forEach((p) => {
+    if (picked.length >= count) return;
+    if (!categories.has(p.categoryId) && (p.pic || p.categoryId)) {
+      picked.push(p);
+      categories.add(p.categoryId);
+      used.add(String(p.id));
+    }
+  });
+  rest.forEach((p) => {
+    if (picked.length >= count) return;
+    if (!used.has(String(p.id))) {
+      picked.push(p);
+      used.add(String(p.id));
+    }
+  });
+  return picked.slice(0, count);
+}
+
+function bentoClass(index) {
+  if (index === 0) return 'pcard--hero';
+  if (index === 7) return 'pcard--wide';
+  return 'pcard--small';
+}
+
+function editorialTile() {
+  return el('a', { class: 'editorial-tile', href: '#/products' }, [
+    el('span', { class: 'eyebrow' }, 'THE FULL EDIT'),
+    el('h3', {}, ['仍在寻找？', el('br'), '让 AI 听见你的生活。']),
+    el('p', {}, '从万千物件中，留下真正属于你的那一件。'),
+    el('span', { class: 'tile-arrow', 'aria-hidden': 'true' }, '↗'),
+    el('span', { class: 'tile-mark', 'aria-hidden': 'true' }, 'M'),
+  ]);
+}
+
+function curatorNote() {
+  return el('aside', { class: 'bento-note' }, [
+    el('span', { class: 'eyebrow' }, 'A NOTE FROM THE EDITOR'),
+    el('p', { class: 'bento-note-quote' }, ['“真正的奢侈，', el('br'), '是每天都在用的那一件。”']),
+    el('span', { class: 'bento-note-credit' }, 'MAISON AI · CURATED EDIT'),
+  ]);
+}
+
 export async function renderHome(view) {
   view.innerHTML = '';
 
-  // Hero：AI 导购快捷入口
-  const heroInput = el('input', { placeholder: '一句话描述需求，例如：预算 1000 的办公耳机', id: 'hero-input' });
+  /* ---- 编辑式首屏 ---- */
+  const heroInput = el('input', {
+    placeholder: '描述你的需求，例如：通勤礼物',
+    'aria-label': '告诉 AI 你的购物需求',
+    autocomplete: 'off',
+  });
+  const heroForm = el('form', {
+    class: 'hero-form',
+    onsubmit: (e) => {
+      e.preventDefault();
+      const text = heroInput.value.trim();
+      if (text) askGuide(text);
+      else heroInput.focus();
+    },
+  }, [
+    el('span', { class: 'hero-form-icon', 'aria-hidden': 'true' }, '✦'),
+    heroInput,
+    el('button', { type: 'submit', class: 'btn-primary' }, ['让 AI 甄选', el('span', { 'aria-hidden': 'true' }, '→')]),
+  ]);
+
+  const heroImage = el('div', { class: 'hero-image is-loading' }, [
+    el('span', { class: 'media-placeholder' }, 'CURATING'),
+  ]);
+  const heroProduct = el('a', { class: 'hero-product', href: '#/products', 'aria-label': '查看编辑甄选' }, [
+    el('span', { class: 'hero-product-kicker' }, 'AI 甄选'),
+    el('span', { class: 'hero-product-name' }, '正在为你挑选…'),
+    el('span', { class: 'hero-product-meta' }, 'MAISON AI EDIT'),
+  ]);
+
   const hero = el('section', { class: 'hero' }, [
-    el('h1', {}, '🤖 AI 帮你挑好物'),
-    el('p', {}, '用自然语言说出需求，AI 导购即时推荐并给出理由；右下角还有客服、问答随时待命。'),
-    el('form', {
-      class: 'row',
-      onsubmit: (e) => {
-        e.preventDefault();
-        const text = heroInput.value.trim();
-        if (text) askGuide(text);
-      },
-    }, [heroInput, el('button', { type: 'submit' }, '帮我挑')]),
+    el('div', { class: 'hero-copy' }, [
+      el('span', { class: 'eyebrow hero-eyebrow' }, [
+        el('span', { class: 'eyebrow-rule', 'aria-hidden': 'true' }),
+        'AI EDITORIAL · VOL. 07',
+      ]),
+      el('h1', {}, ['少一点喧嚣，', el('br'), '多一件', el('span', { class: 'hero-word' }, '值得。')]),
+      el('p', { class: 'hero-lede' }, '让 AI 读懂你的生活，再从万千好物中，留下恰到好处的那一件。'),
+      heroForm,
+      el('div', { class: 'hero-prompts' }, [
+        el('span', { class: 'hero-prompts-label' }, '试试'),
+        el('button', { type: 'button', onclick: () => askGuide('预算 1000 元以内，有质感的通勤礼物') }, '1000 元以内的礼物'),
+        el('button', { type: 'button', onclick: () => askGuide('帮我挑一件能提升居家氛围的单品') }, '居家氛围'),
+        el('button', { type: 'button', onclick: () => askGuide('推荐一款适合长时间办公的降噪耳机') }, '办公降噪'),
+      ]),
+    ]),
+    el('div', { class: 'hero-visual' }, [
+      el('div', { class: 'hero-frame' }, [
+        heroImage,
+        el('span', { class: 'hero-edition' }, 'AI PICK · 01'),
+        el('span', { class: 'hero-vertical' }, 'CURATED BY INTELLIGENCE'),
+      ]),
+      heroProduct,
+    ]),
   ]);
   view.appendChild(hero);
 
-  // 分类专区：16 个一级类目快捷入口（点进筛选后的商品列表）
-  const catSlot = el('div', {});
-  loading(catSlot, '加载分类…');
-  const catWrap = el('section', {}, [
-    el('div', { class: 'section-title' }, [
-      el('h2', {}, '🗂️ 分类专区'),
-      el('a', { href: '#/categories' }, '全部分类 →'),
+  /* ---- AI 工坊条带 ---- */
+  const aiStrip = el('section', { class: 'ai-strip' }, [
+    el('div', { class: 'ai-strip-copy' }, [
+      el('span', { class: 'eyebrow' }, 'THE INTELLIGENCE DESK'),
+      el('h2', {}, [ 'AI 工坊', el('span', { class: 'ai-star', 'aria-hidden': 'true' }, '✦') ]),
+      el('p', {}, '把品味交给对话，把繁琐交给算法。'),
     ]),
-    catSlot,
-  ]);
-  view.appendChild(catWrap);
-  loadCategoryTree()
-    .then((tree) => {
-      catSlot.replaceWith(
-        el('div', { class: 'cat-strip' },
-          tree.map((c) =>
-            el('a', {
-              class: 'cat-chip',
-              href: `#/products?cat=${encodeURIComponent(c.id)}`,
-            }, [
-              el('span', { class: 'ico' }, c.icon || '🛍️'),
-              el('span', { class: 'nm' }, c.name),
-              el('span', { class: 'ct' }, `${c.count} 件`),
-            ]),
-          ),
-        ),
-      );
-    })
-    .catch(() => catSlot.replaceWith(el('div', {}, '')));
-
-  // 商品网格
-  const gridWrap = el('section', { class: 'home-goods' }, [
-    el('div', { class: 'section-title' }, [
-      el('h2', {}, '🔥 精选好物'),
-      el('a', { href: '#/products' }, '查看全部 →'),
+    el('div', { class: 'ai-actions' }, [
+      el('button', {
+        type: 'button',
+        class: 'ai-action ai-action--primary',
+        onclick: () => askGuide(''),
+      }, [el('span', { 'aria-hidden': 'true' }, '✦'), '私人买手']),
+      el('button', {
+        type: 'button',
+        class: 'ai-action',
+        onclick: () => navigate('#/tools'),
+      }, ['生成商品文案', el('span', { class: 'action-arrow', 'aria-hidden': 'true' }, '↗')]),
+      el('button', {
+        type: 'button',
+        class: 'ai-action',
+        onclick: () => navigate('#/tools'),
+      }, ['订单与售后', el('span', { class: 'action-arrow', 'aria-hidden': 'true' }, '↗')]),
     ]),
-    loading(el('div', {})),
   ]);
-  view.appendChild(gridWrap);
-  const grid = gridWrap.lastChild;
+  view.appendChild(aiStrip);
+  view.appendChild(el('div', { class: 'gold-divider', 'aria-hidden': 'true' }));
 
+  /* ---- 编辑选品 ---- */
+  const catRail = el('div', { class: 'cat-tabs', role: 'tablist', 'aria-label': '按分类浏览' });
+  const bento = el('div', { class: 'bento-grid' });
+  const collection = el('section', { class: 'edit-section' }, [
+    el('div', { class: 'section-heading' }, [
+      el('div', {}, [
+        el('span', { class: 'eyebrow' }, 'THE CURATED EDIT'),
+        el('h2', {}, '本季甄选'),
+      ]),
+      el('a', { class: 'text-link', href: '#/products' }, ['浏览全部', el('span', { 'aria-hidden': 'true' }, '→')]),
+    ]),
+    catRail,
+    bento,
+  ]);
+  view.appendChild(collection);
+
+  let products = [];
   try {
-    const products = await getProducts();
+    products = await getProducts();
     ensureDemoBanner(view);
-    const featured = products.slice(0, 8);
-    const gridEl = el('div', { class: 'grid' },
-      featured.map((p) => productCard(p, { onDetail: (p) => openProductDetail(p, 'home'), onAddCart: (p) => doAdd(p, 'home') })),
-    );
-    grid.replaceWith(gridEl);
   } catch (err) {
-    banner(grid, friendly(err), 'err');
+    bento.appendChild(bannerCell(friendly(err)));
+    catRail.remove();
+    return;
   }
+
+  if (!products.length) {
+    bento.appendChild(emptyEditorial({
+      title: '藏品正在整理中',
+      text: '稍后再来，或让 AI 私人买手为你留意心仪之物。',
+      primaryLabel: '和 AI 聊聊',
+      onPrimary: () => askGuide(''),
+    }));
+    return;
+  }
+
+  // 首屏的编辑之选与网格首卡不重复，让一次浏览看到更多不同的物件。
+  const editorialPicks = pickEditorial(products, 9);
+  const heroPick = editorialPicks[0] || products[0];
+  const initialPicks = editorialPicks.slice(1);
+  fillHeroProduct(heroImage, heroProduct, heroPick);
+
+  const tree = await loadCategoryTree().catch(() => deriveCategoryTree(products));
+  const tabs = [{ id: 'all', name: '全部' }, ...tree];
+  const cardsCache = new Map();
+
+  const renderBento = (categoryId) => {
+    let picks;
+    if (categoryId === 'all') {
+      picks = cardsCache.get('all') || initialPicks;
+      cardsCache.set('all', picks);
+    } else {
+      if (!cardsCache.has(categoryId)) {
+        const bucket = products.filter((p) => p.categoryId === categoryId);
+        const withoutHero = bucket.filter((p) => String(p.id) !== String(heroPick.id));
+        cardsCache.set(categoryId, pickEditorial(withoutHero.length >= 4 ? withoutHero : bucket, 8));
+      }
+      picks = cardsCache.get(categoryId);
+    }
+
+    bento.innerHTML = '';
+    if (!picks.length) {
+      bento.appendChild(emptyEditorial({
+        title: '这一类，暂时留白',
+        text: '换个分类看看，或者让 AI 为你找到相近气质的物件。',
+        primaryLabel: '与 AI 聊聊',
+        onPrimary: () => askGuide(''),
+      }));
+      return;
+    }
+    const cards = picks.map((p, i) => productCard(p, {
+      className: bentoClass(i),
+      aiPick: i === 0,
+      onDetail: (product) => openProductDetail(product, 'home'),
+      onAddCart: (product) => doAdd(product, 'home'),
+    }));
+
+    // 首行：大 Hero + 右侧双卡 + 编辑手记，保证信息密度与留白处于同一节奏。
+    const top = el('div', { class: 'bento-top' }, [cards[0]]);
+    if (cards.length > 1) {
+      top.appendChild(el('div', { class: 'bento-side' }, [
+        el('div', { class: 'bento-side-cards' }, cards.slice(1, 3)),
+        curatorNote(),
+      ]));
+    }
+    bento.appendChild(top);
+    cards.slice(3).forEach((card) => bento.appendChild(card));
+    bento.appendChild(editorialTile());
+    revealCards(bento);
+  };
+
+  tabs.forEach((c, i) => {
+    const tab = el('button', {
+      type: 'button',
+      role: 'tab',
+      class: 'cat-tab' + (i === 0 ? ' is-active' : ''),
+      'aria-selected': i === 0 ? 'true' : 'false',
+      onclick: () => {
+        catRail.querySelectorAll('.cat-tab').forEach((b) => {
+          b.classList.remove('is-active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        tab.classList.add('is-active');
+        tab.setAttribute('aria-selected', 'true');
+        renderBento(c.id);
+      },
+    }, [
+      el('span', {}, c.name || '未命名分类'),
+      i === 0 ? el('span', { class: 'tab-count' }, String(products.length)) : null,
+    ]);
+    catRail.appendChild(tab);
+  });
+
+  renderBento('all');
+}
+
+function fillHeroProduct(imageSlot, productLink, p) {
+  if (!p) return;
+  imageSlot.classList.remove('is-loading');
+  imageSlot.innerHTML = '';
+  imageSlot.appendChild(productThumb(p));
+  productLink.href = `#/product/${encodeURIComponent(p.id)}?from=home`;
+  productLink.innerHTML = '';
+  [
+    el('span', { class: 'hero-product-kicker' }, ['AI 甄选', el('span', { 'aria-hidden': 'true' }, '✦')]),
+    el('span', { class: 'hero-product-name' }, cleanDisplayName(p.name)),
+    el('span', { class: 'hero-product-foot' }, [
+      el('span', { class: 'hero-product-meta' }, p.brand || p.highlight || p.category || '编辑精选'),
+      el('span', { class: 'hero-product-price' }, fmtPrice(p.price)),
+    ]),
+  ].forEach((node) => productLink.appendChild(node));
+}
+
+function bannerCell(message) {
+  return el('div', { class: 'grid-empty-cell' }, [
+    el('div', { class: 'banner err' }, message),
+  ]);
 }
 
 function doAdd(p, source, skuId) {
@@ -201,7 +429,7 @@ export function deriveCategoryTree(products) {
   for (const p of products) {
     const topId = p.categoryId || 'misc';
     if (!map.has(topId)) {
-      map.set(topId, { id: topId, name: p.category || '未分类', icon: '🛍️', count: 0, children: new Map() });
+      map.set(topId, { id: topId, name: p.category || '未分类', count: 0, children: new Map() });
     }
     const top = map.get(topId);
     top.count += 1;
@@ -273,6 +501,19 @@ export async function renderProducts(view, opts = {}) {
     || (f.minPrice === null && f.maxPrice === null ? 'all' : null);
 
   view.innerHTML = '';
+  const introTitle = el('h1', { class: 'page-display' }, '全部甄选');
+  const introCount = el('span', { class: 'intro-count' }, '正在整理藏品');
+  const intro = el('header', { class: 'page-intro' }, [
+    el('div', { class: 'page-intro-copy' }, [
+      el('span', { class: 'eyebrow' }, 'THE COLLECTION'),
+      introTitle,
+      el('p', {}, '由 AI 与编辑共同筛选，克制地呈现值得拥有的物件。'),
+    ]),
+    el('div', { class: 'page-intro-aside' }, [
+      introCount,
+      el('span', { class: 'intro-line', 'aria-hidden': 'true' }),
+    ]),
+  ]);
   const layout = el('div', { class: 'shop-layout' });
   const aside = el('aside', { class: 'shop-filter' });
   const main = el('div', { class: 'shop-main' });
@@ -282,6 +523,7 @@ export async function renderProducts(view, opts = {}) {
   main.appendChild(grid);
   layout.appendChild(aside);
   layout.appendChild(main);
+  view.appendChild(intro);
   view.appendChild(layout);
   loading(grid, '加载商品中…');
 
@@ -293,6 +535,9 @@ export async function renderProducts(view, opts = {}) {
       loadCategoryTree(),
     ]);
     ensureDemoBanner(view);
+    introCount.textContent = `${products.length} 件藏品`;
+    const treeCat = tree.find((c) => c.id === f.category);
+    if (treeCat) introTitle.textContent = treeCat.name;
   } catch (err) {
     grid.innerHTML = '';
     banner(grid, friendly(err), 'err');
@@ -319,7 +564,7 @@ export async function renderProducts(view, opts = {}) {
           class: 'filter-item' + (isOpen ? ' active' : ''),
           onclick: () => navigate(`#/products?cat=${encodeURIComponent(c.id)}`),
         }, [
-          el('span', {}, `${c.icon || '🛍️'} ${c.name}`),
+          el('span', {}, c.name),
           el('span', { class: 'cnt' }, String(c.count)),
         ]),
       );
@@ -442,18 +687,42 @@ export async function renderProducts(view, opts = {}) {
   /* ---------- 网格 ---------- */
   grid.innerHTML = '';
   if (!products.length) {
-    grid.appendChild(
-      el('div', { class: 'cart-empty' }, [
-        el('div', {}, '这个条件下还没有商品 🫧'),
-        el('button', { class: 'ghost', onclick: () => navigate('#/products') }, '清空筛选看看别'),
-      ]),
-    );
+    grid.appendChild(emptyEditorial({
+      title: '这一栏，暂时留白',
+      text: '当前条件还没有合适单品。放宽筛选，或让 AI 寻找相近气质的物件。',
+      primaryLabel: '让 AI 寻找',
+      onPrimary: () => askGuide(f.category ? `帮我推荐${activeCat ? activeCat.name : ''}类的好物` : '帮我挑一件有质感的好物'),
+      secondaryLabel: '清空筛选',
+      onSecondary: () => navigate('#/products'),
+    }));
     return;
   }
-  products.forEach((p) => grid.appendChild(productCard(p, {
-    onDetail: (p) => openProductDetail(p, f.sub ? 'sub' : f.category ? 'list' : 'list'),
-    onAddCart: (p) => doAdd(p, 'list'),
-  })));
+  // 大型目录分批呈现，避免一次性把所有商品塞进 DOM，也保留编辑式的长页节奏。
+  const PAGE_SIZE = 24;
+  let shown = 0;
+  const loadMoreRow = el('div', { class: 'load-more-row' });
+  main.appendChild(loadMoreRow);
+  const paintBatch = (first = false) => {
+    const batch = products.slice(shown, shown + PAGE_SIZE);
+    batch.forEach((p) => grid.appendChild(productCard(p, {
+      onDetail: (item) => openProductDetail(item, 'list'),
+      onAddCart: (item) => doAdd(item, 'list'),
+    })));
+    shown += batch.length;
+    if (first) revealCards(grid);
+    loadMoreRow.innerHTML = '';
+    if (shown < products.length) {
+      loadMoreRow.appendChild(el('span', { class: 'load-more-count' }, `${shown} / ${products.length}`));
+      loadMoreRow.appendChild(el('button', {
+        type: 'button',
+        class: 'load-more-btn',
+        onclick: () => paintBatch(false),
+      }, ['继续浏览', el('span', { 'aria-hidden': 'true' }, '↓')]));
+    } else if (products.length > PAGE_SIZE) {
+      loadMoreRow.appendChild(el('span', { class: 'load-more-count' }, `已呈现全部 ${products.length} 件藏品`));
+    }
+  };
+  paintBatch(true);
 }
 
 /** 类目树：网关优先，失败则从本地商品派生 */
@@ -472,11 +741,25 @@ async function loadCategoryTree() {
 /* ---------------- 智能搜索 ---------------- */
 export async function renderSearch(view, query) {
   view.innerHTML = '';
-  view.appendChild(el('div', { class: 'section-title' }, [el('h2', {}, `🔍 智能搜索：${query || ''}`)]));
+  view.appendChild(el('header', { class: 'page-intro search-intro' }, [
+    el('div', { class: 'page-intro-copy' }, [
+      el('span', { class: 'eyebrow' }, 'INTELLIGENT SEARCH'),
+      el('h1', { class: 'page-display' }, query ? `关于「${query}」` : '搜索你的灵感'),
+      el('p', {}, 'AI 不只是匹配关键词，也在理解你对质感、场景与预算的期待。'),
+    ]),
+    el('div', { class: 'page-intro-aside' }, [
+      el('span', { class: 'intro-line', 'aria-hidden': 'true' }),
+    ]),
+  ]));
   const grid = el('div', { class: 'grid' });
   view.appendChild(grid);
   if (!query) {
-    grid.appendChild(el('div', { class: 'cart-empty' }, '在顶部搜索框输入关键词试试，例如「降噪耳机」「预算 1000 的礼物」'));
+    grid.appendChild(emptyEditorial({
+      title: '从一个念头开始',
+      text: '在顶部输入关键词或一句完整的需求，例如「降噪耳机」或「预算 1000 的礼物」。',
+      primaryLabel: '让 AI 私人买手试试',
+      onPrimary: () => askGuide(''),
+    }));
     return;
   }
   loading(grid, 'AI 正在理解你的需求…');
@@ -486,15 +769,26 @@ export async function renderSearch(view, query) {
     // 搜索埋点（含查询词与命中数）
     trackEvent({ event: 'search', source: 'search', meta: { query, count: results.length } });
     grid.innerHTML = '';
-    if (!results.length) grid.appendChild(el('div', { class: 'cart-empty' }, '没有找到相关商品，换个说法或放宽条件试试？'));
+    if (!results.length) {
+      grid.appendChild(emptyEditorial({
+        title: '没有正好的那一件',
+        text: '换个说法，或放宽一点条件。也可以交给 AI，让它理解你真正想要的感觉。',
+        primaryLabel: '让 AI 再找找',
+        onPrimary: () => askGuide(query),
+        secondaryLabel: '浏览全部',
+        onSecondary: () => navigate('#/products'),
+      }));
+      return;
+    }
     results.forEach((p) => {
       const card = productCard(p, { onDetail: (p) => openProductDetail(p, 'search'), onAddCart: (p) => doAdd(p, 'search') });
       // 在卡片底部附加 AI 相关度说明
       card.querySelector('.body').appendChild(
-        el('div', { class: 'reason' }, `AI 智能匹配度 ${(Number(p.score) * 100).toFixed(0)}%`),
+        el('div', { class: 'reason' }, `AI 匹配度 ${Math.round((Number(p.score) || 0) * 100)}%`),
       );
       grid.appendChild(card);
     });
+    revealCards(grid);
   } catch (err) {
     banner(grid, friendly(err), 'err');
   }
@@ -509,15 +803,15 @@ export function openProductDetail(p, source) {
 
 // 来源渠道元信息：文案 + 主题色（详情页色条、分享归因、埋点均复用）
 export const SOURCE_META = {
-  home:  { label: '首页精选',     color: '#2e7d32' },
-  list:  { label: '商品列表',     color: '#1565c0' },
-  search:{ label: '智能搜索',     color: '#ef6c00' },
-  guide: { label: 'AI 导购推荐',  color: '#6a1b9a' },
-  rec:   { label: '相关推荐',     color: '#00838f' },
-  qa:    { label: 'AI 问答推荐',  color: '#ad1457' },
-  fav:   { label: '收藏夹',       color: '#c2185b' },
-  detail:{ label: '商品详情',     color: '#546e7a' },
-  analytics: { label: '分析看板', color: '#455a64' },
+  home:  { label: '首页精选',     color: '#8C7C64' },
+  list:  { label: '商品列表',     color: '#737973' },
+  search:{ label: '智能搜索',     color: '#A3875B' },
+  guide: { label: 'AI 导购推荐',  color: '#91776A' },
+  rec:   { label: '相关推荐',     color: '#787F76' },
+  qa:    { label: 'AI 问答推荐',  color: '#867A68' },
+  fav:   { label: '收藏夹',       color: '#987D78' },
+  detail:{ label: '商品详情',     color: '#6D7474' },
+  analytics: { label: '分析看板', color: '#5F6663' },
 };
 export const SOURCE_LABELS = Object.fromEntries(
   Object.entries(SOURCE_META).map(([k, v]) => [k, v.label]),
@@ -667,8 +961,9 @@ function buildDetailPage(p, from, presetRelated = []) {
         isRealPic(p) ? el('span', { class: 'badge-real' }, '实拍') : null,
       ]),
       el('div', { class: 'info' }, [
+        el('span', { class: 'eyebrow' }, 'THE OBJECT · MAISON AI'),
         el('a', { class: 'crumb', href: `#/products?cat=${encodeURIComponent(p.category || '')}` },
-          `${p.brand || '精选好物'} · ${p.category || '全部商品'}`),
+          `${p.brand || '编辑精选'} · ${p.category || '全部商品'}`),
         el('h1', { class: 'name' }, p.name),
         p.highlight ? el('div', { class: 'hl-lg' }, p.highlight) : null,
         el('div', { class: 'rating-line' }, [
@@ -682,19 +977,19 @@ function buildDetailPage(p, from, presetRelated = []) {
         p.highlights && p.highlights.length
           ? el('div', { class: 'promises' }, p.highlights.map((t) => el('span', { class: 'promise' }, `✓ ${t}`)))
           : null,
-        p.tags && p.tags.length
-          ? el('div', { class: 'tags' }, p.tags.map((t) => el('span', { class: 'tag' }, t)))
+        p.tags && p.tags.filter((t) => !String(t).includes(':')).length
+          ? el('div', { class: 'tags' }, p.tags.filter((t) => !String(t).includes(':')).slice(0, 4).map((t) => el('span', { class: 'tag' }, t)))
           : null,
         el('div', { class: 'actions' }, [
           el('button', {
             class: 'buy',
             onclick: () => doAdd({ ...p, price: selected ? selected.price : p.price, spec: selected ? selected.spec : '' }, from || 'detail', selected && selected.id),
-          }, '加入购物车'),
-          el('button', { onclick: () => buyNow(p, selected, from) }, '立即购买'),
-          el('button', { class: 'ghost', onclick: () => toggleFavorite(p) }, '♡ 收藏'),
+          }, '加入购物袋'),
+          el('button', { class: 'btn-ink', onclick: () => buyNow(p, selected, from) }, '立即购买'),
+          el('button', { class: 'ghost', onclick: () => toggleFavorite(p) }, '收藏'),
           el('button', { class: 'ghost', onclick: () => askProductQA(p) }, '问我这件商品'),
           el('button', { class: 'ghost', onclick: () => askGuide(`介绍一下「${p.name}」，适合什么人群和场景？`) }, 'AI 导购推荐'),
-          el('button', { class: 'ghost', onclick: () => copyShareLink(p, from) }, '🔗 复制分享'),
+          el('button', { class: 'ghost', onclick: () => copyShareLink(p, from) }, '复制分享'),
         ]),
       ]),
     ]),
@@ -723,14 +1018,20 @@ function buildDetailPage(p, from, presetRelated = []) {
   if (reviews.length) {
     reviews.forEach((r) => revWrap.appendChild(reviewCard(r)));
   } else {
-    revWrap.appendChild(el('div', { class: 'cart-empty' }, '还没有评价，等你来写第一条 ✍️'));
+    revWrap.appendChild(el('div', { class: 'cart-empty' }, '还没有评价，等你来写第一条。'));
   }
   body.appendChild(revWrap);
   page.appendChild(body);
 
   /* ---- 相关推荐：优先用详情接口返回的同osm相似款，缺失时再走搜索 ---- */
   const relatedWrap = el('section', { class: 'related' }, [
-    el('div', { class: 'section-title' }, [el('h2', {}, '🤝 相关推荐')]),
+    el('div', { class: 'section-heading compact' }, [
+      el('div', {}, [
+        el('span', { class: 'eyebrow' }, 'YOU MAY ALSO LIKE'),
+        el('h2', {}, '相近气质'),
+      ]),
+      el('a', { class: 'text-link', href: '#/products' }, ['浏览更多', el('span', { 'aria-hidden': 'true' }, '→')]),
+    ]),
   ]);
   const relGrid = el('div', { class: 'grid' });
   relatedWrap.appendChild(relGrid);
@@ -786,7 +1087,7 @@ async function toggleFavorite(p) {
   trackEvent({ event: 'favorite', source: 'detail', productId: p.id });
   try {
     const d = await api('/api/favorites', { method: 'POST', body: { userId: getUserId(), productId: p.id }, retries: 0 });
-    toast(d && d.favorited ? '已加入收藏 ❤️' : '已取消收藏', 'ok');
+    toast(d && d.favorited ? '已加入已收藏' : '已取消收藏', 'ok');
   } catch {
     toast(isDemoMode() ? '演示模式暂不支持收藏同步' : '收藏失败，请稍后重试', 'warn');
   }
@@ -798,7 +1099,7 @@ function copyShareLink(p, from) {
   const url = `${location.origin}${location.pathname}#/product/${p.id}` + (from ? `?from=${encodeURIComponent(from)}` : '');
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(
-      () => toast('已复制商品链接，可分享给好友 🔗', 'ok'),
+      () => toast('商品链接已复制，可分享给好友', 'ok'),
       () => toast('复制失败，请手动复制地址栏链接', 'warn'),
     );
   } else {
@@ -829,10 +1130,17 @@ export function renderCartDrawer() {
   );
 
   const node = el('div', {}, [
-    el('div', { class: 'modal-head' }, [
-      el('h3', {}, `🛒 购物车（${cart.reduce((n, i) => n + i.qty, 0)}）`),
+    el('div', { class: 'drawer-heading' }, [
+      el('div', {}, [
+        el('span', { class: 'eyebrow' }, 'YOUR SELECTION'),
+        el('div', { class: 'drawer-title' }, [
+          el('h2', {}, '购物袋'),
+          el('span', { class: 'drawer-count' }, `${cart.reduce((n, i) => n + i.qty, 0)} 件`),
+        ]),
+      ]),
+      el('button', { class: 'drawer-close', 'aria-label': '关闭购物袋', onclick: () => closeDrawer() }, '×'),
     ]),
-    cart.length ? el('div', { class: 'cart-list' }, rows) : el('div', { class: 'cart-empty' }, '购物车还是空的，去挑点好物吧 🛍️'),
+    cart.length ? el('div', { class: 'cart-list' }, rows) : el('div', { class: 'cart-empty' }, '购物袋还是空的。去挑一件值得的物件吧。'),
     el('div', { class: 'cart-foot' }, [
       cart.length ? el('div', { class: 'cart-total' }, [el('span', {}, '合计'), el('span', { class: 'money' }, fmtPrice(total))]) : null,
       cart.length

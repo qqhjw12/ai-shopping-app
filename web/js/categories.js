@@ -1,7 +1,6 @@
 // 分类浏览页：两级类目入口。每个一级类目用「该类目下真实商品的封面」拼成 2×2 拼图，
 // 点击直接进商品列表并按该类目筛选（深链 #/products?cat=xxx）。
-import { el } from './ui.js';
-import { productArt } from './art.js';
+import { el, productThumb, emptyEditorial } from './ui.js';
 import { api } from './api.js';
 import { getProducts, deriveCategoryTree } from './views.js';
 import { navigate } from './router.js';
@@ -25,12 +24,13 @@ function collage(items) {
   return el(
     'div',
     { class: 'cat-collage' },
-    picks.map((p) => el('div', { class: 'tile' }, productArt(p))),
+    picks.map((p) => el('div', { class: 'tile' }, productThumb(p))),
   );
 }
 
-function categoryCard(cat, bucket) {
+function categoryCard(cat, bucket, index) {
   const subs = (cat.children || []).slice(0, 4);
+  const num = String(index + 1).padStart(2, '0');
   return el(
     'article',
     {
@@ -40,11 +40,14 @@ function categoryCard(cat, bucket) {
     [
       collage(bucket),
       el('div', { class: 'cat-body' }, [
-        el('div', { class: 'cat-title' }, [
-          el('span', { class: 'cat-icon' }, cat.icon || '🛍️'),
-          el('h3', {}, cat.name),
+        el('div', { class: 'cat-kicker' }, [
+          el('span', {}, `CATEGORY / ${num}`),
+          el('span', {}, `${cat.count} 件`),
         ]),
-        el('div', { class: 'cat-count' }, `${cat.count} 件商品`),
+        el('div', { class: 'cat-title' }, [
+          el('h3', {}, cat.name),
+          el('span', { class: 'cat-arrow', 'aria-hidden': 'true' }, '↗'),
+        ]),
         subs.length
           ? el(
               'div',
@@ -59,26 +62,30 @@ function categoryCard(cat, bucket) {
                       navigate(`#/products?cat=${encodeURIComponent(cat.id)}&sub=${encodeURIComponent(s.id)}`);
                     },
                   },
-                  `${s.name} ${s.count}`,
+                  `${s.name} · ${s.count}`,
                 ),
               ),
             )
-          : el('div', { class: 'cat-desc' }, cat.desc || ''),
+          : el('div', { class: 'cat-desc' }, cat.desc || '为日常保留一份恰到好处。'),
       ]),
-      el('div', { class: 'cat-go' }, '去看看 →'),
     ],
   );
 }
 
 export async function renderCategories(view) {
   view.innerHTML = '';
-  const wrap = el('div', { class: 'cat-page' });
-  view.appendChild(
-    el('div', { class: 'section-title' }, [
-      el('h2', {}, '🗂️ 全部分类'),
-      el('span', { class: 'sub' }, '16 个一级类目 · 48 个细分品类'),
+  view.appendChild(el('header', { class: 'page-intro' }, [
+    el('div', { class: 'page-intro-copy' }, [
+      el('span', { class: 'eyebrow' }, 'THE ARCHIVE'),
+      el('h1', { class: 'page-display' }, '全部分类'),
+      el('p', {}, '以生活场景为线索，整理出一份不喧哗的物件目录。'),
     ]),
-  );
+    el('div', { class: 'page-intro-aside' }, [
+      el('span', { class: 'intro-count' }, '16 个一级类目'),
+      el('span', { class: 'intro-line', 'aria-hidden': 'true' }),
+    ]),
+  ]));
+  const wrap = el('div', { class: 'cat-page' });
   view.appendChild(wrap);
   wrap.appendChild(el('div', { class: 'skeleton-grid' }, Array.from({ length: 8 }, () => el('div', { class: 'skeleton' }))));
 
@@ -100,10 +107,15 @@ export async function renderCategories(view) {
 
   wrap.innerHTML = '';
   if (!tree.length) {
-    wrap.appendChild(el('div', { class: 'cart-empty' }, '暂无分类数据'));
+    wrap.appendChild(emptyEditorial({
+      title: '目录正在整理',
+      text: '稍后再来看看，或让 AI 私人买手带你寻找心仪之物。',
+      primaryLabel: '回到首页',
+      onPrimary: () => navigate('#/'),
+    }));
     return;
   }
   const grid = el('div', { class: 'cat-grid' });
-  tree.forEach((c) => grid.appendChild(categoryCard(c, buckets.get(c.id) || [])));
+  tree.forEach((c, i) => grid.appendChild(categoryCard(c, buckets.get(c.id) || [], i)));
   wrap.appendChild(grid);
 }

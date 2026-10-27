@@ -3,7 +3,7 @@ import { api } from './api.js';
 import { el, fmtPrice, loading, banner, toast, updateCartBadge, productThumb } from './ui.js';
 import { getCart, getUserId, clearCart } from './state.js';
 import { navigate } from './router.js';
-import { isDemoMode } from './demo.js';
+import { isDemoMode, setDemoMode } from './demo.js';
 
 const STATUS_TEXT = {
   pending: '待支付', paid: '已支付', shipped: '已发货',
@@ -22,8 +22,8 @@ export async function renderCheckout(view) {
     wrap.innerHTML = '';
     wrap.appendChild(
       el('div', { class: 'empty-page' }, [
-        el('div', { class: 'emoji' }, '🧺'),
-        el('p', {}, '购物车是空的'),
+        el('div', { class: 'empty-mark' }, 'M'),
+        el('p', { class: 'empty-title-sm' }, '购物袋是空的'),
         el('p', { class: 'sub' }, '挑几件心仪好物，再来结算吧'),
         el('button', { onclick: () => navigate('#/products') }, '去逛逛'),
       ]),
@@ -89,9 +89,11 @@ export async function renderCheckout(view) {
         body: { userId, items: cart.map((i) => ({ productId: i.productId, skuId: i.skuId, qty: i.qty })), addressId, couponId },
       });
     } catch (e) {
-      // 演示模式：拿不到服务端报价就本地估算，保证金额明细与提交按钮都在，
-      // 否则用户会卡在「商品有价但看不到合计、也没有下单按钮」的死路上
-      if (isDemoMode()) {
+      // 演示模式 / 静态站点：拿不到服务端报价就本地估算，保证金额明细与提交按钮都在，
+      // 否则用户会卡在「商品有价但看不到合计、也没有下单按钮」的死路上。
+      const noGateway = !e || e.kind === 'network' || e.kind === 'offline' || e.status === 404;
+      if (isDemoMode() || noGateway) {
+        if (noGateway) setDemoMode(true);
         preview = localPreview();
         renderSum();
         return true;
@@ -234,7 +236,8 @@ export async function renderCheckout(view) {
     wrap.innerHTML = '';
     wrap.appendChild(
       el('div', { class: 'result' }, [
-        el('div', { class: 'ok-icon' }, order.status === 'pending' ? '🧾' : '🎉'),
+        el('div', { class: 'ok-icon' }, 'M'),
+        el('span', { class: 'eyebrow' }, 'THE ORDER IS PLACED'),
         el('h2', {}, order.status === 'pending' ? '订单已提交' : '支付成功'),
         el('div', { class: 'cnt' }, `订单号 ${order.orderId}`),
         el('div', { class: 'result-amount' }, fmtPrice(order.payAmount)),
@@ -253,7 +256,7 @@ export async function renderCheckout(view) {
   async function payNow(order) {
     try {
       await api(`/api/orders/${order.orderId}/pay?userId=${encodeURIComponent(userId)}`, { method: 'POST' });
-      toast('支付成功 🎉', 'ok');
+      toast('支付成功', 'ok');
       navigate('#/orders');
     } catch (e) {
       if (isDemoMode()) {
@@ -278,7 +281,10 @@ export async function renderCheckout(view) {
   if (addresses[0]) addressId = addresses[0].id;
 
   wrap.innerHTML = '';
-  wrap.appendChild(el('h2', { class: 'page-title' }, '🧾 确认订单'));
+  wrap.appendChild(el('div', { class: 'checkout-heading' }, [
+    el('span', { class: 'eyebrow' }, 'CHECKOUT'),
+    el('h1', { class: 'page-display' }, '确认订单'),
+  ]));
   const cols = el('div', { class: 'co-grid' }, [el('div', {}, [addrBox, itemsBox]), el('div', {}, [couponBox, sumBox])]);
   wrap.appendChild(cols);
   wrap.appendChild(el('div', { class: 'panel' }, [el('h3', {}, '订单备注'), remarkInput]));

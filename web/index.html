@@ -3,46 +3,96 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AI 购物助手 · 网页版</title>
+    <meta name="theme-color" content="#FAF9F6" />
+    <title>MAISON AI · AI 购物助手</title>
+    <meta name="description" content="MAISON AI 智能甄选 —— AI 购物助手，以编辑的眼光与算法判断，为你挑选值得拥有的日常。" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231A1A1A'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-size='34' fill='%23C8A96E' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+    <link rel="preload" href="./assets/fonts/playfair-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <!-- 顶栏：品牌 + 智能搜索 + 导航 + 购物车 -->
+    <!-- 顶栏：品牌 + 智能搜索 + 导航 + 购物袋 -->
     <header class="topbar">
-      <a class="brand" href="#/">🛍️ AI 购物助手</a>
+      <a class="brand" href="#/" aria-label="MAISON AI 首页">
+        <span class="brand-monogram" aria-hidden="true">M</span>
+        <span class="brand-text">
+          <span class="brand-name">MAISON <em>AI</em></span>
+          <span class="brand-sub">AI 购物助手 · 私人买手</span>
+        </span>
+      </a>
 
-      <form id="search-form" class="search" role="search">
-        <input
-          id="search-input"
-          type="search"
-          placeholder="智能搜索：降噪耳机 / 预算 1000 的礼物 / 办公神器…"
-          autocomplete="off"
-        />
-        <button type="submit">搜索</button>
-      </form>
-
-      <nav class="nav">
+      <nav class="nav" aria-label="主导航">
         <a href="#/" data-nav="home">首页</a>
-        <a href="#/categories" data-nav="categories">🗂️ 全部分类</a>
-        <a href="#/products" data-nav="products">商品</a>
-        <a href="#/analytics" data-nav="analytics">📊 分析</a>
-        <a href="#/tools" data-nav="tools">AI 工具箱</a>
-        <a href="#/orders" data-nav="account">我的订单</a>
+        <a href="#/categories" data-nav="categories">分类</a>
+        <a href="#/products" data-nav="products">甄选</a>
+        <a href="#/analytics" data-nav="analytics">洞察</a>
+        <a href="#/tools" data-nav="tools">AI 工坊</a>
+        <a href="#/orders" data-nav="account">订单</a>
       </nav>
 
-      <button id="cart-btn" class="cart-btn" aria-label="购物车">
-        🛒 <span id="cart-count" class="cart-count">0</span>
-      </button>
+      <div class="topbar-end">
+        <form id="search-form" class="search" role="search">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5"></circle>
+            <path d="m16 16 4 4"></path>
+          </svg>
+          <input
+            id="search-input"
+            type="search"
+            placeholder="搜索单品或灵感"
+            aria-label="搜索商品"
+            autocomplete="off"
+          />
+          <button class="search-submit" type="submit" aria-label="开始搜索">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 12h14M14 7l5 5-5 5"></path>
+            </svg>
+          </button>
+        </form>
+
+        <button id="cart-btn" class="cart-btn" aria-label="打开购物袋">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5.5 8.5h13l-.8 10.2a2 2 0 0 1-2 1.8H8.3a2 2 0 0 1-2-1.8L5.5 8.5Z"></path>
+            <path d="M9 9V6.5a3 3 0 0 1 6 0V9"></path>
+          </svg>
+          <span class="cart-word">购物袋</span>
+          <span id="cart-count" class="cart-count">0</span>
+        </button>
+      </div>
     </header>
 
     <!-- 主视图（由路由渲染） -->
     <main id="view" class="view"></main>
 
     <footer class="footer">
-      <span>Route A · macrozheng/mall + Dify · 网页版 Demo（AI 导购 / 客服 / 问答 / 搜索 / 文案 / 售后）</span>
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="footer-wordmark">MAISON <em>AI</em></span>
+          <p>以编辑的眼光与 AI 的判断，<br />为你留下真正值得的日常。</p>
+        </div>
+        <div class="footer-links">
+          <div>
+            <span class="footer-label">探索</span>
+            <a href="#/products">本季甄选</a>
+            <a href="#/categories">全部分类</a>
+            <a href="#/tools">AI 工坊</a>
+          </div>
+          <div>
+            <span class="footer-label">服务</span>
+            <a href="#/orders">我的订单</a>
+            <a href="#/favorites">我的收藏</a>
+            <a href="#/analytics">数据洞察</a>
+          </div>
+        </div>
+        <div class="footer-meta">
+          <span>AI CURATED · EDITORIAL COMMERCE</span>
+          <span>© 2026 MAISON AI</span>
+        </div>
+      </div>
     </footer>
 
-    <!-- 购物车抽屉 -->
+    <!-- 购物袋抽屉 -->
     <div id="cart-drawer" class="drawer hidden" aria-hidden="true"></div>
     <div id="overlay" class="overlay hidden"></div>
 
@@ -51,21 +101,32 @@
 
     <!-- AI 助手浮窗（导购 / 客服 / 问答） -->
     <div id="ai-widget" class="ai-widget">
-      <button id="ai-fab" class="ai-fab" aria-label="打开 AI 助手">🤖</button>
+      <button id="ai-fab" class="ai-fab" aria-label="打开 AI 私人买手">
+        <span class="ai-fab-star" aria-hidden="true">✦</span>
+        <span class="ai-fab-text">AI 买手</span>
+      </button>
       <div id="ai-panel" class="ai-panel hidden">
         <div class="ai-header">
-          <div class="ai-tabs">
-            <button class="ai-tab active" data-tab="guide">导购</button>
-            <button class="ai-tab" data-tab="chat">客服</button>
-            <button class="ai-tab" data-tab="qa">问答</button>
+          <div class="ai-heading">
+            <span class="eyebrow">PRIVATE CONCIERGE</span>
+            <strong>AI 私人买手</strong>
           </div>
           <button id="ai-close" class="ai-close" aria-label="关闭">×</button>
+        </div>
+        <div class="ai-tabs" role="tablist" aria-label="助手模式">
+          <button class="ai-tab active" data-tab="guide" role="tab">导购</button>
+          <button class="ai-tab" data-tab="chat" role="tab">客服</button>
+          <button class="ai-tab" data-tab="qa" role="tab">问答</button>
         </div>
         <div id="ai-context" class="ai-context hidden"></div>
         <div id="ai-messages" class="ai-messages"></div>
         <form id="ai-form" class="ai-input-row">
-          <input id="ai-input" placeholder="和 AI 助手聊聊…" autocomplete="off" />
-          <button type="submit">发送</button>
+          <input id="ai-input" placeholder="描述你的需求，如：预算 1000 的办公耳机" autocomplete="off" />
+          <button type="submit" aria-label="发送">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 12h14M14 7l5 5-5 5"></path>
+            </svg>
+          </button>
         </form>
       </div>
     </div>

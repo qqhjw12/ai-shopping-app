@@ -17,14 +17,19 @@ const STATUS_TEXT = {
 /** 订单 / 收藏 切换导航 */
 function accountTabs(current) {
   return el('div', { class: 'sub-tabs' }, [
-    el('a', { href: '#/orders', class: current === 'orders' ? 'active' : '' }, '📦 我的订单'),
-    el('a', { href: '#/favorites', class: current === 'fav' ? 'active' : '' }, '❤️ 我的收藏'),
+    el('a', { href: '#/orders', class: current === 'orders' ? 'active' : '' }, '我的订单'),
+    el('a', { href: '#/favorites', class: current === 'fav' ? 'active' : '' }, '我的收藏'),
   ]);
 }
 
 export async function renderOrders(view) {
   view.innerHTML = '';
-  view.appendChild(el('h2', { class: 'page-title' }, '📦 我的订单'));
+  view.appendChild(el('header', { class: 'page-intro compact-intro' }, [
+    el('div', { class: 'page-intro-copy' }, [
+      el('span', { class: 'eyebrow' }, 'YOUR ARCHIVE'),
+      el('h1', { class: 'page-display' }, '我的订单'),
+    ]),
+  ]));
   view.appendChild(accountTabs('orders'));
   const wrap = el('div', { class: 'orders' });
   view.appendChild(wrap);
@@ -43,8 +48,8 @@ export async function renderOrders(view) {
   if (!orders) {
     wrap.appendChild(
       el('div', { class: 'empty-page' }, [
-        el('div', { class: 'emoji' }, '🔌'),
-        el('p', {}, isDemoMode() ? '演示模式暂无订单数据' : '订单加载失败'),
+        el('div', { class: 'empty-mark' }, 'M'),
+        el('p', { class: 'empty-title-sm' }, isDemoMode() ? '演示模式暂无订单数据' : '订单加载失败'),
         el('p', { class: 'sub' }, isDemoMode()
           ? '连接网关后下单，即可在此查看完整订单流转'
           : '请稍后重试，或检查网关是否正常运行'),
@@ -56,10 +61,10 @@ export async function renderOrders(view) {
   if (!orders.length) {
     wrap.appendChild(
       el('div', { class: 'empty-page' }, [
-        el('div', { class: 'emoji' }, '📦'),
-        el('p', {}, '还没有订单'),
+        el('div', { class: 'empty-mark' }, 'M'),
+        el('p', { class: 'empty-title-sm' }, '还没有订单'),
         el('p', { class: 'sub' }, '去买点好物，订单会出现在这里'),
-        el('button', { onclick: () => navigate('#/products') }, '去购物'),
+        el('button', { onclick: () => navigate('#/products') }, '去逛逛'),
       ]),
     );
     return;
@@ -77,7 +82,7 @@ function orderCard(o, view) {
   const pay = async () => {
     try {
       await api(`/api/orders/${o.orderId}/pay?userId=${encodeURIComponent(getUserId())}`, { method: 'POST' });
-      toast('支付成功 🎉', 'ok');
+      toast('支付成功', 'ok');
       renderOrders(view);
     } catch (e) {
       toast(e.message || '支付失败', 'err');
@@ -100,7 +105,7 @@ function orderCard(o, view) {
       ]),
     )),
     (o.logisticsCompany || o.trackingNo)
-      ? el('div', { class: 'logistics' }, `🚚 ${o.logisticsCompany || '物流'} · ${o.trackingNo || '待揽收'}`)
+      ? el('div', { class: 'logistics' }, `${o.logisticsCompany || '物流'} · ${o.trackingNo || '待揽收'}`)
       : null,
     el('div', { class: 'order-foot' }, [
       el('div', { class: 'amounts' }, [
@@ -123,7 +128,12 @@ function orderCard(o, view) {
 
 export async function renderFavorites(view) {
   view.innerHTML = '';
-  view.appendChild(el('h2', { class: 'page-title' }, '❤️ 我的收藏'));
+  view.appendChild(el('header', { class: 'page-intro compact-intro' }, [
+    el('div', { class: 'page-intro-copy' }, [
+      el('span', { class: 'eyebrow' }, 'YOUR ARCHIVE'),
+      el('h1', { class: 'page-display' }, '我的收藏'),
+    ]),
+  ]));
   view.appendChild(accountTabs('fav'));
   const wrap = el('div', { class: 'fav-page' });
   view.appendChild(wrap);
@@ -142,8 +152,8 @@ export async function renderFavorites(view) {
   if (!favorites) {
     wrap.appendChild(
       el('div', { class: 'empty-page' }, [
-        el('div', { class: 'emoji' }, '💔'),
-        el('p', {}, isDemoMode() ? '演示模式暂无收藏数据' : '收藏加载失败'),
+        el('div', { class: 'empty-mark' }, 'M'),
+        el('p', { class: 'empty-title-sm' }, isDemoMode() ? '演示模式暂无收藏数据' : '收藏加载失败'),
         el('p', { class: 'sub' }, '连接网关后，收藏会保存在服务端'),
         el('button', { onclick: () => navigate('#/products') }, '去逛逛商品'),
       ]),
@@ -153,9 +163,9 @@ export async function renderFavorites(view) {
   if (!favorites.length) {
     wrap.appendChild(
       el('div', { class: 'empty-page' }, [
-        el('div', { class: 'emoji' }, '💛'),
-        el('p', {}, '收藏夹是空的'),
-        el('p', { class: 'sub' }, '在商品详情页点「♡ 收藏」，心仪好物会存在这里'),
+        el('div', { class: 'empty-mark' }, 'M'),
+        el('p', { class: 'empty-title-sm' }, '收藏夹是空的'),
+        el('p', { class: 'sub' }, '在商品详情页点「收藏」，心仪好物会存在这里'),
         el('button', { onclick: () => navigate('#/products') }, '去逛逛'),
       ]),
     );

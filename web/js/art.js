@@ -92,35 +92,64 @@ const ART = {
     <path d="M74 124 L102 96" opacity="0.3"/>`,
 };
 
-// 类目兜底色（商品没带 coverColor 时使用，保证视觉不塌），与前端口灰度一致
-const FALLBACK = {
-  phone: '#4f6ef7,#8b7cf6',
-  computer: '#0e9abb,#5ad3e0',
-  audio: '#7c3aed,#c084fc',
-  appliance: '#0d9488,#5eead4',
-  apparel: '#e0407f,#ff9ab5',
-  food: '#f59e0b,#fbbf24',
-  home: '#b45309,#e0a86a',
-  sports: '#16a34a,#6ee7a0',
-  beauty: '#d831bf,#e879d8',
-  baby: '#f43f5e,#fb8fa8',
-  book: '#ca8a04,#eab308',
-  kitchen: '#dc2626,#f97316',
-  pet: '#65a30d,#a3e635',
-  auto: '#0891b2,#38bdf8',
-  health: '#4f46e5,#818cf8',
-  stationery: '#7e22ce,#c084fc',
+// 类目底色：低饱和的暖中性色，让程序化封面与「液态奢华编辑风」保持同一气质。
+// 同一类目共享色彩体系，不同商品按 ID 微调明暗，避免目录页出现刺眼的彩色噪音。
+const PALETTE = {
+  phone: ['#5F665D', '#929A87'],
+  computer: ['#525E62', '#8E9A9A'],
+  audio: ['#514E49', '#898277'],
+  appliance: ['#6E6659', '#AB9F8B'],
+  apparel: ['#806157', '#BB9B8D'],
+  food: ['#806B51', '#BAA173'],
+  home: ['#716659', '#AC9C89'],
+  sports: ['#505B4E', '#8D9480'],
+  beauty: ['#8C6B64', '#C3A59C'],
+  baby: ['#957872', '#C5ABA2'],
+  book: ['#655C4C', '#A29378'],
+  kitchen: ['#796752', '#B29B80'],
+  pet: ['#626957', '#9EA386'],
+  auto: ['#525B5E', '#8E9697'],
+  health: ['#5E6D66', '#96A49C'],
+  stationery: ['#6B6252', '#A39784'],
+  misc: ['#6B6257', '#A69B89'],
 };
 
 function escapeAttr(s) {
   return String(s).replace(/[<>"'&]/g, '');
 }
 
-/** 拆出双色："#aaa,#bbb" → ['#aaa','#bbb'] */
+function hexToHsl(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return [36, 10, 63];
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  return [h * 360, s * 100, l * 100];
+}
+
+/** 取一对暖中性色；同一商品永远得到相同色相微差 */
 function colorsOf(p) {
-  const raw = (p && p.coverColor) || FALLBACK[(p && p.categoryId) || ''] || '#64748b,#94a3b8';
-  const parts = String(raw).split(',').map((s) => s.trim()).filter(Boolean);
-  return [parts[0] || '#64748b', parts[1] || parts[0] || '#94a3b8'];
+  const cat = (p && p.categoryId) || 'misc';
+  const pair = PALETTE[cat] || PALETTE.misc;
+  const seed = String((p && p.id) || 'x').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const [h, s, l] = hexToHsl(pair[0]);
+  const shift = ((seed % 9) - 4) * 1.1;
+  const c1 = `hsl(${(h + shift + 360) % 360} ${Math.max(4, s - 4)}% ${Math.max(18, l - 7)}%)`;
+  return [c1, pair[1]];
 }
 
 export function colorPair(p) {
@@ -135,12 +164,16 @@ export function colorPair(p) {
 export function productArtSvg(p, opts = {}) {
   const key = escapeAttr((p && p.id) || 'x') + '-' + Math.random().toString(36).slice(2, 7);
   const [c1, c2] = colorsOf(p);
-  const art = ART[(p && p.categoryId) || ''] || ART.phone;
+  const cat = (p && p.categoryId) || 'misc';
+  const art = ART[cat] || ART.phone;
   const gid = `g-${key}`;
   const seed = String((p && p.id) || 'x').charCodeAt(String((p && p.id) || 'x').length - 1) || 0;
-  // 光斑位置随商品微调，避免所有商品长得完全一样
+  const serial = String((seed % 97) + 1).padStart(2, '0');
+  // 构图随商品微调，避免同类目拼图出现四张完全相同的封面
   const cx = 120 + (seed % 50);
   const cy = 34 + (seed % 24);
+  const angle = ((seed * 7) % 11) - 5;
+  const scale = 0.94 + ((seed % 5) * 0.025);
   return `
 <svg class="art" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
@@ -150,11 +183,16 @@ export function productArtSvg(p, opts = {}) {
     </linearGradient>
   </defs>
   <rect width="200" height="200" fill="url(#${gid})"/>
-  <circle cx="${cx}" cy="${cy}" r="72" fill="#fff" opacity="0.12"/>
-  <circle cx="26" cy="182" r="58" fill="#000" opacity="0.10"/>
-  <path d="M0 150 L200 60 L200 200 L0 200 Z" fill="#fff" opacity="0.05"/>
-  <g fill="none" stroke="#fff" stroke-opacity="0.92" stroke-width="3.4"
-     stroke-linecap="round" stroke-linejoin="round" transform="translate(0,4)">
+  <circle cx="${cx}" cy="${cy}" r="76" fill="#FAF9F6" opacity="0.09"/>
+  <circle cx="24" cy="184" r="62" fill="#1A1A1A" opacity="0.10"/>
+  <path d="M0 154 L200 82 L200 200 L0 200 Z" fill="#FAF9F6" opacity="0.045"/>
+  <path d="M14 20 H52" stroke="#FAF9F6" stroke-width="0.8" opacity="0.38"/>
+  <text x="14" y="13" fill="#FAF9F6" font-family="Georgia, serif" font-size="5" letter-spacing="1.1" opacity="0.58">MAISON / ${escapeAttr(cat.toUpperCase())}</text>
+  <text x="183" y="184" fill="#FAF9F6" font-family="Georgia, serif" font-style="italic" font-size="7" text-anchor="end" opacity="0.44">No. ${serial}</text>
+  <circle cx="100" cy="100" r="62" fill="none" stroke="#FAF9F6" stroke-width="0.5" opacity="0.18"/>
+  <g fill="none" stroke="#FBF8F1" stroke-opacity="0.82" stroke-width="1.35"
+     stroke-linecap="round" stroke-linejoin="round"
+     transform="translate(100 102) rotate(${angle}) scale(${scale}) translate(-100 -100)">
     ${art}
   </g>
 </svg>`;

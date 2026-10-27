@@ -2,10 +2,22 @@
 import { api, ApiError } from './api.js';
 import { el, loading, banner, fmtPrice } from './ui.js';
 import { getUserId } from './state.js';
-import { isDemoMode } from './demo.js';
+import { isDemoMode, setDemoMode } from './demo.js';
 
 function friendly(err) {
   return err instanceof ApiError ? err.message : '出错了，请稍后重试';
+}
+
+function noGateway(err) {
+  return !err || err.kind === 'network' || err.kind === 'offline' || err.status === 404;
+}
+
+function demoAwareError(err, fallback) {
+  if (isDemoMode() || noGateway(err)) {
+    if (noGateway(err)) setDemoMode(true);
+    return '演示模式：未连接 AI 网关，暂无法生成结果。本地启动 ai-gateway 后刷新即可使用。';
+  }
+  return fallback;
 }
 
 function cwBlock(title, items) {
@@ -54,8 +66,7 @@ async function handleCopywrite(e, resultEl) {
     resultEl.appendChild(cwBlock('种草文案', data.social));
     resultEl.appendChild(cwBlock('话题标签', data.hashtags));
   } catch (err) {
-    if (isDemoMode()) banner(resultEl, '演示模式：未连接 AI 网关，暂无法生成文案。本地启动 ai-gateway 后刷新即可使用。', 'warn');
-    else banner(resultEl, friendly(err), 'err');
+    banner(resultEl, demoAwareError(err, friendly(err)), 'warn');
   } finally {
     btn.disabled = false;
   }
@@ -72,7 +83,7 @@ async function handleAftersale(e, resultEl) {
   try {
     const data = await api('/api/ai/aftersale', { body: { userId, orderId, query } });
     resultEl.innerHTML = '';
-    resultEl.appendChild(el('div', { class: 'intro', style: 'background:#eef3ff;border-radius:10px;padding:12px 14px;font-size:14px;margin-bottom:10px' }, data.answer || ''));
+    resultEl.appendChild(el('div', { class: 'intro' }, data.answer || ''));
     (data.orders || []).forEach((o) => {
       resultEl.appendChild(
         el('div', { class: 'order-card' }, [
@@ -83,8 +94,7 @@ async function handleAftersale(e, resultEl) {
       );
     });
   } catch (err) {
-    if (isDemoMode()) banner(resultEl, '演示模式：未连接 AI 网关，暂无法查询订单。本地启动 ai-gateway 后刷新即可使用。', 'warn');
-    else banner(resultEl, friendly(err), 'err');
+    banner(resultEl, demoAwareError(err, friendly(err)), 'warn');
   } finally {
     btn.disabled = false;
   }
@@ -92,15 +102,28 @@ async function handleAftersale(e, resultEl) {
 
 export function renderTools(view) {
   view.innerHTML = '';
-  view.appendChild(el('div', { class: 'section-title' }, [el('h2', {}, '🧰 AI 工具箱')]));
-  view.appendChild(el('p', { class: 'muted', style: 'margin-top:-6px' }, '运营侧 AI 能力：一键生成多平台文案、查询订单与售后指引。'));
+  view.appendChild(el('header', { class: 'page-intro' }, [
+    el('div', { class: 'page-intro-copy' }, [
+      el('span', { class: 'eyebrow' }, 'THE INTELLIGENCE DESK'),
+      el('h1', { class: 'page-display' }, 'AI 工坊'),
+      el('p', {}, '把重复交给算法，把判断留给你。文案、客服与售后，皆可在一处完成。'),
+    ]),
+    el('div', { class: 'page-intro-aside' }, [
+      el('span', { class: 'intro-count' }, 'TWO SERVICES'),
+      el('span', { class: 'intro-line', 'aria-hidden': 'true' }),
+    ]),
+  ]));
 
   const cwResult = el('div', { class: 'result', 'aria-live': 'polite' });
   const asResult = el('div', { class: 'result', 'aria-live': 'polite' });
 
   const cwCard = el('div', { class: 'tool-card' }, [
-    el('h3', {}, '✍️ 运营文案生成'),
-    el('p', { class: 'muted' }, '填商品信息 + 卖点 + 语气 + 平台，产出多版本标题 / 详情 / 种草文案。'),
+    el('div', { class: 'tool-head' }, [
+      el('span', { class: 'eyebrow' }, 'STUDIO 01'),
+      el('span', { class: 'tool-mark', 'aria-hidden': 'true' }, 'A'),
+    ]),
+    el('h3', {}, '文案工坊'),
+    el('p', { class: 'muted' }, '填商品信息、卖点、语气与平台，产出多版本标题、详情与种草文案。'),
     el('form', { onsubmit: (e) => handleCopywrite(e, cwResult) }, [
       el('div', { class: 'form-row' }, [
         el('input', { id: 'cw-name', placeholder: '商品名称，如 声海降噪耳机' }),
@@ -131,7 +154,11 @@ export function renderTools(view) {
   ]);
 
   const asCard = el('div', { class: 'tool-card' }, [
-    el('h3', {}, '🛠️ 订单售后助手'),
+    el('div', { class: 'tool-head' }, [
+      el('span', { class: 'eyebrow' }, 'SERVICE 02'),
+      el('span', { class: 'tool-mark', 'aria-hidden': 'true' }, 'M'),
+    ]),
+    el('h3', {}, '订单管家'),
     el('p', { class: 'muted' }, '输入用户 ID 或订单号，查询订单状态、物流与退换货指引。'),
     el('form', { onsubmit: (e) => handleAftersale(e, asResult) }, [
       el('div', { class: 'form-row' }, [
