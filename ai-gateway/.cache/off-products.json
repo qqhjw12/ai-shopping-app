@@ -132075,5 +132075,5715 @@
     "image_front_url": "https://images.openfoodfacts.org/images/products/325/039/000/5179/front_fr.76.400.jpg",
     "price": "71",
     "generic_name": "Lentilles préparées"
+  },
+  {
+    "brands": "Marque Repère, P'tit Déli",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake"
+    ],
+    "code": "3564700019481",
+    "generic_name": "Quatre-quarts Breton Pur Beurre et aux oeufs frais",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/001/9481/front_fr.18.400.jpg",
+    "product_name": "Quatre-quarts de bretagne",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Favorina, Lidl",
+    "categories_tags": [
+      "en:snacks",
+      "en:festive-foods",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:sweet-pastries-and-pies",
+      "en:cakes",
+      "en:viennoiseries",
+      "en:brioches",
+      "en:chocolate-cakes",
+      "en:panettone"
+    ],
+    "code": "20316433",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/031/6433/front_fr.9.400.jpg",
+    "product_name": "Panettone Al Cioccolato",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake"
+    ],
+    "code": "3256220174961",
+    "generic_name": "Quatre-quarts",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/622/017/4961/front_fr.79.400.jpg",
+    "product_name": "Quatre quarts 250g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marque Repère, P'tit Déli",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:brownies"
+    ],
+    "code": "3564700694831",
+    "generic_name": "8 gâteaux au chocolat et aux noisettes",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/069/4831/front_fr.24.400.jpg",
+    "product_name": "Le Brownie goût chocolat noisette",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Tradizioni d'italia",
+    "categories_tags": [
+      "en:snacks",
+      "en:festive-foods",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:sweet-pastries-and-pies",
+      "en:cakes",
+      "en:viennoiseries",
+      "en:brioches",
+      "en:panettone"
+    ],
+    "code": "3760113766046",
+    "generic_name": "Gâteau brioché italien aux raisins secs et aux écorces d'agrumes confites",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/011/376/6046/front_fr.22.400.jpg",
+    "product_name": "Panettone classico",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Auchan",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:sponge-cakes",
+      "en:biscuits-cookies-shelf-stable",
+      "en:jaffa-cakes"
+    ],
+    "code": "3254560035300",
+    "generic_name": "Génoises nappées à l'orange, saveur orange (55%) et au chocolat noir (17%)",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/456/003/5300/front_en.47.400.jpg",
+    "product_name": "Génoise chocolat noir orange",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Milka",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "7622210276650",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/762/221/027/6650/front_fr.67.400.jpg",
+    "product_name": "Cake & Choc",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Balconi",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:wafers",
+      "en:chocolate-biscuits",
+      "en:stuffed-wafers",
+      "en:chocolate-stuffed-wafers"
+    ],
+    "code": "8001585008063",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/158/500/8063/front_fr.25.400.jpg",
+    "product_name": "Wafers noisette",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Dulcesol",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "es:Repostería"
+    ],
+    "code": "8410087060705",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/008/706/0705/front_es.42.400.jpg",
+    "product_name": "Bocaditos de bizcocho sin aceite de palma envasados de",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Le Ster",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake"
+    ],
+    "code": "3252753100002",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/275/310/0002/front_fr.6.400.jpg",
+    "product_name": "Quatre quarts",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Nos Régions ont du Talent",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake"
+    ],
+    "code": "3564709030814",
+    "generic_name": "Quatre-quarts",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/903/0814/front_fr.32.400.jpg",
+    "product_name": "Quatre-quarts breton pur beurre",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Barilla, Barilla G. e R. Fratelli SpA, Mulino Bianco",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:plum-cakes"
+    ],
+    "code": "8076809532730",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/807/680/953/2730/front_it.20.400.jpg",
+    "product_name": "Plumcake ciocc. mb",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Auchan, Santé",
+    "categories_tags": [
+      "en:snacks",
+      "en:specific-products",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:products-for-specific-diets",
+      "en:biscuits",
+      "en:products-without-gluten",
+      "en:cakes",
+      "en:variety-packs",
+      "en:gluten-free-biscuits",
+      "en:prepared-foods-variety-packs"
+    ],
+    "code": "3596710348114",
+    "generic_name": "Gâteaux moelleux aux oeufs - sans gluten",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/359/671/034/8114/front_fr.96.400.jpg",
+    "product_name": "Coquilles moelleuses",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Bonne Maman",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:fruit-cakes"
+    ],
+    "code": "3178530409734",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/040/9734/front_en.34.400.jpg",
+    "product_name": "Cakes aux fruits",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Saïda",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:filled-cakes",
+      "en:filled-sponge-cake-slices"
+    ],
+    "code": "6194008551023",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/619/400/855/1023/front_fr.6.400.jpg",
+    "product_name": "Break Classic",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "MISURA",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "8002590022860",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/259/002/2860/front_it.27.400.jpg",
+    "product_name": "Misura privolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Kodiak",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cooking-helpers",
+      "en:baking-mixes",
+      "en:dessert-mixes",
+      "en:pastry-helpers",
+      "en:cake-mixes"
+    ],
+    "code": "0705599013379",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/070/559/901/3379/front_en.165.400.jpg",
+    "product_name": "Power Cakes Flapjack & Waffle Mix Chocolate Chip",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marque Repère, P'tit Déli",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake"
+    ],
+    "code": "3564700487464",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/048/7464/front_fr.14.400.jpg",
+    "product_name": "Quatre-quarts Breton P'tit Déli, 250g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour, Simpl",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:marble-cakes"
+    ],
+    "code": "3560071429416",
+    "generic_name": "Gâteau marbré goût chocolat.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/142/9416/front_fr.22.400.jpg",
+    "product_name": "Marbré",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:chocolate-soft-cake"
+    ],
+    "code": "3560071465629",
+    "generic_name": "Génoises roulées avec un fourrage (34.6%) goût chocolat noisette",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/146/5629/front_fr.19.400.jpg",
+    "product_name": "Mini rolls fourrage gout chocolat noisette",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Chabrior",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:seeds",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:nuts-and-their-products",
+      "en:nuts",
+      "en:cakes",
+      "en:fruit-cakes",
+      "fr:Gâteaux aux fruits"
+    ],
+    "code": "3250390151067",
+    "generic_name": "Cake anglais aux fruits",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/039/015/1067/front_fr.40.400.jpg",
+    "product_name": "Cake anglais aux fruits",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Milka, Mondelez",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "7622210591005",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/762/221/059/1005/front_fr.41.400.jpg",
+    "product_name": "Tendre moo",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Hacendado",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:sweet-pastries-and-pies",
+      "en:cakes",
+      "en:viennoiseries",
+      "en:croissants"
+    ],
+    "code": "8436009678148",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/843/600/967/8148/front_es.27.400.jpg",
+    "product_name": "Assortiment cRoiss",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Saveurs de nos Régions",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "4056489760016",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/405/648/976/0016/front_fr.3.400.jpg",
+    "product_name": "Madeleines caramel au beurre salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:filled-biscuits",
+      "fr:Goûters fourrés"
+    ],
+    "code": "3256229807105",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/622/980/7105/front_fr.40.400.jpg",
+    "product_name": "Gâteaux P'tits fourrés noisettes, 225g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Cereal",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:chocolate-cakes",
+      "en:madeleines",
+      "en:Gluten-free snacks"
+    ],
+    "code": "3175681075382",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/568/107/5382/front_it.10.400.jpg",
+    "product_name": "Madeleine",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Born Winner",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "5060961651593",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/096/165/1593/front_pl.5.400.jpg",
+    "product_name": "Choco Brownie",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Gü",
+    "categories_tags": [
+      "en:dairies",
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:dairy-desserts",
+      "en:cakes",
+      "en:cheesecakes"
+    ],
+    "code": "5060971860787",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/097/186/0787/front_fr.3.400.jpg",
+    "product_name": "Cheesecakes chocolat blanc caramélisé",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3760266120573",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/026/612/0573/front_fr.12.400.jpg",
+    "product_name": "Coeurs coulants choco noisette",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Kinder",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cocoa-and-its-products",
+      "en:confectioneries",
+      "en:chocolate-candies",
+      "en:bars",
+      "en:cakes",
+      "en:candy-chocolate-bars",
+      "en:chocolate-confectionery-with-dairy-filling"
+    ],
+    "code": "8000500418963",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/050/041/8963/front_fr.4.400.jpg",
+    "product_name": "kinder",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "My protein",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:dietary-supplements",
+      "en:bodybuilding-supplements",
+      "en:chocolate-cakes",
+      "en:brownies",
+      "en:protein-bars"
+    ],
+    "code": "5059883116631",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/505/988/311/6631/front_en.205.400.jpg",
+    "product_name": "Chocolate Chunk Brownie",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lidl, Realforno",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:plum-cakes",
+      "it:Plum cakes yogurt"
+    ],
+    "code": "20969028",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/096/9028/front_fr.3.400.jpg",
+    "product_name": "Plumcake yogurt",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "3178530425215",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/042/5215/front_fr.3.400.jpg",
+    "product_name": "Madeleine",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "McEnnedy",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:brownies"
+    ],
+    "code": "4056489740841",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/405/648/974/0841/front_lt.3.400.jpg",
+    "product_name": "Family Brownie with Chocolate Pieces",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Fibre One 90",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:brownies"
+    ],
+    "code": "8410076621931",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/007/662/1931/front_en.9.400.jpg",
+    "product_name": "Chocolate Fudge Brownies",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Chabrior",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines",
+      "en:plain-madeleines",
+      "fr:Gâteaux nature ou au sucre"
+    ],
+    "code": "3250393050039",
+    "generic_name": "Madeleines Coquilles pur beurre",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/039/305/0039/front_fr.29.400.jpg",
+    "product_name": "Madeleine coquille pur beurre - 300g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Alsa",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "3027030028450",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/302/703/002/8450/front_fr.3.400.jpg",
+    "product_name": "#MY MUG CAKE Façon COOKIE DOUGH",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Kodiak",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cooking-helpers",
+      "en:baking-mixes",
+      "en:dessert-mixes",
+      "en:pastry-helpers",
+      "en:cake-mixes"
+    ],
+    "code": "0705599013805",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/070/559/901/3805/front_en.46.400.jpg",
+    "product_name": "Power Cakes Flapjack & Waffle Mix Blueberry",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "St Michel",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "3178530423662",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/042/3662/front_it.24.400.jpg",
+    "product_name": "Petites madeleines",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:dairies",
+      "en:desserts",
+      "en:snacks",
+      "en:dairy-desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:fresh-cream-cheese-cake"
+    ],
+    "code": "3560071503406",
+    "generic_name": "Gâteau au fromage blanc",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/150/3406/front_fr.4.400.jpg",
+    "product_name": "Gâteau -cake au fromage blanc",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Huel",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:bars",
+      "en:cakes",
+      "en:dietary-supplements",
+      "en:bodybuilding-supplements",
+      "en:protein-bars"
+    ],
+    "code": "5060925291339",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/092/529/1339/front_en.7.400.jpg",
+    "product_name": "Huel Complete Nutrition Bar - Chocolate Fudge Brownie",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "8908005077084",
+    "ecoscore_tags": [
+      "unknown"
+    ],
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/800/507/7084/front_fr.3.400.jpg",
+    "product_name": "Honey Bell vanilla cake",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "PRÉFÉRÉS D'AMANDINE",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:lemon-cake"
+    ],
+    "code": "3760026382319",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/002/638/2319/front_fr.3.400.jpg",
+    "product_name": "Le cake au citron",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Délices des 7 Vallées",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:muffins",
+      "en:chocolate-cakes",
+      "en:chocolate-muffins"
+    ],
+    "code": "3585681025704",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/358/568/102/5704/front_fr.12.400.jpg",
+    "product_name": "Muffins aux pépites de chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ziggy",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:doughnuts"
+    ],
+    "code": "8908020415014",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/802/041/5014/front_en.3.400.jpg",
+    "product_name": "Ziggy DONUT CAKE",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ker Cadélac",
+    "categories_tags": [
+      "en:frozen-foods",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines",
+      "fr:Madeleines vanille"
+    ],
+    "code": "3259426041259",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/604/1259/front_fr.3.400.jpg",
+    "product_name": "Madeleines extra moelleuses",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "St Michel",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:molten-chocolate-cakes"
+    ],
+    "code": "3178530426083",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/042/6083/front_fr.3.400.jpg",
+    "product_name": "Moelleux chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "ITC Limited, Sunfeast",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:Food"
+    ],
+    "code": "8901725014988",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/172/501/4988/front_en.3.400.jpg",
+    "product_name": "Dark Fantasy Yumfills Pie",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Maison Colibri",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:chocolate-cakes",
+      "en:madeleines",
+      "en:chocolate-madeleines"
+    ],
+    "code": "3700157500725",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/370/015/750/0725/front_fr.25.400.jpg",
+    "product_name": "La madeleine cœur framboise",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Britannia",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:confectioneries",
+      "en:cakes"
+    ],
+    "code": "8901063365933",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/106/336/5933/front_en.4.400.jpg",
+    "product_name": "Gobbles fruit cake",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Bjorg",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "3229820806037",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/322/982/080/6037/front_fr.13.400.jpg",
+    "product_name": "Les mini madeleines",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "maison colibri",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "3700157521836",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/370/015/752/1836/front_fr.38.400.jpg",
+    "product_name": "Madeleine Pistache 250g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "St Michel",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:brownies",
+      "fr:blondies"
+    ],
+    "code": "3178530408416",
+    "generic_name": "Gâteau au chocolat blanc (18%) - Le Brownie Blanc",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/040/8416/front_fr.58.400.jpg",
+    "product_name": "Le brownie à la française - chocolat blanc",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "St Michel",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes"
+    ],
+    "code": "3178530421118",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/042/1118/front_fr.31.400.jpg",
+    "product_name": "Galette moelleuse Pépites Chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Toblerone",
+    "categories_tags": [
+      "en:snacks",
+      "en:frozen-foods",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cheesecakes"
+    ],
+    "code": "5412949096801",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/541/294/909/6801/front_fr.42.400.jpg",
+    "product_name": "Cheesecakes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Dessert Factory",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cheesecakes"
+    ],
+    "code": "5412949096757",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/541/294/909/6757/front_fr.48.400.jpg",
+    "product_name": "Cheesecakes Oreo",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "DESSERT FACTORY",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cheesecakes"
+    ],
+    "code": "5412949096788",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/541/294/909/6788/front_fr.48.400.jpg",
+    "product_name": "Cheesecakes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Germinal",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:bars",
+      "en:cakes"
+    ],
+    "code": "8001091002937",
+    "generic_name": "Barres fourré au chocolat",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/109/100/2937/front_fr.22.400.jpg",
+    "product_name": "Barres quinoa fourrées au chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Délices des 7 Vallées",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:doughnuts",
+      "en:jam-doughnuts",
+      "en:sweet-fritters",
+      "fr:Beignets",
+      "fr:Beignets aux pommes"
+    ],
+    "code": "3760008852878",
+    "generic_name": "mini beignets fourrés à la purée de pommes",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/000/885/2878/front_fr.51.400.jpg",
+    "product_name": "8 mini beignets fourrés aux pommes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Les Douceurs De Jacquemart",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "fr:biscuits-a-la-myrtille",
+      "fr:lunettes-a-la-myrtille"
+    ],
+    "code": "3329221000567",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/332/922/100/0567/front_fr.22.400.jpg",
+    "product_name": "Les lunettes de romans myrtille francaise",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "La Bella Easo",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:sweet-pastries-and-pies",
+      "en:cakes",
+      "en:viennoiseries",
+      "en:milk-bread-rolls"
+    ],
+    "code": "8410099574054",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/009/957/4054/front_fr.47.400.jpg",
+    "product_name": "Pan de leche elaborado con un de leche",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Bonneterre",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:brownies"
+    ],
+    "code": "3396411227486",
+    "generic_name": "Gâteau au chocolat noir et noix grillées - Brownie au Chocolat Noir et Noix Grillées",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/339/641/122/7486/front_fr.31.400.jpg",
+    "product_name": "Brownie au chocolat noir et noix grillées",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Chabrior, Intermarché",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:brownies"
+    ],
+    "code": "3250390424079",
+    "generic_name": "Brownie choco noisettes",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/039/042/4079/front_fr.31.400.jpg",
+    "product_name": "Brownie familial au chocolat et aux noisettes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Picard",
+    "categories_tags": [
+      "en:frozen-foods",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:pies",
+      "en:cakes",
+      "en:sweet-pies",
+      "en:frozen-cakes-and-pastries",
+      "en:nuts-pies",
+      "en:pecan-pies"
+    ],
+    "code": "3270160665730",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/016/066/5730/front_fr.55.400.jpg",
+    "product_name": "Tarte aux noix et noix de pecan",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Alpenfest style, Confiserie Firenze",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "20122874",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/012/2874/front_cs.30.400.jpg",
+    "product_name": "Drobenkový koláč s jablky",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Fortwenger",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:festive-foods",
+      "en:christmas-foods-and-drinks",
+      "en:cakes",
+      "en:stollen"
+    ],
+    "code": "3279130104224",
+    "generic_name": "Christstollen pur beurre et fruits",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/913/010/4224/front_fr.35.400.jpg",
+    "product_name": "Gâteau de Noël",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Cadbury",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:sponge-cakes",
+      "en:sponge-cake-filled-and-covered-with-chocolate"
+    ],
+    "code": "5000221602606",
+    "generic_name": "Chocolate flavoured sponge with a vanilla flavour filling, covered with milk chocolate",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/022/160/2606/front_en.66.400.jpg",
+    "product_name": "Mini Rolls Milk Chocolate",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ker Cadélac",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "3259426037948",
+    "generic_name": "Gâteau - Le Moelleux Original",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/603/7948/front_fr.13.400.jpg",
+    "product_name": "Le moelleux original",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lotus",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:pies",
+      "en:cakes",
+      "en:sweet-pies",
+      "en:tartlets",
+      "en:fruit-tartlets",
+      "en:shelf-stable-sweet-pies"
+    ],
+    "code": "5410126060836",
+    "generic_name": "Tartelette aux pommes",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/541/012/606/0836/front_fr.33.400.jpg",
+    "product_name": "LOTUS TARTELICE Pomme 345g (6x1p)",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Hacendado",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:doughnuts"
+    ],
+    "code": "8480000847850",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/848/000/084/7850/front_es.41.400.jpg",
+    "product_name": "Berlina al cacao",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marque Repère, P'tit Déli",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3564700548035",
+    "generic_name": "Gâteau au chocolat",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/054/8035/front_fr.30.400.jpg",
+    "product_name": "Gâteau tout chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "McVitie's",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "5000168001814",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/016/800/1814/front_en.32.400.jpg",
+    "product_name": "Jamaica Ginger Cake",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Le Guillou",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake"
+    ],
+    "code": "3248250000051",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/324/825/000/0051/front_fr.32.400.jpg",
+    "product_name": "Quatre Quarts Pur Beurre Le Guillou",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Auchan",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:biscuits-cookies-shelf-stable",
+      "en:brownies"
+    ],
+    "code": "3596710479634",
+    "generic_name": "Mini gâteaux au chocolat et aux pépites de chocolat noir.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/359/671/047/9634/front_fr.47.400.jpg",
+    "product_name": "Mini brownies chocolat pépites",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Chabrior",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:marble-cakes"
+    ],
+    "code": "3250390816263",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/039/081/6263/front_fr.23.400.jpg",
+    "product_name": "Barre marbrée saveur cacao",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "sancho panza",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:pound-cake"
+    ],
+    "code": "8410930004009",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/093/000/4009/front_es.8.400.jpg",
+    "product_name": "Bizcochos de huevo",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "jacquemart",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "fr:Moelleux aux noisettes"
+    ],
+    "code": "3760026381015",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/002/638/1015/front_fr.35.400.jpg",
+    "product_name": "Moelleux aux Noisettes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Apidis",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:filled-cakes",
+      "en:gingerbreads",
+      "fr:nonnettes"
+    ],
+    "code": "3263629965946",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/326/362/996/5946/front_en.24.400.jpg",
+    "product_name": "Nonnettes Fourrées Orange 200G",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour, Carrefour Extra",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:sponge-cakes",
+      "en:jaffa-cakes"
+    ],
+    "code": "3560070759927",
+    "generic_name": "Génoises avec un fourrage (55%) à la poire aromatisé et un nappage de chocolat noir.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/075/9927/front_fr.123.400.jpg",
+    "product_name": "Génoises saveur poire",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Belmont",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:filled-biscuits",
+      "en:biscuit-filled-with-fruit-paste",
+      "en:jaffa-cakes"
+    ],
+    "code": "4088600107868",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/408/860/010/7868/front_en.17.400.jpg",
+    "product_name": "Jaffa Cakes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Pâtisserie Picard",
+    "categories_tags": [
+      "en:desserts",
+      "en:frozen-foods",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:frozen-cakes-and-pastries",
+      "en:molten-chocolate-cakes"
+    ],
+    "code": "3270160666560",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/016/066/6560/front_fr.42.400.jpg",
+    "product_name": "Moelleux chocolat caramel au beurre salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Picard",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:frozen-foods",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cooking-helpers",
+      "en:dessert-mixes",
+      "en:chocolate-cakes",
+      "en:frozen-cakes-and-pastries",
+      "fr:fondant-au-chocolat"
+    ],
+    "code": "3270160664320",
+    "generic_name": "Fondant au Chocolat Surgelé",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/016/066/4320/front_fr.63.400.jpg",
+    "product_name": "Fondant au chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Mr Kipling",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:pies",
+      "en:cakes",
+      "en:sweet-pies",
+      "en:tartlets"
+    ],
+    "code": "5000221002338",
+    "generic_name": "Shortcrust pastry cases with a Bramley apple filling (47 %)",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/022/100/2338/front_en.36.400.jpg",
+    "product_name": "Mr Kipling Bramley Apple Pies 6pk",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:chocolate-biscuits",
+      "en:filled-biscuits",
+      "fr:Goûters fourrés"
+    ],
+    "code": "3256225041312",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/622/504/1312/front_fr.87.400.jpg",
+    "product_name": "Gâteaux Fourrés ronds goût tout chocolat 300g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Picard",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:chocolate-biscuits",
+      "en:milk-chocolate-biscuits"
+    ],
+    "code": "3270160852376",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/016/085/2376/front_fr.25.400.jpg",
+    "product_name": "Batonnets sables",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Biscuiterie de provence",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:soft-fruit-cakes"
+    ],
+    "code": "06168999",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/616/8999/front_fr.8.400.jpg",
+    "product_name": "Le gateau moelleux",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:chocolate-cakes",
+      "en:madeleines",
+      "en:chocolate-madeleines"
+    ],
+    "code": "3560070914678",
+    "generic_name": "Madeleines marbrées au chocolat.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/091/4678/front_fr.28.400.jpg",
+    "product_name": "Madeleines Marbrées au chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Pasticceria Dei Fiori, Valentino",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:festive-foods",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:sweet-pastries-and-pies",
+      "en:cakes",
+      "en:viennoiseries",
+      "en:brioches",
+      "en:pandoro"
+    ],
+    "code": "8002331004599",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/233/100/4599/front_fr.17.400.jpg",
+    "product_name": "Pandoro - Pâtisserie au levain naturel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Conad",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:plum-cakes",
+      "it:merendina"
+    ],
+    "code": "8003170004191",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/317/000/4191/front_fr.33.400.jpg",
+    "product_name": "Plumcake con Yogurt Magro",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Auchan",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:variety-packs",
+      "en:biscuits-or-cookies-variety-packs",
+      "en:biscuits-or-cookies-perishable",
+      "en:filled-sponge-cake-slices"
+    ],
+    "code": "3596710424801",
+    "generic_name": "Génoises fourrage 18.1%, goût chocolat.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/359/671/042/4801/front_fr.70.400.jpg",
+    "product_name": "Chocogusto 182 g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "CARREFOUR FRANCE, Carrefour",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:filled-sponge-cake-slices"
+    ],
+    "code": "3560070110759",
+    "generic_name": "Gâteaux saveur chocolat enrobage (22%) au cacao maigre, fourrage (19%) au lait et fourrage (9%) au cacao.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/011/0759/front_fr.56.400.jpg",
+    "product_name": "Chok'moelleux",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Gü",
+    "categories_tags": [
+      "en:dairies",
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:dairy-desserts",
+      "en:cakes",
+      "en:cheesecakes",
+      "en:lemon-cheesecakes"
+    ],
+    "code": "5060023970969",
+    "generic_name": "Lemon cheesecakes made with full fat soft cheese, lemon juice and lemon zest",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/002/397/0969/front_en.42.400.jpg",
+    "product_name": "Spanish Lemon Cheesecake",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ker Cadelac",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3259426033209",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/603/3209/front_fr.23.400.jpg",
+    "product_name": "Le P'TiT FOURRÉ",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Les Écureuils du Languedoc",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:fruit-cakes"
+    ],
+    "code": "3188590005005",
+    "generic_name": "Cakes aux Raisins",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/318/859/000/5005/front_fr.15.400.jpg",
+    "product_name": "Cake Au raisins",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Auchan",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:shortbread-cookies",
+      "en:variety-packs",
+      "en:biscuits-or-cookies-variety-packs",
+      "en:brittany-style-palet-biscuits",
+      "en:biscuits-or-cookies-perishable"
+    ],
+    "code": "3596710481811",
+    "generic_name": "Biscuits à la madeleine",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/359/671/048/1811/front_fr.80.400.jpg",
+    "product_name": "Palets façon Madeleine",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Bio Soleil",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:financiers",
+      "fr:Financiers au citron"
+    ],
+    "code": "3423720002470",
+    "generic_name": "Financiers aux Écorces de Citron",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/342/372/000/2470/front_fr.16.400.jpg",
+    "product_name": "Financiers aux Écorces de Citron",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Hacendado",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "8480000163172",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/848/000/016/3172/front_es.3.400.jpg",
+    "product_name": "Mantecadas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Sportness",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:protein cookie"
+    ],
+    "code": "4066447051933",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/406/644/705/1933/front_sk.28.400.jpg",
+    "product_name": "Protein Cookie Half Baked",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Conditess, Confiserie Firenze, Kuchen Zauber, Lidl",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "20207366",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/020/7366/front_de.26.400.jpg",
+    "product_name": "Erdbeer-Vanille Rolle",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Gecchele",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "it:ciambelle-e-ciambelloni"
+    ],
+    "code": "8015854021288",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/801/585/402/1288/front_fr.25.400.jpg",
+    "product_name": "Ciambella yogurt",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marks & Spencer",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:fruit-cakes"
+    ],
+    "code": "00874946",
+    "generic_name": "Gâteaux - 6 Welsh Cakes",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/087/4946/front_fr.15.400.jpg",
+    "product_name": "Welsh Cakes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:chocolate-cakes",
+      "en:madeleines",
+      "en:chocolate-madeleines",
+      "en:marble-cakes"
+    ],
+    "code": "3560071057404",
+    "generic_name": "Madeleines coquilles marbrées.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/105/7404/front_fr.47.400.jpg",
+    "product_name": "Madeleines Marbrées",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "FarciKao",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "8004905550259",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/490/555/0259/front_it.22.400.jpg",
+    "product_name": "Snack with cocoa filling",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "CARREFOUR LE MARCHÉ",
+    "categories_tags": [
+      "en:frozen-foods",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:financiers"
+    ],
+    "code": "3523680449015",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/352/368/044/9015/front_fr.3.400.jpg",
+    "product_name": "Financiers 200g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Nutella, Ferrero",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:muffins",
+      "en:chocolate-cakes",
+      "en:chocolate-muffins"
+    ],
+    "code": "8000500392935",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/050/039/2935/front_en.76.400.jpg",
+    "product_name": "Nutella-Muffin",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Măgura",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cocoa-and-its-products",
+      "en:confectioneries",
+      "en:chocolate-candies",
+      "en:bars",
+      "en:cakes",
+      "en:chocolates",
+      "en:candy-chocolate-bars",
+      "en:chocolate-cakes",
+      "en:fairy-cakes",
+      "en:Prăjitura"
+    ],
+    "code": "5941047839541",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/594/104/783/9541/front_ro.18.400.jpg",
+    "product_name": "Prăjitură magura Ciocolata",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Fortwenger",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:gingerbreads",
+      "en:fruit-cakes"
+    ],
+    "code": "3279130111383",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/913/011/1383/front_fr.18.400.jpg",
+    "product_name": "Leckerlis aux fruits",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Birch Benders",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cereals-and-their-products",
+      "en:cakes",
+      "en:cooking-helpers",
+      "en:baking-mixes",
+      "en:dessert-mixes",
+      "en:pastry-helpers",
+      "en:cake-mixes",
+      "en:pancake-mixes"
+    ],
+    "code": "0856017003387",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/601/700/3387/front_en.35.400.jpg",
+    "product_name": "Organic Classic Pancake & Waffle Mix",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Bonne Maman",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:financiers"
+    ],
+    "code": "3178530410723",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/041/0723/front_fr.24.400.jpg",
+    "product_name": "Almond Fanciers",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Moulin d'or",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "fr:blondies"
+    ],
+    "code": "6194021111440",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/619/402/111/1440/front_fr.31.400.jpg",
+    "product_name": "Blondiz fourré caramel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Funky Veggie",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "3770008009202",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/377/000/800/9202/front_fr.8.400.jpg",
+    "product_name": "coeur de boule brownie",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Céréal",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes"
+    ],
+    "code": "3175681219489",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/568/121/9489/front_en.13.400.jpg",
+    "product_name": "Senza zuccheri mini cake al gusto limone",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "es:Budin"
+    ],
+    "code": "3259426039805",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/603/9805/front_es.42.400.jpg",
+    "product_name": "Cake aux oeufs",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Auchan",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines",
+      "en:biscuits-cookies-shelf-stable",
+      "en:long-madeleines"
+    ],
+    "code": "3596710439065",
+    "generic_name": "Madeleines longues aux oeufs",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/359/671/043/9065/front_fr.65.400.jpg",
+    "product_name": "Madeleines longues",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "ECO+",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:marble-cakes"
+    ],
+    "code": "3450970015684",
+    "generic_name": "Gâteau marbré - Marbré Parfum Chocolat",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/345/097/001/5684/front_fr.26.400.jpg",
+    "product_name": "Marbré parfum chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marlenka",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:filled-cakes"
+    ],
+    "code": "8594071650018",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/859/407/165/0018/front_cs.15.400.jpg",
+    "product_name": "Medový Dort S Vlašskými Ořechy",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Magdalenas Lázaro, Mr. Brownie",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:lemon-cake"
+    ],
+    "code": "8411037892476",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/103/789/2476/front_en.41.400.jpg",
+    "product_name": "Lemon Cakes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "St Michel",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "3178530411430",
+    "generic_name": "Madeleine aux œufs de poules élevées en plein air",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/041/1430/front_fr.13.400.jpg",
+    "product_name": "La Grande Madeleine Nature",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Simple Mills",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cooking-helpers",
+      "en:cakes",
+      "en:pastry-helpers",
+      "en:baking-mixes",
+      "en:dessert-mixes",
+      "en:cake-mixes",
+      "en:chocolate-cakes",
+      "en:brownies"
+    ],
+    "code": "0856069005513",
+    "generic_name": "Brownie Mix",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/606/900/5513/front_en.11.400.jpg",
+    "product_name": "Almond Flour Baking Mix Brownie",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "La Vie Claire",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:filled-cakes"
+    ],
+    "code": "3266191085265",
+    "generic_name": "Mini cakes fourrés à la pâte à tartiner",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/326/619/108/5265/front_fr.33.400.jpg",
+    "product_name": "Le mini cake fourré pâte à tartiner",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "50 g",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:filled-cakes"
+    ],
+    "code": "8690526076379",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/869/052/607/6379/front_fr.56.400.jpg",
+    "product_name": "Browni Intense Çikolatalı Kek&quot;",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Les desserts du crémier",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-desserts",
+      "en:chocolate-cakes",
+      "fr:fondant-au-chocolat"
+    ],
+    "code": "3701002410527",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/370/100/241/0527/front_fr.3.400.jpg",
+    "product_name": "Fondant au chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SÉMILIA",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "3760253540131",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/025/354/0131/front_fr.34.400.jpg",
+    "product_name": "Les Crousticks Sarrasin",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Veggies Made Great",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:muffins"
+    ],
+    "code": "0704863028187",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/070/486/302/8187/front_en.27.400.jpg",
+    "product_name": "Double Chocolate Muffins",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Gavroche",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:brownies"
+    ],
+    "code": "3700181506007",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/370/018/150/6007/front_fr.4.400.jpg",
+    "product_name": "Brownie",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Harvest Morn",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "4088600247328",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/408/860/024/7328/front_en.3.400.jpg",
+    "product_name": "Yogurt & Fruit Bars",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Sportness",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:dietary-supplements",
+      "en:bodybuilding-supplements",
+      "en:chocolate-cakes",
+      "en:brownies",
+      "en:protein-bars"
+    ],
+    "code": "4066447423068",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/406/644/742/3068/front_de.27.400.jpg",
+    "product_name": "Protein Brownie",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "La Maison Du Biscuit",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:financiers"
+    ],
+    "code": "3449610172009",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/344/961/017/2009/front_fr.63.400.jpg",
+    "product_name": "Petits fours, Financiers à la pâte d'amandes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Duc de Coeur, Sondey",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:chocolate-cakes",
+      "en:madeleines",
+      "en:chocolate-madeleines"
+    ],
+    "code": "4056489202646",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/405/648/920/2646/front_fr.16.400.jpg",
+    "product_name": "Madeleines nappées de chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "U, U Sans Gluten",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:chocolate-cakes",
+      "en:madeleines",
+      "en:chocolate-madeleines"
+    ],
+    "code": "3256229517196",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/622/951/7196/front_fr.19.400.jpg",
+    "product_name": "Madeleines aux oeufs pépites de chocolat sans gluten, 180g",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "9239026021053",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/923/902/602/1053/front_fr.3.400.jpg",
+    "product_name": "Le moelleux original",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Biscuiterie de l'Abbaye",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:chocolate-biscuits",
+      "en:drop-cookies",
+      "en:chocolate-chip-cookies",
+      "en:oatmeal-biscuits",
+      "fr:Biscuits pépites de chocolat"
+    ],
+    "code": "3226219014530",
+    "generic_name": "Cookies aux pépites de chocolat et à l'avoine complète, issus de l'agriculture biologique",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/322/621/901/4530/front_fr.3.400.jpg",
+    "product_name": "Notre Nature Cookies Chocolat et Avoine",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Gaia",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cheesecakes"
+    ],
+    "code": "06141693",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/614/1693/front_fr.32.400.jpg",
+    "product_name": "Cheesecake au tout saveur citron",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cooking-helpers",
+      "en:cakes",
+      "en:pastry-helpers",
+      "en:baking-mixes",
+      "en:dessert-mixes",
+      "en:cake-mixes",
+      "en:sugary-cooking-helpers"
+    ],
+    "code": "3107400022162",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/310/740/002/2162/front_fr.20.400.jpg",
+    "product_name": "Fondant caramel au beurre salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Jouy Co",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:confectioneries",
+      "en:cakes",
+      "en:doughnuts"
+    ],
+    "code": "8719992179329",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/871/999/217/9329/front_fr.10.400.jpg",
+    "product_name": "Cravingz Donuts strawberry Flavour",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "St Michel",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3178530423563",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/042/3563/front_en.4.400.jpg",
+    "product_name": "Doomino",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:fruit-biscuits",
+      "fr:EGG COOKIES WITH A (54 %) STRAWBERRY FLAVORED"
+    ],
+    "code": "3256228411075",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/622/841/1075/front_fr.39.400.jpg",
+    "product_name": "Gâteau Barquette à la fraise - paquet 120g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Envia",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "fr:fondant-au-chocolat"
+    ],
+    "code": "4056489843351",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/405/648/984/3351/front_fr.10.400.jpg",
+    "product_name": "Fondant au chocolat à la noisette",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "MERCADONA",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cheesecakes"
+    ],
+    "code": "8480000096418",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/848/000/009/6418/front_es.7.400.jpg",
+    "product_name": "Tarta de Queso",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Hacendado, MERCADONA",
+    "categories_tags": [
+      "en:breakfasts",
+      "en:snacks",
+      "en:spreads",
+      "en:sweet-snacks",
+      "en:sweet-spreads",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:variety-packs",
+      "en:sweet-spread-variety-packs"
+    ],
+    "code": "8402001037863",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/840/200/103/7863/front_en.3.400.jpg",
+    "product_name": "Bizcocho de yogur",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Milka",
+    "categories_tags": [
+      "en:snacks",
+      "en:specific-products",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:doughnuts",
+      "en:doughnuts-filled-with-chocolate",
+      "en:licensed-products"
+    ],
+    "code": "5413321001055",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/541/332/100/1055/front_fr.29.400.jpg",
+    "product_name": "Donut milka",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Perlina glacé",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:doughnuts",
+      "en:plain-doughnuts"
+    ],
+    "code": "8410022000278",
+    "generic_name": "Donuts glacé",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/002/200/0278/front_es.144.400.jpg",
+    "product_name": "Donuts glacé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "BIMBO DONUTS IBERIA S.A.U.",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:doughnuts"
+    ],
+    "code": "8410022109674",
+    "generic_name": "Producto de bollería con cobertura (31%) al cacao",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/002/210/9674/front_es.57.400.jpg",
+    "product_name": "Donuts bombón",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "LU",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "10482823",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/001/048/2823/front_fr.35.400.jpg",
+    "product_name": "L'ourson Fraise",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:sponge-cakes",
+      "en:jaffa-cakes"
+    ],
+    "code": "3256220210393",
+    "generic_name": "Génoises nappées de Chocolat noir fourrées Orange",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/622/021/0393/front_fr.94.400.jpg",
+    "product_name": "Biscuits Génoises fourrées à l'orange nappées de chocolat 150g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Brossard",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:brownies"
+    ],
+    "code": "3660140928458",
+    "generic_name": "Gâteaux au chocolat au lait et aux pépites de chocolat au lait",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/366/014/092/8458/front_fr.52.400.jpg",
+    "product_name": "LE BROWNIE POCKET CHOCOLAT AU LAIT",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "St Michel Biscuits",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "3178530418569",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/041/8569/front_fr.18.400.jpg",
+    "product_name": "Madeleines coquilles Bio",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Oreo, CSM France, Mondelez, Mondelez International",
+    "categories_tags": [
+      "en:snacks",
+      "en:specific-products",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:doughnuts",
+      "en:licensed-products"
+    ],
+    "code": "3040400220193",
+    "generic_name": "Donut au cacao et au fourrage goût vanille (16%), décoré d'un glaçage blanc (9,5%) et de biscuits Oreo au cacao (8%), décongelé.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/304/040/022/0193/front_en.34.400.jpg",
+    "product_name": "Donut",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ker Cadélac",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:soft-cake-filled-with-chocolate",
+      "en:biscuits-et-gateaux",
+      "en:gateau-moelleux-fourre-au-chocolat",
+      "en:gateaux",
+      "en:snacks-sucres"
+    ],
+    "code": "3259426038914",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/603/8914/front_fr.26.400.jpg",
+    "product_name": "Le Moelleux",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "st michel",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "3178530414943",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/317/853/041/4943/front_fr.51.400.jpg",
+    "product_name": "Petites Madeleines",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake"
+    ],
+    "code": "3270190190349",
+    "generic_name": "Quatre-Quarts.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/019/019/0349/front_fr.36.400.jpg",
+    "product_name": "Quatre-Quarts Pur beurre",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Soreen",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "5010043000016",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/501/004/300/0016/front_en.38.400.jpg",
+    "product_name": "Soreen Malt Loaf 190g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Soreen",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:sponge-cakes"
+    ],
+    "code": "5088722225647",
+    "generic_name": "Individually wrapped strawberry flavoured lunchbox loaves0",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/508/872/222/5647/front_en.17.400.jpg",
+    "product_name": "Strawberry lunchbox loaves",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ker Cadélac",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3259426022999",
+    "generic_name": "Gâteau aux pépites de chocolat - Mini's Pépites de Chocolat",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/602/2999/front_fr.34.400.jpg",
+    "product_name": "Mini's pépites de chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Berlidon, Poppies",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:sweet-pastries-and-pies",
+      "en:cakes",
+      "en:viennoiseries",
+      "en:doughnuts",
+      "fr:Beignets"
+    ],
+    "code": "5411823865632",
+    "generic_name": "Mini Donuts coating blanc et confettis colorés ou chocolat et confettis colorés. - 4 Mini Donut's",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/541/182/386/5632/front_fr.50.400.jpg",
+    "product_name": "4 mini donut's",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "ETI",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "8690526060163",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/869/052/606/0163/front_en.14.400.jpg",
+    "product_name": "Puf",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour, Reflets de France",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:filled-cakes",
+      "en:gingerbreads",
+      "fr:nonnettes",
+      "fr:nonnettes-de-dijon"
+    ],
+    "code": "3560070400829",
+    "generic_name": "6 Petits pains d'épices de Dijon fourrés à la confiture à l'orange.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/040/0829/front_fr.34.400.jpg",
+    "product_name": "Nonettes de Dijon",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Délices Des Sept Vallées, Mademoiselle Desserts",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:doughnuts",
+      "en:doughnuts-filled-with-fruits",
+      "en:doughnuts-filled-with-raspberries",
+      "en:jam-doughnuts",
+      "en:sweet-fritters"
+    ],
+    "code": "3760008852922",
+    "generic_name": "mini Beignets avec fourrage 24% fruits rouges",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/000/885/2922/front_fr.45.400.jpg",
+    "product_name": "8 mini beignets fruits rouges",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ajinomoto Foods Europe, Le Nôtre",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "3760197635856",
+    "generic_name": "Dessert à base de mousse aux noix (54%) et de gâteaux façon macarons moelleux (44%)",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/019/763/5856/front_fr.40.400.jpg",
+    "product_name": "Le plaisir aux noix",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Aviateur patisserie",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits",
+      "en:cakes",
+      "en:almond-cakes"
+    ],
+    "code": "8713627002037",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/871/362/700/2037/front_fr.29.400.jpg",
+    "product_name": "Carrés fourrés amande",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marque Repère, P'tit Déli",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3564700021385",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/002/1385/front_fr.25.400.jpg",
+    "product_name": "5 mini gateaux pépites de chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ferrero, Kinder",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:confectioneries",
+      "en:cakes"
+    ],
+    "code": "4008400190228",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/400/840/019/0228/front_de.35.400.jpg",
+    "product_name": "Milchschnitte 7er-Pack",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Dulces Santa Cruz",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "8412342000198",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/234/200/0198/front_en.3.400.jpg",
+    "product_name": "Magadalenas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Picard",
+    "categories_tags": [
+      "en:desserts",
+      "en:frozen-foods",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cheesecakes",
+      "en:frozen-cakes-and-pastries",
+      "en:lemon-cheesecakes"
+    ],
+    "code": "3270160820290",
+    "generic_name": "Cheesecake au citron",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/016/082/0290/front_fr.77.400.jpg",
+    "product_name": "Cheesecake au citron",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:filled-cakes",
+      "fr:Gâteaux à la fraise"
+    ],
+    "code": "3256220210010",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/622/021/0010/front_fr.86.400.jpg",
+    "product_name": "Mini gateaux fourrés fraise 5 paquets de 30g, 150g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Chaque Jour Sans Gluten, Marque Repère",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3564700651339",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/065/1339/front_fr.32.400.jpg",
+    "product_name": "Gâteaux aux pépites de chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Picard",
+    "categories_tags": [
+      "en:snacks",
+      "en:frozen-foods",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3270160821822",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/016/082/1822/front_fr.4.400.jpg",
+    "product_name": "Cake au chocolat pur beurre",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Confiseur Coppenrath & Wiese",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cheesecakes",
+      "en:cheesecakes-with-fruits",
+      "en:Erdbeerkuchen",
+      "en:Imbiss",
+      "en:Kekse und Kuchen",
+      "en:Kuchen",
+      "en:Käsekuchen",
+      "en:Süße Kuchen",
+      "en:Süßer Snack",
+      "en:Torten mit obst"
+    ],
+    "code": "4008577006827",
+    "generic_name": "Saftige ERdbeeren auf feiner Frischkäsecreme und lockerem Crumble-Boden. Eine fruchtig-leckere Kuchenspezialität vom amerikanischen Cheesecake inspiriert.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/400/857/700/6827/front_en.38.400.jpg",
+    "product_name": "Erdbeer Cheesecake",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Valentino",
+    "categories_tags": [
+      "en:snacks",
+      "en:festive-foods",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:sweet-pastries-and-pies",
+      "en:cakes",
+      "en:viennoiseries",
+      "en:brioches",
+      "en:panettone"
+    ],
+    "code": "8002331010330",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/233/101/0330/front_fr.23.400.jpg",
+    "product_name": "Panettone classico",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lu",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "3017760701693",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/301/776/070/1693/front_fr.16.400.jpg",
+    "product_name": "Lulu l'Ourson Fraise",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marque Repère, P'tit Déli",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:marble-cakes"
+    ],
+    "code": "3564700556146",
+    "generic_name": "mini gâteaux marbrés au chocolat",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/055/6146/front_fr.22.400.jpg",
+    "product_name": "Mini marbrés chocolat x 7",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Auchan, Auchan Gourmet",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:fruit-cakes"
+    ],
+    "code": "3596710428557",
+    "generic_name": "Cake aux fruits confits et aux fruits secs",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/359/671/042/8557/front_fr.65.400.jpg",
+    "product_name": "Cake Anglais aux Fruits",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ker Cadélac",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:chocolate-cakes",
+      "en:madeleines",
+      "en:chocolate-madeleines"
+    ],
+    "code": "3259426031410",
+    "generic_name": "Madeleines marbrées au chocolat - Madeleines Extra Moelleuses Marbrées Chocolat",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/603/1410/front_fr.20.400.jpg",
+    "product_name": "Madeleines Marbrees chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ker Cadélac",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes"
+    ],
+    "code": "3259426033193",
+    "generic_name": "Gâteau fourré à la purée d'abricot - Le P'tit Fourré Abricot",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/603/3193/front_fr.5.400.jpg",
+    "product_name": "Le P'tit Fourré Abricot",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Picard",
+    "categories_tags": [
+      "en:frozen-foods",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:cheesecakes",
+      "en:cheesecakes-with-fruits",
+      "en:frozen-cakes-and-pastries",
+      "en:raspberry-cheesecakes"
+    ],
+    "code": "3270160821389",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/016/082/1389/front_fr.26.400.jpg",
+    "product_name": "Cheesecake à la framboise",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Monoprix",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines",
+      "en:long-madeleines"
+    ],
+    "code": "3350030200275",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/335/003/020/0275/front_fr.25.400.jpg",
+    "product_name": "Madeleines longues natures",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Monoprix",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3350033118492",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/335/003/311/8492/front_fr.38.400.jpg",
+    "product_name": "Gâteau au chocolat noir",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Pâtisserie tradition",
+    "categories_tags": [
+      "en:snacks",
+      "en:frozen-foods",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:madeleines"
+    ],
+    "code": "3259426039980",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/603/9980/front_fr.28.400.jpg",
+    "product_name": "Petite madeleine aux oeufs",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Fiber One",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:brownies"
+    ],
+    "code": "0016000423718",
+    "generic_name": "Brownies with chocolate chips and fiber",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/001/600/042/3718/front_en.84.400.jpg",
+    "product_name": "Brownies Chocolate Fudge",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Monoprix, Monoprix Gourmet",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "fr:fondant-au-chocolat"
+    ],
+    "code": "3350030129095",
+    "generic_name": "Gâteau au chocolat noir au cœur fondant",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/335/003/012/9095/front_fr.25.400.jpg",
+    "product_name": "Coeur fondant au chocolat noir",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marque Repère, P'tit Déli",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "en:marble-cakes",
+      "fr:Barres marbrées"
+    ],
+    "code": "3564700793770",
+    "generic_name": "Gâteau marbré au chocolat",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/079/3770/front_fr.26.400.jpg",
+    "product_name": "La barre marbrée gout chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marque Repère, P'tit Déli",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake",
+      "en:chocolate-cakes",
+      "en:madeleines",
+      "en:chocolate-madeleines",
+      "en:long-madeleines"
+    ],
+    "code": "3564700537350",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/053/7350/front_fr.24.400.jpg",
+    "product_name": "La madeleine longue Coeur fondant Goût Choco Noisette",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes"
+    ],
+    "code": "26016061",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/601/6061/front_fr.45.400.jpg",
+    "product_name": "Coeur fondant au chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "alka",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:chocolate-cakes",
+      "ro:Prăjituri"
+    ],
+    "code": "5941035004555",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/594/103/500/4555/front_ro.16.400.jpg",
+    "product_name": "Prajitura Cacao si Fulgi Ciocolata",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Le Guillou",
+    "categories_tags": [
+      "en:snacks",
+      "en:desserts",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:cakes",
+      "en:pound-cake"
+    ],
+    "code": "3259426021527",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/942/602/1527/front_fr.29.400.jpg",
+    "product_name": "Quatre-Quarts Pur Beurre",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ma vie sans Gluten",
+    "categories_tags": [
+      "en:desserts",
+      "en:snacks",
+      "en:specific-products",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:products-for-specific-diets",
+      "en:cooking-helpers",
+      "en:products-without-gluten",
+      "en:cakes",
+      "en:chocolate-desserts",
+      "en:pastry-helpers",
+      "en:baking-mixes",
+      "en:dessert-mixes",
+      "en:cake-mixes",
+      "en:chocolate-cakes"
+    ],
+    "code": "3380380062827",
+    "generic_name": "Mix gateau au chocolat sans gluten",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/338/038/006/2827/front_fr.18.400.jpg",
+    "product_name": "Préparation pour Gâteau bio au Chocolat",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "PROPER CORN",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "5060283760072",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/0072/front_en.23.400.jpg",
+    "product_name": "SWEET & SALTY Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "PROPER CORN",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5060283760669",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/0669/front_en.60.400.jpg",
+    "product_name": "SWEET & SALTY POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "PROPER CORN",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5060283760812",
+    "generic_name": "Sweet and salty popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/0812/front_en.24.400.jpg",
+    "product_name": "SWEET & SALTY POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Vico",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3336972302079",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/333/697/230/2079/front_fr.18.400.jpg",
+    "product_name": "Pop corn salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "MERCADONA",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "8480000348227",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/848/000/034/8227/front_en.71.400.jpg",
+    "product_name": "Palomitas Pipocas Microondas Sal",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Vico",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "3336972302062",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/333/697/230/2062/front_fr.42.400.jpg",
+    "product_name": "Pop corn sucre de canne",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "PROPER",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn",
+      "en:Aperitiefhapjes",
+      "en:Chips"
+    ],
+    "code": "5060283760041",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/0041/front_en.45.400.jpg",
+    "product_name": "Sea Salted Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lesser Evil",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0180999001001",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/018/099/900/1001/front_en.196.400.jpg",
+    "product_name": "Popcorn Himalayan Pink Salt",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Skinny Pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0850251004001",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4001/front_en.44.400.jpg",
+    "product_name": "Original Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Vico, Intersnack",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:confectioneries",
+      "en:popcorn",
+      "en:popcorn-with-caramel"
+    ],
+    "code": "4017100764004",
+    "generic_name": "Maïs soufflé avec enrobage caramel.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/401/710/076/4004/front_fr.64.400.jpg",
+    "product_name": "Vico pop corn baff caramel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snack Day",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:sweet-snacks",
+      "en:appetizers",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "20141486",
+    "generic_name": "Pop-corn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/014/1486/front_en.36.400.jpg",
+    "product_name": "Popcorn süss",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Tesco",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:salted-popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "5053526283131",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/505/352/628/3131/front_en.33.400.jpg",
+    "product_name": "Popcorn - Sweet & Salty",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lesser Evil",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0855469006557",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/546/900/6557/front_en.126.400.jpg",
+    "product_name": "POPcorn HIMALAYAN GOLD",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Skinny Pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "0850251004018",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4018/front_en.189.400.jpg",
+    "product_name": "Original Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Proper",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5060283761529",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/1529/front_en.18.400.jpg",
+    "product_name": "Proper corn sea salt",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SKINNY POP ORGANIC",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0850251004940",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4940/front_en.51.400.jpg",
+    "product_name": "ORIGINAL POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Menguy's",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "3327271903746",
+    "generic_name": "Maïs à éclater pour micro-ondes avec édulcorant",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/332/727/190/3746/front_fr.66.400.jpg",
+    "product_name": "Pop corn sucré micro-ondes 3x90g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snack Day",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "20948955",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/094/8955/front_en.132.400.jpg",
+    "product_name": "Popcorn Salted",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Menguy's",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3327271905443",
+    "generic_name": "Maïs à éclater pour micro-ondes salé",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/332/727/190/5443/front_fr.43.400.jpg",
+    "product_name": "Popcorn micro-ondes salé 3x90 g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "PROPER CORN",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5060283760652",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/0652/front_en.44.400.jpg",
+    "product_name": "SEA SALTED POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:chips-and-fries",
+      "en:crisps",
+      "en:popcorn"
+    ],
+    "code": "6111252860084",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/611/125/286/0084/front_fr.3.400.jpg",
+    "product_name": "Palomitas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Werther's Original",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:popcorn-with-caramel"
+    ],
+    "code": "4014400935677",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/401/440/093/5677/front_en.4.400.jpg",
+    "product_name": "Caramel Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lidl, McEnnedy",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn"
+    ],
+    "code": "20553326",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/055/3326/front_en.77.400.jpg",
+    "product_name": "Halloween popcorn sweet",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Proper",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5060283760034",
+    "generic_name": "Pop-corn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/0034/front_en.85.400.jpg",
+    "product_name": "Sweet & Salty Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Tesco",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5057545929582",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/505/754/592/9582/front_en.22.400.jpg",
+    "product_name": "Salted Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "action",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:popcorn-with-caramel"
+    ],
+    "code": "3577060000389",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/357/706/000/0389/front_en.3.400.jpg",
+    "product_name": "Caramel Flavour Microwave Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "APERITIVOS Y EXTRUSIONADOS S.A.U",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "8410573103688",
+    "generic_name": "Maíz para palomitas saladas para microondas",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/057/310/3688/front_es.18.400.jpg",
+    "product_name": "Al punto de sal",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "20657529",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/065/7529/front_en.58.400.jpg",
+    "product_name": "Salted Microwave Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "fr:Pop"
+    ],
+    "code": "3577060000181",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/357/706/000/0181/front_fr.23.400.jpg",
+    "product_name": "Microwave popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "MERCADONA",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:seeds",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn",
+      "en:plain-popcorn"
+    ],
+    "code": "8480000348043",
+    "generic_name": "Maíz crudo para palomitas",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/848/000/034/8043/front_es.53.400.jpg",
+    "product_name": "Maíz palomitas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SKINNY POP",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0850251004643",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4643/front_en.110.400.jpg",
+    "product_name": "ORIGINAL POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lesser Evil Snacks",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:cereals-and-their-products",
+      "en:breads",
+      "en:popcorn",
+      "en:white-breads",
+      "en:bread-white-from-wheat-flour-of-the-highest-grade-gost-26987-86"
+    ],
+    "code": "0850045947576",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/004/594/7576/front_en.69.400.jpg",
+    "product_name": "Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Movies pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:popcorn-with-caramel",
+      "en:sugared-popcorn"
+    ],
+    "code": "3760018850581",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/001/885/0581/front_en.36.400.jpg",
+    "product_name": "POPCORN CARAMEL",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Chio",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "3577060130017",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/357/706/013/0017/front_en.16.400.jpg",
+    "product_name": "Micro Popcorn Sare",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SALTY",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3577060000204",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/357/706/000/0204/front_fr.3.400.jpg",
+    "product_name": "Popcorn microwave salty",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Proper Corn",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Sweet popcorn"
+    ],
+    "code": "5060283762793",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/2793/front_en.14.400.jpg",
+    "product_name": "Proper Corn Sweet Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "fritosa",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:seeds",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn"
+    ],
+    "code": "6111092000176",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/611/109/200/0176/front_fr.8.400.jpg",
+    "product_name": "Palomitas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Smartfood",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0028400314015",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/840/031/4015/front_en.55.400.jpg",
+    "product_name": "White Cheddar",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Boom Chicka Pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Kettle corn"
+    ],
+    "code": "0818780011938",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/081/878/001/1938/front_en.72.400.jpg",
+    "product_name": "Sweet & Salty Kettle Corn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snaktastic",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "20042431",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/004/2431/front_en.42.400.jpg",
+    "product_name": "Mikrowellen Popcorn salzig",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Angie's Boom Chicka Pop",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:seeds",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn"
+    ],
+    "code": "0818780013000",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/081/878/001/3000/front_en.59.400.jpg",
+    "product_name": "Sweet & Salty Kettle Corn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "CONAGRA BRANDS",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:seeds",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn"
+    ],
+    "code": "0027000488058",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/700/048/8058/front_en.37.400.jpg",
+    "product_name": "WHOLE GRAIN POPPING CORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Smartfood",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0028400314138",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/840/031/4138/front_en.55.400.jpg",
+    "product_name": "WHITE CHEDDAR FLAVORED POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "ACT II",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8901512540102",
+    "generic_name": "popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/151/254/0102/front_en.17.400.jpg",
+    "product_name": "Act II Classic Salted",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Hacendado, MERCADONA",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8480000342126",
+    "generic_name": "Pipocas de milho com sabor a manteiga",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/848/000/034/2126/front_pt.65.400.jpg",
+    "product_name": "Pipocas microondas sabor manteiga",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snack Day",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "20948931",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/094/8931/front_bg.29.400.jpg",
+    "product_name": "popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Butterkist",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5000237126806",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/023/712/6806/front_en.25.400.jpg",
+    "product_name": "Pop corn sweet",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Kirkland Signature",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0096619816927",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/009/661/981/6927/front_en.47.400.jpg",
+    "product_name": "Microwave Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Trader Joe's",
+    "categories_tags": [
+      "en:snacks",
+      "en:meals",
+      "en:meals-with-meat",
+      "en:popcorn"
+    ],
+    "code": "00921138",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/092/1138/front_en.162.400.jpg",
+    "product_name": "Organic Popcorn with Organic Extra Virgin Olive Oil",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Bedo Imex B.V., microwave",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Popcorn sucré",
+      "en:Snacks sucrés"
+    ],
+    "code": "8714601010895",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/871/460/101/0895/front_en.21.400.jpg",
+    "product_name": "Pop corn caramel salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "PROPER",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5060283760003",
+    "generic_name": "pop corn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/0003/front_en.60.400.jpg",
+    "product_name": "PROPER CORN SEA SALTED POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Smart food",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:chips-and-fries",
+      "en:crisps",
+      "en:popcorn"
+    ],
+    "code": "0028400014236",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/840/001/4236/front_en.116.400.jpg",
+    "product_name": "White Cheddar Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "ACT II",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8901512540201",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/151/254/0201/front_en.34.400.jpg",
+    "product_name": "ACT TT GOlDEN SIZZLE",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Chio",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Popcorn with butter"
+    ],
+    "code": "3577060130048",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/357/706/013/0048/front_en.18.400.jpg",
+    "product_name": "Popcorn cu Unt",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marque Repère, Tokapi",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:sweet-snacks",
+      "en:appetizers",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "3564700556894",
+    "generic_name": "Pop corn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/470/055/6894/front_fr.62.400.jpg",
+    "product_name": "Pop corn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Skinny Pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0850251004254",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4254/front_en.34.400.jpg",
+    "product_name": "Original Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SKINNY POP",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "0850251004179",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4179/front_en.68.400.jpg",
+    "product_name": "WHITE CHEDDAR POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Proper Corn",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5060283761994",
+    "generic_name": "Salted microwavable popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/1994/front_en.30.400.jpg",
+    "product_name": "Salted Microwave Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "FRIT RAVICH",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "8410564029140",
+    "generic_name": "Palomitas de maíz con sal",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/056/402/9140/front_en.46.400.jpg",
+    "product_name": "Palomitas Saladas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Tesco",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5052320642212",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/505/232/064/2212/front_en.4.400.jpg",
+    "product_name": "Popcorn - Sweet",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SKINNY POP",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:plain-popcorn"
+    ],
+    "code": "0816925022252",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/081/692/502/2252/front_en.33.400.jpg",
+    "product_name": "ORIGINAL POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Butterkist",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5000237129739",
+    "generic_name": "Salted microwavable popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/023/712/9739/front_en.34.400.jpg",
+    "product_name": "Simply salted",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Menguy's, Maxi Pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:popcorn-with-caramel",
+      "en:sugared-popcorn"
+    ],
+    "code": "3327271904972",
+    "generic_name": "Maïs à éclater pour micro-ondes goût caramel avec sucre et édulcorant",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/332/727/190/4972/front_fr.22.400.jpg",
+    "product_name": "Pop corn micro-ondes goût caramel 3x90g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Butterkist",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:salted-popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "5000237126820",
+    "generic_name": "Sugar coated popcorn with salt",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/023/712/6820/front_en.3.400.jpg",
+    "product_name": "Sweet & Salty Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Hacendado",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:popcorn-with-caramel"
+    ],
+    "code": "8480000348111",
+    "generic_name": "Palomitas de maíz con cobertura de caramelo",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/848/000/034/8111/front_es.35.400.jpg",
+    "product_name": "Palomitas caramelo",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lesser Evil",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Corn-puffs"
+    ],
+    "code": "0180999001025",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/018/099/900/1025/front_en.138.400.jpg",
+    "product_name": "Popcorn Himalayan Sweetness",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Menguy's",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "3327271908581",
+    "generic_name": "Maïs éclaté sucré",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/332/727/190/8581/front_en.3.400.jpg",
+    "product_name": "Pop corn éclaté sucré 100 g",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "6111255566624",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/611/125/556/6624/front_fr.11.400.jpg",
+    "product_name": "6111255566624",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:fruit-based-foods-and-beverages",
+      "en:fruits-and-vegetables-based-foods",
+      "en:snacks",
+      "en:fruit-based-foods",
+      "en:sweet-snacks",
+      "en:dried-products",
+      "en:nuts-and-their-products",
+      "en:dried-plant-based-foods",
+      "en:nuts",
+      "en:dried-fruits",
+      "en:popcorn",
+      "en:walnuts",
+      "en:sugared-popcorn",
+      "fr:FRUITS/LÉGUMES"
+    ],
+    "code": "5400101069756",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/540/010/106/9756/front_fr.22.400.jpg",
+    "product_name": "Carrefour The Market Pop Corn Caramel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Sainsbury's",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "00386012",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/038/6012/front_en.3.400.jpg",
+    "product_name": "Butterfly Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Aldi",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "4088600398174",
+    "generic_name": "Sweet popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/408/860/039/8174/front_en.3.400.jpg",
+    "product_name": "Popcorn Sweet",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marks & Spencers",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "00805476",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/080/5476/front_fr.15.400.jpg",
+    "product_name": "Sweet & Salty Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Bicentury",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn"
+    ],
+    "code": "8423207208048",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/842/320/720/8048/front_en.25.400.jpg",
+    "product_name": "Pop corn jordi cruz mini palomitas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marks & Spencers",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Sweet and salty popcorn"
+    ],
+    "code": "00899710",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/089/9710/front_fr.17.400.jpg",
+    "product_name": "SWEET & SALTY POP CORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snaktastic",
+    "categories_tags": [
+      "en:snacks",
+      "en:meats-and-their-products",
+      "en:meats",
+      "en:chicken-and-its-products",
+      "en:poultries",
+      "en:chickens",
+      "en:popcorn",
+      "en:chicken-breasts",
+      "fr:filets-de-poulet-rotis"
+    ],
+    "code": "4056489903963",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/405/648/990/3963/front_en.15.400.jpg",
+    "product_name": "Sweet and Salty Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Heimatgut",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Imbiss",
+      "en:Süßer Snack",
+      "en:Süßes Popcorn"
+    ],
+    "code": "4260350920885",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/426/035/092/0885/front_de.40.400.jpg",
+    "product_name": "Popcorn Süss",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "ACT 2",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8901512562807",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/151/256/2807/front_en.3.400.jpg",
+    "product_name": "Butter flavour popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "K Classic KK",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3577060000099",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/357/706/000/0099/front_de.19.400.jpg",
+    "product_name": "Popcorn Salzig",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "BEDO",
+    "categories_tags": [
+      "en:snacks",
+      "en:frozen-foods",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "8714601010017",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/871/460/101/0017/front_en.62.400.jpg",
+    "product_name": "Pop Corn Doux",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "BEDO, microwave",
+    "categories_tags": [
+      "en:snacks",
+      "en:frozen-foods",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "8714601009998",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/871/460/100/9998/front_fr.43.400.jpg",
+    "product_name": "Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Butterkist",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "5000237129753",
+    "generic_name": "Sweet & salted microwaveable popcorn with sweeteners",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/023/712/9753/front_en.34.400.jpg",
+    "product_name": "Sweet & Salty Microwave Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Butterkist",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "5000237126875",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/023/712/6875/front_en.96.400.jpg",
+    "product_name": "Crunchy Toffee Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Tesco",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:salted-popcorn",
+      "en:sugared-popcorn",
+      "en:Salted and sweet popcorn"
+    ],
+    "code": "5057373983060",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/505/737/398/3060/front_en.16.400.jpg",
+    "product_name": "Popcorn - Sweet & Salty (Multipack)",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Orville Redenbacher",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0058807488163",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/005/880/748/8163/front_en.49.400.jpg",
+    "product_name": "Original",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Orville Redenbacher's",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0027000488287",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/700/048/8287/front_en.22.400.jpg",
+    "product_name": "White Corn",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:seeds",
+      "en:popcorn",
+      "en:papaver-seeds"
+    ],
+    "code": "8901512540805",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/151/254/0805/front_en.6.400.jpg",
+    "product_name": "Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Menguy's",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "3327271906358",
+    "generic_name": "Maïs à éclater pour micro-ondes avec édulcorant",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/332/727/190/6358/front_fr.23.400.jpg",
+    "product_name": "Popcorn micro-ondes sucré",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SkinnyPop",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "0816925021224",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/081/692/502/1224/front_en.51.400.jpg",
+    "product_name": "SkinnyPop Sea Salt Microwave Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Rigopop",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn",
+      "fr:Gluten"
+    ],
+    "code": "3502490014514",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/350/249/001/4514/front_fr.22.400.jpg",
+    "product_name": "Pop corn mushroom sucré",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Jimmy's",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8713276011329",
+    "generic_name": "Zoete en zoute popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/871/327/601/1329/front_en.34.400.jpg",
+    "product_name": "Popcorn Sweet & Salt",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Cretors",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0732494000371",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/073/249/400/0371/front_en.18.400.jpg",
+    "product_name": "Chicago Mix",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "HEMA",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8720354825778",
+    "generic_name": "Popcorn zoet en zout",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/872/035/482/5778/front_nl.13.400.jpg",
+    "product_name": "zoet & zout popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3560071556228",
+    "generic_name": "Maïs à éclater micro-ondable salé.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/155/6228/front_fr.3.400.jpg",
+    "product_name": "Pop corn Salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Haudecoeur, légumor",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:seeds",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn",
+      "en:plain-popcorn"
+    ],
+    "code": "3276650111039",
+    "generic_name": "Maïs",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/665/011/1039/front_fr.18.400.jpg",
+    "product_name": "Maïs Pop Corn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Frit Ravich",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "8410564029188",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/056/402/9188/front_fr.15.400.jpg",
+    "product_name": "F.ravich Crisp.colors",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Menguy's",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3327271906365",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/332/727/190/6365/front_fr.35.400.jpg",
+    "product_name": "Popcorn salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "East End",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5018605480979",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/501/860/548/0979/front_en.3.400.jpg",
+    "product_name": "Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "RigoPop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "3502490195794",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/350/249/019/5794/front_fr.22.400.jpg",
+    "product_name": "Pop corn mushroom caramel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Skinny Pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "0816925021217",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/081/692/502/1217/front_en.50.400.jpg",
+    "product_name": "Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Ohonos Snacks",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5204193820406",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/520/419/382/0406/front_en.79.400.jpg",
+    "product_name": "Pop-o top's",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Proper Corn",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:paprika popcorn"
+    ],
+    "code": "5060283763080",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/3080/front_en.3.400.jpg",
+    "product_name": "Smoky  & Sweet Paprika Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lesser Evil",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0855469006229",
+    "generic_name": "Popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/546/900/6229/front_en.157.400.jpg",
+    "product_name": "Lesser Evil Popcorn Himalayan Pink Salt",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Vico",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:popcorn-with-caramel"
+    ],
+    "code": "3336972410019",
+    "generic_name": "Pop corn au goût caramel",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/333/697/241/0019/front_en.16.400.jpg",
+    "product_name": "Pop Caramel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Couleurs cuisine, Daco Bello, J'k",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:seeds",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn",
+      "en:plain-popcorn",
+      "fr:Maïs en grain pour pop corn",
+      "fr:Maïs pour pop corn",
+      "fr:Maïs pour popcorn",
+      "fr:Maïs à popcorn"
+    ],
+    "code": "3270722500141",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/327/072/250/0141/front_fr.33.400.jpg",
+    "product_name": "Maïs à éclater",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Mogyi",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5997347540427",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/599/734/754/0427/front_ro.10.400.jpg",
+    "product_name": "Micro Pop Sare",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Manhattan",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5099274000002",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/509/927/400/0002/front_en.26.400.jpg",
+    "product_name": "popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Alnatura, Alnatura GmbH",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:seeds",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn",
+      "de:Getreide ganz Natur"
+    ],
+    "code": "4104420232198",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/410/442/023/2198/front_en.17.400.jpg",
+    "product_name": "Popcorn Mais",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "LesserEvil",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0855611008361",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/561/100/8361/front_en.55.400.jpg",
+    "product_name": "Popcorn White Cheddar Flavor",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "EazyPop",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5023751000728",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/502/375/100/0728/front_en.8.400.jpg",
+    "product_name": "Salted Microwave Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Pop & Love",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:popcorn"
+    ],
+    "code": "3760278560039",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/027/856/0039/front_en.112.400.jpg",
+    "product_name": "Popcorn sucré-salé Pop & love",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Jimmy's",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "8713276011312",
+    "generic_name": "Zoete popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/871/327/601/1312/front_nl.22.400.jpg",
+    "product_name": "Popcorn sweet",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "ANGIE'S BOOMCHICKAPOP",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0892773000697",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/089/277/300/0697/front_en.8.400.jpg",
+    "product_name": "LIGHTLY SWEET & SALTY KETTLE CORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Orville Redenbacher's",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Microwave popcorn"
+    ],
+    "code": "0027000623183",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/700/062/3183/front_en.58.400.jpg",
+    "product_name": "smart pop! MINI BAGS BUTTER",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Lesser Evil",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0180999001506",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/018/099/900/1506/front_en.18.400.jpg",
+    "product_name": "POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snack Day",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:popcorn"
+    ],
+    "code": "20064570",
+    "generic_name": "Popcorn au four à micro-ondes, nature",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/006/4570/front_en.41.400.jpg",
+    "product_name": "Popcorn saveur beurre",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Movies Pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "3760018850604",
+    "generic_name": "Popcorn sucré",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/001/885/0604/front_fr.33.400.jpg",
+    "product_name": "POPCORN SUCRE",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Seeberger",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:seeds",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn"
+    ],
+    "code": "4008258528020",
+    "generic_name": "Popcorn-Mais",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/400/825/852/8020/front_de.45.400.jpg",
+    "product_name": "Popcorn-Mais",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "3560071010751",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/101/0751/front_en.60.400.jpg",
+    "product_name": "Popcorn sucré",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:seeds",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn"
+    ],
+    "code": "3560070728442",
+    "generic_name": "Grains de maïs à éclater pour popcorn.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/072/8442/front_es.34.400.jpg",
+    "product_name": "Maïs popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Co-op",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Sweet and salty popcorn"
+    ],
+    "code": "5000129326581",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/012/932/6581/front_en.3.400.jpg",
+    "product_name": "Sweet & Salty Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Proper",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:popcorn-with-caramel"
+    ],
+    "code": "5060283762526",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/2526/front_en.3.400.jpg",
+    "product_name": "Proper Corn Salted Caramel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Pop Weaver",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "3800215810008",
+    "generic_name": "Пуканки с масло",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/380/021/581/0008/front_en.18.400.jpg",
+    "product_name": "Пуканки с масло",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Popitas",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8410573103480",
+    "generic_name": "Maíz para palomitas sabor mantequilla para microondas",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/057/310/3480/front_es.13.400.jpg",
+    "product_name": "Palomitas Mantequilla",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Mandy's",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "3760278560008",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/027/856/0008/front_fr.16.400.jpg",
+    "product_name": "Popcorn légèrement salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Star",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5941000030770",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/594/100/003/0770/front_en.9.400.jpg",
+    "product_name": "Popcorn with Salt",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Orville",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:seeds",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn",
+      "en:Maïs popcorn"
+    ],
+    "code": "0058807484233",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/005/880/748/4233/front_en.24.400.jpg",
+    "product_name": "Maïs popcorn à éclater au beurre léger",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Sun Snacks",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:popcorn-with-caramel"
+    ],
+    "code": "4068706563058",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/406/870/656/3058/front_en.3.400.jpg",
+    "product_name": "Sweet popcorn classic caramel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Vico, Baff, Intersnack",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:popcorn-with-caramel",
+      "en:sugared-popcorn"
+    ],
+    "code": "3336971212041",
+    "generic_name": "Maïs soufflé avec enrobage caramel.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/333/697/121/2041/front_fr.19.400.jpg",
+    "product_name": "Pop corn baff caramel 200g sachet",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour, Produits blancs",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3560071150648",
+    "generic_name": "Grains de maïs éclatés salés",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/115/0648/front_fr.25.400.jpg",
+    "product_name": "Pop corn salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snackrite",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "4088600398181",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/408/860/039/8181/front_en.3.400.jpg",
+    "product_name": "Sweet and Salted Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Sainsbury's",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "00386036",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/038/6036/front_en.3.400.jpg",
+    "product_name": "Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Marks & Spencers",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "00805452",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/080/5452/front_en.40.400.jpg",
+    "product_name": "Salted Pop Corn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:biscuits-and-crackers",
+      "en:crackers-appetizers",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3256225733798",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/325/622/573/3798/front_fr.39.400.jpg",
+    "product_name": "Popcorn salé micro ondable en gobelet 2x100g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Smartfood",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn"
+    ],
+    "code": "0028400020008",
+    "generic_name": "Smartfood Popcorn White Cheddar Cheese Flavored",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/840/002/0008/front_en.70.400.jpg",
+    "product_name": "WHITE CHEDDAR FLAVORED POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Skinny Pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "0850251004650",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4650/front_en.96.400.jpg",
+    "product_name": "White Cheddar Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Seeberger",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "4008258527054",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/400/825/852/7054/front_de.15.400.jpg",
+    "product_name": "Mikrowellen-Popcorn salzig",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "PopCorners",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:chips-and-fries",
+      "en:crisps",
+      "en:popcorn",
+      "en:corn-chips"
+    ],
+    "code": "0893594002051",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/089/359/400/2051/front_en.88.400.jpg",
+    "product_name": "White Cheddar Flavored Popcorn Snacks",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Smartfood",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Ultra processed"
+    ],
+    "code": "0060410029886",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/006/041/002/9886/front_en.57.400.jpg",
+    "product_name": "Popcorn White Cheddar",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Orville Redenbacher's",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:salty-snacks",
+      "en:seeds",
+      "en:appetizers",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn"
+    ],
+    "code": "0027000488140",
+    "generic_name": "Popping corn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/700/048/8140/front_en.54.400.jpg",
+    "product_name": "Original",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Popz",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5706516031501",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/570/651/603/1501/front_de.35.400.jpg",
+    "product_name": "Popz Mikrowellenpopcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snack Day, Lidl",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "20469214",
+    "generic_name": "Pipocas doces",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/002/046/9214/front_pt.54.400.jpg",
+    "product_name": "pipocas Doces",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Skinny Pop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:shelf-stable-popcorn"
+    ],
+    "code": "0816925022450",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/081/692/502/2450/front_en.67.400.jpg",
+    "product_name": "Original Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Eroski",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8480010200393",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/848/001/020/0393/front_es.15.400.jpg",
+    "product_name": "Palomitas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SkinnyPop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0850251004438",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4438/front_en.24.400.jpg",
+    "product_name": "WHITE CHEDDAR POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Conagra",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0076150011265",
+    "ecoscore_tags": [
+      "b"
+    ],
+    "image_front_url": "https://images.openfoodfacts.org/images/products/007/615/001/1265/front_en.16.400.jpg",
+    "product_name": "Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Keogh's",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:chips-and-fries",
+      "en:crisps",
+      "en:popcorn"
+    ],
+    "code": "5391527730781",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/539/152/773/0781/front_fr.4.400.jpg",
+    "product_name": "Keogh's popcorn imp",
+    "_srcPrefix": "off"
+  },
+  {
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "6111255562107",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/611/125/556/2107/front_fr.15.400.jpg",
+    "product_name": "happy pop corn tutti fruiti 100g",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Imperial",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0622341709468",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/062/234/170/9468/front_en.45.400.jpg",
+    "product_name": "Movie Cinema Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Act II",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "8901512562609",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/151/256/2609/front_en.3.400.jpg",
+    "product_name": "Act II Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Family chips",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3546580550582",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/354/658/055/0582/front_fr.23.400.jpg",
+    "product_name": "Pop corn bio salé n°002",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "LesserEvil",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0855469006359",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/546/900/6359/front_en.3.400.jpg",
+    "product_name": "Organic Popcorn, Himalayan Pink Salt",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Act 2",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8901512921604",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/890/151/292/1604/front_en.3.400.jpg",
+    "product_name": "Sour Cream & Cheese Flavor Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Menguy's",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3327271908574",
+    "generic_name": "Maïs éclaté salé",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/332/727/190/8574/front_fr.3.400.jpg",
+    "product_name": "Pop corn éclate salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Proper",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:popcorn"
+    ],
+    "code": "5060283763554",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/3554/front_en.3.400.jpg",
+    "product_name": "Mature Cheddar Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Proper",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:popcorn"
+    ],
+    "code": "5060283763592",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/506/028/376/3592/front_en.15.400.jpg",
+    "product_name": "Mature Cheddar Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "hacencado",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:popcorn",
+      "en:puffed-salty-snacks",
+      "en:puffed-salty-snacks-made-from-maize"
+    ],
+    "code": "8402001030536",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/840/200/103/0536/front_la.4.400.jpg",
+    "product_name": "bombitas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Star",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5941000030763",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/594/100/003/0763/front_ro.17.400.jpg",
+    "product_name": "Star Popcorn Cașcaval",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Asda",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5054070249611",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/505/407/024/9611/front_en.17.400.jpg",
+    "product_name": "Asda Sweet and Salted Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3560070728657",
+    "generic_name": "Préparation de grains de maïs à éclater salée en sachet micro-ondable, pour pop corn.",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/356/007/072/8657/front_it.31.400.jpg",
+    "product_name": "Popcorn salé",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Cobs",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "9334714000157",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/933/471/400/0157/front_en.49.400.jpg",
+    "product_name": "Popcorn Lightly Salted & Slightly Sweet",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "naturaplan",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:seeds",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:cereals-and-their-products",
+      "en:cereal-grains",
+      "en:corn",
+      "en:popcorn"
+    ],
+    "code": "7610809087206",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/761/080/908/7206/front_fr.34.400.jpg",
+    "product_name": "Maïs pour Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Orville Redenbacher's",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn"
+    ],
+    "code": "0027000489178",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/700/048/9178/front_en.37.400.jpg",
+    "product_name": "Naturals Simply Salted Gourmet Popping Corn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Kelly",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "9000159190073",
+    "generic_name": "Popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/900/015/919/0073/front_de.34.400.jpg",
+    "product_name": "Mikrowellen Popcorn Salted (3 x 90g)",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Morrisons",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "5010525041674",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/501/052/504/1674/front_en.24.400.jpg",
+    "product_name": "Sweet & Salted Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snack a Jacks",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5000328250847",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/032/825/0847/front_en.3.400.jpg",
+    "product_name": "Snack a Jacks Minis Kickin' Sweet Chilli Rice & Corn Cakes",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Albert Heijn",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8718907108416",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/871/890/710/8416/front_nl.3.400.jpg",
+    "product_name": "Popcorn zout",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Cobs Natural",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "9334714000096",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/933/471/400/0096/front_en.50.400.jpg",
+    "product_name": "Natural Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Select",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8006280060019",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/800/628/006/0019/front_it.4.400.jpg",
+    "product_name": "select",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Kirkland Signature",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "0096619955596",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/009/661/995/5596/front_en.34.400.jpg",
+    "product_name": "Microwave Popcorn Movie Theater Butter",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Mandy",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "3760278560053",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/027/856/0053/front_fr.8.400.jpg",
+    "product_name": "Popcorn sucré avec une pointe de sel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Butterkist",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "5000237126981",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/500/023/712/6981/front_en.3.400.jpg",
+    "product_name": "Sweet & Salty Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SkinnyPop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0850251004087",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4087/front_en.16.400.jpg",
+    "product_name": "Original Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SkinnyPop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0850251004209",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/085/025/100/4209/front_en.5.400.jpg",
+    "product_name": "Sweet & Salty Kettle Corn Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Snaktastic",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "4056489904007",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/405/648/990/4007/front_en.8.400.jpg",
+    "product_name": "Sweet & Salty Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Le Vieux Bistrot",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3502791154155",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/350/279/115/4155/front_fr.20.400.jpg",
+    "product_name": "Popcorn artisanal",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Risi",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "8411859561451",
+    "generic_name": "Producto de aperitivo horneado con sabor a ketchup y mostaza con azúcar",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/185/956/1451/front_en.29.400.jpg",
+    "product_name": "Palomitas Ketchup & Mostaza",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Continente",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "5601312073611",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/560/131/207/3611/front_en.6.400.jpg",
+    "product_name": "Pipocas Doces",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "popitas",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "8410573104159",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/841/057/310/4159/front_de.18.400.jpg",
+    "product_name": "maíz para palomitas saladas para microondas",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Vico",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "3336972302055",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/333/697/230/2055/front_fr.3.400.jpg",
+    "product_name": "Pop poivre et sel",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Sphere Production",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "3760018850987",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/376/001/885/0987/front_fr.15.400.jpg",
+    "product_name": "Movies Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Smartfood",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:seeds",
+      "en:popcorn"
+    ],
+    "code": "0028400421393",
+    "generic_name": "",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/840/042/1393/front_en.113.400.jpg",
+    "product_name": "White Cheddar Flavored Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Smartfood",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0060410029909",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/006/041/002/9909/front_en.30.400.jpg",
+    "product_name": "Movie Night Butter Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Chupa Chups",
+    "categories_tags": [
+      "en:snacks",
+      "en:frozen-foods",
+      "en:sweet-snacks",
+      "en:popcorn",
+      "en:sugared-popcorn"
+    ],
+    "code": "8720892188304",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/872/089/218/8304/front_fr.16.400.jpg",
+    "product_name": "Pop corn cola",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Coop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "7340191158757",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/734/019/115/8757/front_en.3.400.jpg",
+    "product_name": "Micro Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Coles",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "9310645385570",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/931/064/538/5570/front_en.3.400.jpg",
+    "product_name": "Popping corn kernels",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Simply Nature",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "4099100036251",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/409/910/003/6251/front_en.13.400.jpg",
+    "product_name": "Sea Salt Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Skinnygirl",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0027000623244",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/700/062/3244/front_en.10.400.jpg",
+    "product_name": "Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Smart Food",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0028400670531",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/002/840/067/0531/front_en.29.400.jpg",
+    "product_name": "White Cheddar Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Trader Joe's",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "00779333",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/000/000/077/9333/front_en.15.400.jpg",
+    "product_name": "Piquant Popcorn",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Fine Crunchy",
+    "categories_tags": [
+      "en:snacks",
+      "en:salty-snacks",
+      "en:popcorn",
+      "en:salted-popcorn"
+    ],
+    "code": "8590421061787",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/859/042/106/1787/front_en.3.400.jpg",
+    "product_name": "Popcorn Salted",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Kroger",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0011110035431",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/001/111/003/5431/front_en.10.400.jpg",
+    "product_name": "Popcorn White",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "SKINNY POP",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "0816925021989",
+    "generic_name": "Popcorn",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/081/692/502/1989/front_en.29.400.jpg",
+    "product_name": "ORIGINAL POPCORN",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Chio",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn"
+    ],
+    "code": "4001242108574",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/400/124/210/8574/front_de.3.400.jpg",
+    "product_name": "Mikrowellenpopcorn süß",
+    "_srcPrefix": "off"
+  },
+  {
+    "brands": "Coop",
+    "categories_tags": [
+      "en:snacks",
+      "en:popcorn",
+      "en:Corn-kernels"
+    ],
+    "code": "7340011351399",
+    "image_front_url": "https://images.openfoodfacts.org/images/products/734/001/135/1399/front_en.5.400.jpg",
+    "product_name": "Popcorn kernels",
+    "_srcPrefix": "off"
   }
 ]

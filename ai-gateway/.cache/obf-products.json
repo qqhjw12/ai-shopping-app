@@ -79688,5 +79688,6427 @@
     "image_front_url": "https://images.openbeautyfacts.org/images/products/629/401/880/7100/front_en.4.400.jpg",
     "product_name": "Fresh Wipes - Tropical Scent",
     "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ruby Kisses",
+    "categories_tags": [
+      "en:makeup",
+      "en:incorrect-product-type",
+      "en:lip-makeup",
+      "en:lip-gloss",
+      "en:non-food-products",
+      "en:open-beauty-facts"
+    ],
+    "code": "0649674099219",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/064/967/409/9219/front_en.3.400.jpg",
+    "product_name": "Lip Oil Intense Treatment Gloss",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lavanila",
+    "categories_tags": [
+      "en:makeup",
+      "en:lip-makeup",
+      "en:lip-gloss",
+      "en:non-food-products",
+      "en:open-beauty-facts",
+      "en:plant-based-foods",
+      "en:plant-based-foods-and-beverages"
+    ],
+    "code": "0009452300132",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/945/230/0132/front_en.4.400.jpg",
+    "product_name": "The healthy lip shine",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Freeos, Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:plant-based-foods",
+      "en:plant-based-foods-and-beverages",
+      "en:seeds"
+    ],
+    "code": "8002110383709",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/800/211/038/3709/front_fr.25.400.jpg",
+    "product_name": "neutrogena creme main",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Silky Hands",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Креми для рук"
+    ],
+    "code": "8720633004115",
+    "generic_name": "Hand cream",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/872/063/300/4115/front_en.3.400.jpg",
+    "product_name": "Silky Hands moisturizing hand cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Velnea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8606032020980",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/860/603/202/0980/front_en.3.400.jpg",
+    "product_name": "Velnea Hand creme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4005808846290",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/884/6290/front_pt.3.400.jpg",
+    "product_name": "Nivea creme para mãos 3 em 1 anti idade",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Hellena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3872292011838",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/387/229/201/1838/front_bs.3.400.jpg",
+    "product_name": "Hellena Hand and Nail Cream with Grape Seed Oil",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4066447876031",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/644/787/6031/front_de.4.400.jpg",
+    "product_name": "Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "YOPE",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5903760207113",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/376/020/7113/front_en.7.400.jpg",
+    "product_name": "Czereśnia mleko migdałowe",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves Rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3660005813615",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/581/3615/front_fr.7.400.jpg",
+    "product_name": "Fleurs des prés & bruyère",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "AA",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5900116053578",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/011/605/3578/front_pl.3.400.jpg",
+    "product_name": "Krem Balsam do rąk Help+",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dermagen",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8809353531184",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/935/353/1184/front_es.3.400.jpg",
+    "product_name": "Urea Cream Skin Softener",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Herwe",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4038288103690",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/403/828/810/3690/front_de.3.400.jpg",
+    "product_name": "Mielosan",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Hand care",
+      "en:Skin care"
+    ],
+    "code": "3574661748368",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/174/8368/front_en.8.400.jpg",
+    "product_name": "Neutrogena Konsantre El Kremi Parfümlü",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Agarta",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:body-creams",
+      "en:facial-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Face care",
+      "en:Skin care"
+    ],
+    "code": "8699943340001",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/994/334/0001/front_tr.9.400.jpg",
+    "product_name": "Agarta Doğal Aloe Vera Nemlendirici Cilt Kremi 75 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "42417712",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/004/241/7712/front_en.6.400.jpg",
+    "product_name": "Nivea Yoğun Nemlendirici El Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Hobby",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "8690937015608",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/093/701/5608/front_en.4.400.jpg",
+    "product_name": "Hobby Gliserin Yoğun Nemlendirici El ve Vücut Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Thalia Natural Beauty",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8699490317648",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/949/031/7648/front_en.4.400.jpg",
+    "product_name": "Thalia Parfümlü El Kremi Iris Touch",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Thalia Natural Beauty",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8699490317662",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/949/031/7662/front_en.4.400.jpg",
+    "product_name": "Thalia Parfümlü El Kremi Gardenia Soul",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Thalia Natural Beauty",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8699490317655",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/949/031/7655/front_en.6.400.jpg",
+    "product_name": "Thalia Parfümlü El Kremi Tsubaki Blossom",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Thalia Natural Beauty",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8684225891883",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/422/589/1883/front_en.4.400.jpg",
+    "product_name": "Thalia The C'urea El Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ziaja",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5901887048190",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/188/704/8190/front_en.4.400.jpg",
+    "product_name": "Ziaja Tucuma Yağı Pürüzsüzleştirici El Kremi %3 Üre",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Siveno",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "8681511096892",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/151/109/6892/front_en.4.400.jpg",
+    "product_name": "Siveno %100 Doğal Yatıştırıcı El ve Vücut Kremi Lavanta Yağı",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bee Beauty",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8697916012962",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/791/601/2962/front_en.4.400.jpg",
+    "product_name": "Bee Beauty Doğal Mango Özlü El Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3574661526065",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/152/6065/front_en.9.400.jpg",
+    "product_name": "hydro boost",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Celenes",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "7350104248130",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/735/010/424/8130/front_en.4.400.jpg",
+    "product_name": "Celenes Sea Buckthorn Yaşlanma Karşıtı El Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Celenes",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "7350104248147",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/735/010/424/8147/front_en.4.400.jpg",
+    "product_name": "Celenes Cloudberry Yoğun Nemlendirici El Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Benri",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Cosmetics",
+      "en:Hand care",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "8684252211500",
+    "generic_name": "Hindistan cevizi yağı içeren nemlendirici el kremi",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/425/221/1500/front_en.14.400.jpg",
+    "product_name": "Benri Coconut Oil El Krem",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cire Aseptine",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8682276607156",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/227/660/7156/front_en.4.400.jpg",
+    "product_name": "Cire Aseptine Vitamin-C Brightening Özel Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Cosmetics",
+      "en:Hand care",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "4005808357369",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/835/7369/front_en.9.400.jpg",
+    "product_name": "Nivea Yatıştırıcı ve Nemlendirici El Bakım Kremi Aloe Vera 75 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Benri",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8684252211524",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/425/221/1524/front_en.4.400.jpg",
+    "product_name": "Benri Peach Scent El Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Eveline Cosmetics",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5901761968569",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/176/196/8569/front_en.3.400.jpg",
+    "product_name": "Smoothing hand balm (Banana Care)",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mixa",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:open-beauty-facts"
+    ],
+    "code": "3600550240276",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/055/024/0276/front_fr.10.400.jpg",
+    "product_name": "Crème mains nutritive, mains sèches ongles fragilisés, huile d'abricot.",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Eucerin",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4005800383519",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/038/3519/front_en.5.400.jpg",
+    "product_name": "ph5 crème mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bath and Body Works",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:body-creams",
+      "en:facial-creams",
+      "ar:كريمات-مرطبة",
+      "en:day-and-night-creams",
+      "en:hand-creams"
+    ],
+    "code": "0667659335695",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/066/765/933/5695/front_es.3.400.jpg",
+    "product_name": "Bath and Body Works MADAME MYSTIQUE BODY CREAM",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "l’Occitane",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3253581782088",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/358/178/2088/front_en.3.400.jpg",
+    "product_name": "Sweet Clover Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Perfums & Beauty S.L., THE FRUIT COMPANY",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8436559713238",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/843/655/971/3238/front_es.12.400.jpg",
+    "product_name": "Crema de manos FRESA NATA",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lirene",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5900717082557",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/071/708/2557/front_en.12.400.jpg",
+    "product_name": "Paraffin Hand Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Simply Care",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4820185227315",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/482/018/522/7315/front_en.14.400.jpg",
+    "product_name": "Hydro Boost",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:body-creams",
+      "en:facial-creams",
+      "en:hand-creams"
+    ],
+    "code": "4006000111827",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/600/011/1827/front_es.3.400.jpg",
+    "product_name": "Refreshingly Soft Moisturising Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Watsons",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4894819704541",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/489/481/970/4541/front_en.3.400.jpg",
+    "product_name": "Naturals Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Claderm",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Cosmetics",
+      "en:Hand care",
+      "en:Skin care"
+    ],
+    "code": "8682983380427",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/298/338/0427/front_en.4.400.jpg",
+    "product_name": "Claderm Pomegranate El Kremi 50 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dove",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "nl:Handverzorging",
+      "nl:Verzorging"
+    ],
+    "code": "8710847963469",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/084/796/3469/front_nl.13.400.jpg",
+    "product_name": "Dove Body Love Essential Care Handcrème",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Vaseline",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "nl:Handverzorging",
+      "nl:Verzorging"
+    ],
+    "code": "8712561485548",
+    "generic_name": "Herstel droge, gebarsten handen en versterk je nagels met Vaseline Healthy Hands & Stronger Nails Handlotion. Deze hydrateert en beschermt je handen. Je nagels zijn binnen 2 weken tien keer sterker dankzij de keratine in de crème.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/256/148/5548/front_nl.13.400.jpg",
+    "product_name": "Vaseline Healthy Hands & Stronger Nails Handlotion",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "O'Keeffe's",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "nl:Handverzorging",
+      "nl:Verzorging"
+    ],
+    "code": "5704947005665",
+    "generic_name": "O'Keeffe's Working Hands is een geconcentreerde handcrème die hele droge en gebarsten handen heelt, verlicht en herstelt. Binnen enkele dagen voel je het verschil.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/570/494/700/5665/front_nl.8.400.jpg",
+    "product_name": "O'Keeffe's Working hands handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "NIVEA",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "nl:Handverzorging",
+      "nl:Verzorging"
+    ],
+    "code": "4005900701503",
+    "ecoscore_tags": [
+      "unknown"
+    ],
+    "generic_name": "Deze Nivea 3-in-1 Repair Handcrème geeft je in een handomdraai 24 uur lang zachte en beschermde handen.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/590/070/1503/front_nl.11.400.jpg",
+    "product_name": "NIVEA 3in1 repair handcréme 24u hydratatie",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "NIVEA",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "nl:Handverzorging",
+      "nl:Verzorging"
+    ],
+    "code": "4005900701473",
+    "generic_name": "Deze Nivea Q10plus 3-in-1 Anti-Age Handcrème geeft je in een handomdraai 24 uur lang zachte handen en voorkomt de eerste tekenen van huidveroudering.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/590/070/1473/front_nl.6.400.jpg",
+    "product_name": "NIVEA 3in1 antiage q10 handcréme antirimpel",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Hobby",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Body lotions",
+      "en:Cosmetics",
+      "en:Skin care"
+    ],
+    "code": "8690937011648",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/093/701/1648/front_tr.5.400.jpg",
+    "product_name": "Hobby Classic Nemlendirici El ve Vücut Losyonu",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "alverde NATURKOSMETIK",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4066447241310",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/644/724/1310/front_de.3.400.jpg",
+    "product_name": "Intensiv Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3574661687049",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/168/7049/front_de.3.400.jpg",
+    "product_name": "Hand & Nagel Creme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cire Aseptine",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Body moisturizers",
+      "en:Cosmetics",
+      "en:Moisturizers",
+      "en:Skin care",
+      "en:Skin care creams"
+    ],
+    "code": "8682276602618",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/227/660/2618/front_en.4.400.jpg",
+    "product_name": "Cire Aseptine Soft Papatya Özlü Besleyici Prebiyotikli Krem 300 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cire Aseptine",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Body moisturizers",
+      "en:Cosmetics",
+      "en:Moisturizers",
+      "en:Skin care",
+      "en:Skin care creams"
+    ],
+    "code": "8682276602649",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/227/660/2649/front_en.4.400.jpg",
+    "product_name": "Cire Aseptine Soft Zeytinyağlı Nemlendirici Pürüzsüzleştirici Prebiyotikli Krem 100 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cire Aseptine",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:petroleum-jellies",
+      "en:Body care",
+      "en:Body moisturizers",
+      "en:Cosmetics",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "8682276603035",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/227/660/3035/front_en.4.400.jpg",
+    "product_name": "Olive Oil Cream Vaseline",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cire Aseptine",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:petroleum-jellies",
+      "en:Body care",
+      "en:Body moisturizers",
+      "en:Cosmetics",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "8682276603004",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/227/660/3004/front_en.4.400.jpg",
+    "product_name": "Cire Aseptine Avokado Özlü Krem Vazelin 75 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L’Occitane",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3253581768648",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/358/176/8648/front_fr.4.400.jpg",
+    "product_name": "Crème Mains Peaux Sèches 20% Beurre de Karité",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "La Roche Posay",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3337872414145",
+    "generic_name": "Crème pour les mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/787/241/4145/front_fr.5.400.jpg",
+    "product_name": "Cicaplast Mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Le Petit Olivier",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3549621033174",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/354/962/103/3174/front_fr.4.400.jpg",
+    "product_name": "Crème Mains Nourissante",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Eco Love",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "7290015284431",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/729/001/528/4431/front_he.8.400.jpg",
+    "product_name": "קרם ידיים",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Isana, Rossmann",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4305615609997",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/430/561/560/9997/front_de.20.400.jpg",
+    "product_name": "Intensiv Handcreme Urea",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "La Roche-Posay",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3337875766326",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/787/576/6326/front_en.4.400.jpg",
+    "product_name": "La Roche-Posay - Cicaplast Mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Atlantia",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "es:Aloe vera"
+    ],
+    "code": "8436024790016",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/843/602/479/0016/front_en.20.400.jpg",
+    "product_name": "Gel aloe Vera puro",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Le Petit Olivier",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:open-beauty-facts"
+    ],
+    "code": "3549621020426",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/354/962/102/0426/front_fr.7.400.jpg",
+    "product_name": "Crème mains réparatrice beurre de karité",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea Men",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:body-creams",
+      "en:facial-creams",
+      "en:hand-creams"
+    ],
+    "code": "42269663",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/004/226/9663/front_de.18.400.jpg",
+    "product_name": "Creme Gesicht - Körper - Hände",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Arko Nem",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Cosmetics",
+      "en:Hand care",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "8690506492076",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/050/649/2076/front_tr.6.400.jpg",
+    "product_name": "Arko Nem Değerli Yağlar Hindistan Cevizi Yağı İçeren Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "NIVEA",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:body-creams",
+      "en:facial-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Body moisturizers",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Face moisturizers",
+      "en:Hand care",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "4005900009135",
+    "ecoscore_tags": [
+      "unknown"
+    ],
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/590/000/9135/front_en.3.400.jpg",
+    "product_name": "NIVEA Soft Moisturizing Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "La roche posay",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3337872412684",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/787/241/2684/front_fr.13.400.jpg",
+    "product_name": "Lipikar xerand",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Silver Rose",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Cosmetics",
+      "en:Hand care",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "8695077122704",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/507/712/2704/front_tr.5.400.jpg",
+    "product_name": "Silver Rose Pudra Tazeliği El Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "NIVEA",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Body moisturizers",
+      "en:Cosmetics",
+      "en:Skin care"
+    ],
+    "code": "4006000180847",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/600/018/0847/front_tr.8.400.jpg",
+    "product_name": "NIVEA Cocoa Butter El ve Vücut Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cire Aseptine",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Cosmetics",
+      "en:Skin care"
+    ],
+    "code": "8682276607170",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/227/660/7170/front_tr.5.400.jpg",
+    "product_name": "Cire Aseptine Anti Age Panthenol Özel Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Arko, Arko Nem",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:body-creams",
+      "en:facial-creams",
+      "en:hand-creams",
+      "en:Cosmetics",
+      "en:Skin care"
+    ],
+    "code": "8690506473860",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/050/647/3860/front_tr.4.400.jpg",
+    "product_name": "Arko Nem Soft Touch",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Le Petit Marseillais",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:non-food-products",
+      "en:open-beauty-facts",
+      "fr:Lait soin",
+      "fr:Lait soin hydratant"
+    ],
+    "code": "3574661365305",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/136/5305/front_fr.21.400.jpg",
+    "product_name": "Nutrition peaux très sèches",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Benri",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Cosmetics",
+      "en:Skin care"
+    ],
+    "code": "8699863459265",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/986/345/9265/front_en.7.400.jpg",
+    "product_name": "Benri Berry Pie El Kremi Çilekli",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Arko",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:body-creams",
+      "en:facial-creams",
+      "en:hand-creams",
+      "en:Cosmetics",
+      "en:Skin care"
+    ],
+    "code": "8690506520083",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/050/652/0083/front_tr.5.400.jpg",
+    "product_name": "Arko Nem Ekstra Nem Nemlendirici Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Isana",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Cosmetics",
+      "en:Skin care"
+    ],
+    "code": "4068134078254",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/813/407/8254/front_tr.3.400.jpg",
+    "product_name": "Portakal ve Şans Yoncası Özlü El Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Arko Nem",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Cosmetics",
+      "en:Hand care",
+      "en:Intensive care creams",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "8690506554019",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/050/655/4019/front_tr.3.400.jpg",
+    "product_name": "Arko Nem Hyalüronik Asit Yoğun Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "NIVEA",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:body-creams",
+      "en:facial-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Hand care",
+      "en:Moisturizers",
+      "en:Multipurpose creams",
+      "en:Skin care"
+    ],
+    "code": "4005900308832",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/590/030/8832/front_tr.3.400.jpg",
+    "product_name": "NIVEA Creme 250 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Cosmetics",
+      "en:Hand care",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "3574661686509",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/168/6509/front_tr.5.400.jpg",
+    "product_name": "Neutrogena Norveç Formülü El Kremi Parfümsüz",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cire Aseptine",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Cosmetics",
+      "en:Hand care",
+      "en:Moisturizers",
+      "en:Skin care"
+    ],
+    "code": "8681410000358",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/141/000/0358/front_tr.3.400.jpg",
+    "product_name": "Cire Aseptine Klasik Çiçek Özlü Yoğun Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Clasy Care",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Hand care",
+      "en:Skin care"
+    ],
+    "code": "8684441801161",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/444/180/1161/front_tr.3.400.jpg",
+    "product_name": "Clasy Care Working Hands El Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Body moisturizers",
+      "en:Skin care"
+    ],
+    "code": "4006000064123",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/600/006/4123/front_tr.3.400.jpg",
+    "product_name": "Nivea MEN Deep El ve Vücut Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:body-creams",
+      "en:facial-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Body moisturizers",
+      "en:Skin care"
+    ],
+    "code": "00320590",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/000/032/0590/front_tr.3.400.jpg",
+    "product_name": "Neutrogena Norveç Formülü Hızlı Emilen Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Skin care"
+    ],
+    "code": "3574661765976",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/176/5976/front_tr.5.400.jpg",
+    "product_name": "Neutrogena Norveç Formülü Konsantre Parfümsüz El Kremi 50 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dermokil",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Skin care"
+    ],
+    "code": "0697013011828",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/069/701/301/1828/front_tr.3.400.jpg",
+    "product_name": "Dermokil Doğal Avokado Yağlı El & Vücut Kremi 75 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Arko",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Skin care"
+    ],
+    "code": "8690506520052",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/050/652/0052/front_tr.3.400.jpg",
+    "product_name": "Arko Nem Ekstra Nem Nemlendirici Bakım Kremi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cire Aseptine",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Body care",
+      "en:Skin care"
+    ],
+    "code": "8682276602496",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/227/660/2496/front_tr.5.400.jpg",
+    "product_name": "Soft Avokado Özlü Yoğun Nemlendirici Prebiyotikli Krem",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lure",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8699118061205",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/911/806/1205/front_tr.3.400.jpg",
+    "product_name": "El Kremi Cotton Touch",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Monange",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:moisturizing-creams"
+    ],
+    "code": "7896235354185",
+    "generic_name": "Creme de Mãos Antissinais",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/789/623/535/4185/front_pt.3.400.jpg",
+    "product_name": "Monange Creme Para Mãos Anti-Idade Q10 E Vitamina E Com Ação Desodorante",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:open-beauty-facts"
+    ],
+    "code": "4012273123009",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/227/312/3009/front_fr.32.400.jpg",
+    "product_name": "Crème mains hydratante concentrée Formule Norvégienne",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "es:Cosméticos"
+    ],
+    "code": "4005808801053",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/880/1053/front_en.27.400.jpg",
+    "product_name": "Nivea Creme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mixa",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:facial-creams",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:moisturizing-creams",
+      "en:Open-beauty-facts"
+    ],
+    "code": "3600551020419",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/055/102/0419/front_en.21.400.jpg",
+    "product_name": "La Crème des peaux extra-sèches",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Belle, Eroski",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8480010207170",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/848/001/020/7170/front_en.7.400.jpg",
+    "product_name": "Natural Crema de Manos",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Belle, Eroski",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8480010184396",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/848/001/018/4396/front_es.5.400.jpg",
+    "product_name": "Crema de manos reparadora",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ombia",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4061461877149",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/146/187/7149/front_fr.10.400.jpg",
+    "product_name": "Ombia vegan clean beauty sensitive",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Aveo",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "2200267164042",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/220/026/716/4042/front_en.7.400.jpg",
+    "product_name": "Fresh Energy",
+    "_srcPrefix": "obf"
+  },
+  {
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "nl:Handverzorging",
+      "nl:Verzorging"
+    ],
+    "code": "8714319245275",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/431/924/5275/front_nl.6.400.jpg",
+    "product_name": "Zarqa Sensitive Handcrème",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "nl:Handverzorging",
+      "nl:Verzorging"
+    ],
+    "code": "8710729015842",
+    "generic_name": "Maak je schrale huid weer soepel met de verzorgende en ontsmettende Bogena Uierzalf. De zalf is bestand tegen vocht. Zo houdt de crème je huid soepel. Ook biedt hij een goede bescherming tegen weersinvloeden.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/072/901/5842/front_nl.15.400.jpg",
+    "product_name": "Bogena Uierzalf",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Armaghan",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "6260344941207",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/626/034/494/1207/front_en.3.400.jpg",
+    "product_name": "Orange cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ritual",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "fr:Baumes pour les mains"
+    ],
+    "code": "8719134143348",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/913/414/3348/front_fr.7.400.jpg",
+    "product_name": "The Ritual of Ayurveda Baume pour les mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Kruidvat",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "nl:Handverzorging",
+      "nl:Verzorging"
+    ],
+    "code": "8719179784872",
+    "generic_name": "Hydrateer en verzacht je handen met deze Kruidvat Intensive Aloë Vera Handcrème. De crème met urea en aloë vera laat je handen weer zacht en soepel aanvoelen. Je kan de crème ook gebruiken als wekelijkse crèmekuur.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/917/978/4872/front_nl.15.400.jpg",
+    "product_name": "Kruidvat Intensive Aloë Vera Handcrème",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "nivea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "7501054503095",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/750/105/450/3095/front_es.15.400.jpg",
+    "product_name": "Crema Nivea 100 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Drunk Elephant",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "0194249405235",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/019/424/940/5235/front_en.3.400.jpg",
+    "product_name": "Therapy buttered reparative hand cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lacura",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "4099100244809",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/409/910/024/4809/front_en.4.400.jpg",
+    "product_name": "La cura",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "alverde",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4010355348401",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/035/534/8401/front_de.4.400.jpg",
+    "product_name": "Glitzer Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Berioska S.L., babaria",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "de:Kremes"
+    ],
+    "code": "8410412020299",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/841/041/202/0299/front_de.4.400.jpg",
+    "product_name": "Olive oil moisturizing body cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "LASCAD",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3600550258301",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/055/025/8301/front_fr.3.400.jpg",
+    "product_name": "MIXA INTENSIF PEAUX SÈCHES Sans paraben sans colorant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Burt's Bees",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "0792850260009",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/079/285/026/0009/front_fr.3.400.jpg",
+    "product_name": "Crème pour les mains à l'huile d'amande et au lait",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4005808846610",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/884/6610/front_fr.5.400.jpg",
+    "product_name": "Baume mains SOS - Repair & Care",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3574660260052",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/026/0052/front_fr.20.400.jpg",
+    "product_name": "Crème mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Kamill",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4000196020956",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/019/602/0956/front_de.10.400.jpg",
+    "product_name": "Hand & Nagelcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Desert Essence",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "0718334337432",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/071/833/433/7432/front_en.6.400.jpg",
+    "product_name": "Lotion à la noix de coco",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Pur Aloé",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:facial-creams",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "3464660002007",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/346/466/000/2007/front_fr.7.400.jpg",
+    "product_name": "Crème réparatrice aloe vera 70%",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Avène",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3282770072815",
+    "generic_name": "crème pour les mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/328/277/007/2815/front_fr.21.400.jpg",
+    "product_name": "Cold Cream  - Crème mains concentrée",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Jack Black",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "0682223040027",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/068/222/304/0027/front_en.3.400.jpg",
+    "product_name": "Industrial Strength Hand Healer",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "The fruit company",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "6430559713221",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/643/055/971/3221/front_es.3.400.jpg",
+    "product_name": "Crema de manos",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Le petit marseillais",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "0601001034768",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/060/100/103/4768/front_fr.3.400.jpg",
+    "product_name": "Le petit marseillais",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Hello Sensitive, Netto",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5902357004890",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/235/700/4890/front_en.4.400.jpg",
+    "product_name": "Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Elkos",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4311501630808",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/431/150/163/0808/front_de.3.400.jpg",
+    "product_name": "Elkos Body Handkonzentrat Sofort-Hilfe",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "alviana",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4260167189161",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/016/718/9161/front_de.3.400.jpg",
+    "product_name": "Handcreme Soft Bio-Aloe Vera",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "ISANA MED",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4305615911052",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/430/561/591/1052/front_en.7.400.jpg",
+    "product_name": "Hand cream 5.5% urea",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Isana",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4068134111142",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/813/411/1142/front_de.3.400.jpg",
+    "product_name": "Work & repair",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Body In Balance, OnlyBio",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5902811786904",
+    "ecoscore_tags": [
+      "unknown"
+    ],
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/281/178/6904/front_pl.3.400.jpg",
+    "product_name": "pa! paja krem do rąk",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "O’Keefes",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5704947002725",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/570/494/700/2725/front_en.9.400.jpg",
+    "product_name": "Working Hands Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ziaja",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "pl:Kosmetyki"
+    ],
+    "code": "5901887047520",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/188/704/7520/front_pl.3.400.jpg",
+    "product_name": "Wygładzający krem do rąk",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Isana, Dirk Rossmann GmbH",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "de:Kosmetik"
+    ],
+    "code": "0723934376460",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/072/393/437/6460/front_de.12.400.jpg",
+    "product_name": "Isana med akut Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Novaclear",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5900779385351",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/077/938/5351/front_en.3.400.jpg",
+    "product_name": "Whitening Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ombia San",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "23123342",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/002/312/3342/front_de.5.400.jpg",
+    "product_name": "Schutzcreme Hand & Nail",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Atrix",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "9005800375519",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/900/580/037/5519/front_en.3.400.jpg",
+    "product_name": "Intensive",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Trader Joe's",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:Moisturizing Lotion"
+    ],
+    "code": "00673037",
+    "ecoscore_tags": [
+      "unknown"
+    ],
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/000/067/3037/front_es.3.400.jpg",
+    "product_name": "Hand and Body Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ziaja",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5901887032199",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/188/703/2199/front_hr.3.400.jpg",
+    "product_name": "Goat's milk hand cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3560071132774",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/356/007/113/2774/front_fr.8.400.jpg",
+    "product_name": "soft",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Comfort",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8720181601569",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/872/018/160/1569/front_en.9.400.jpg",
+    "product_name": "Pure",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Isana",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4068134094438",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/813/409/4438/front_de.3.400.jpg",
+    "product_name": "Handcreme Olive",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "College",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "0616762026112",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/061/676/202/6112/front_en.6.400.jpg",
+    "product_name": "Perfumed hand & body cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena, neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3574661687018",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/168/7018/front_de.9.400.jpg",
+    "product_name": "Handcreme - sofort einziehende",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Occitane",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3253581735411",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/358/173/5411/front_fr.4.400.jpg",
+    "product_name": "Crème mains - peaux sèches",
+    "_srcPrefix": "obf"
+  },
+  {
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3760016581159",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/376/001/658/1159/front_fr.5.400.jpg",
+    "product_name": "Baume mains de secours",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea med",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4067796082838",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/779/608/2838/front_de.5.400.jpg",
+    "product_name": "Ultra Sensitive Panthenol Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Le Petit Marsellais",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3251241042053",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/124/104/2053/front_fr.4.400.jpg",
+    "product_name": "Le Petit Marseillais Crème Mains Nourrissante à L'huile D'argan",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Burt's Bees",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "0792850259997",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/079/285/025/9997/front_en.15.400.jpg",
+    "product_name": "Almond & Milk Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "treaclemoon",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "42485346",
+    "generic_name": "Handcreme",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/004/248/5346/front_de.5.400.jpg",
+    "product_name": "strawberry gelato Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Caudalie",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3522930003717",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/352/293/000/3717/front_fr.6.400.jpg",
+    "product_name": "Crème réparatrice mains & ongles - thé des vignes",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "DM Balea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4010355336040",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/035/533/6040/front_en.15.400.jpg",
+    "product_name": "Handcreme Urea",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Avène, Pierre Fabre",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3282779416139",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/328/277/941/6139/front_fr.19.400.jpg",
+    "product_name": "Cicalfate",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "O’Keeffe’s",
+    "categories_tags": [
+      "en:body",
+      "en:incorrect-product-type",
+      "en:hand-creams",
+      "en:Cosmetic products",
+      "en:Non-food-products",
+      "en:Open-beauty-facts"
+    ],
+    "code": "5704947001162",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/570/494/700/1162/front_en.9.400.jpg",
+    "product_name": "O’keeffe’s Working Hands, Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dermophil indien",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3700322000098",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/370/032/200/0098/front_fr.3.400.jpg",
+    "product_name": "Stick original pour les mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dream Cosmetics",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "6181100536553",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/618/110/053/6553/front_en.3.400.jpg",
+    "product_name": "Daybyday Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Alverde",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4066447235579",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/644/723/5579/front_de.5.400.jpg",
+    "product_name": "Hand-&Nagelcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Vet Care",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Hand soap"
+    ],
+    "code": "7612449131059",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/761/244/913/1059/front_en.3.400.jpg",
+    "product_name": "Softa-Man",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Swiss Toniq Geneva",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "7640183490422",
+    "generic_name": "Silk Glove Hand Repair Oil",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/764/018/349/0422/front_en.3.400.jpg",
+    "product_name": "Silk Glove Hand Repair Oil",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Новая Заря",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4603023067492",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/460/302/306/7492/front_ru.3.400.jpg",
+    "product_name": "Крем для рук питательный Интенсивное Восстановление",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Migros, pH balance",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "7613269343820",
+    "generic_name": "Handcreme ohne Parfum",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/761/326/934/3820/front_en.16.400.jpg",
+    "product_name": "Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "DebStoko",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:cosmetic-products"
+    ],
+    "code": "4016208854846",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/620/885/4846/front_en.3.400.jpg",
+    "product_name": "Stokolan Classic",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Caudalie",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3522930004639",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/352/293/000/4639/front_fr.4.400.jpg",
+    "product_name": "Vinoperfect crème mains anti taches",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:skin care"
+    ],
+    "code": "3574661685977",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/168/5977/front_en.3.400.jpg",
+    "product_name": "hand cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Gelux",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8052862440090",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/805/286/244/0090/front_it.3.400.jpg",
+    "product_name": "Igienizzante mani",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lux Kroully",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4640145087526",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/464/014/508/7526/front_ru.3.400.jpg",
+    "product_name": "Крем для рук и ногтей",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Saint-Gervais Mont Blanc",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3600550975369",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/055/097/5369/front_fr.3.400.jpg",
+    "product_name": "Crème mains réparatrice",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Sephora",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:moisturizing-creams"
+    ],
+    "code": "3378872234500",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/337/887/223/4500/front_it.4.400.jpg",
+    "product_name": "Hand balm Nourishing & comforting",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Happy Earth",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8719324667999",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/932/466/7999/front_en.3.400.jpg",
+    "product_name": "Caring hand cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Garnier",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3600542524230",
+    "generic_name": "Crème main",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/054/252/4230/front_en.12.400.jpg",
+    "product_name": "Crème main nourrissante Body Supeefood",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "mediopharma cosmetics",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "ca:cremes"
+    ],
+    "code": "4016369464922",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/636/946/4922/front_de.4.400.jpg",
+    "product_name": "Olivenöl Feuchtigkeitspflege",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Occitane",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3253581735497",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/358/173/5497/front_en.3.400.jpg",
+    "product_name": "Vanilla Bouquet Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "evrēe",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5907377528067",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/737/752/8067/front_en.9.400.jpg",
+    "product_name": "hardcore intensive MAXREPAIR",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3256224363316",
+    "generic_name": "Crème lavante",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/622/436/3316/front_fr.4.400.jpg",
+    "product_name": "Hygiène & Anti Odeur",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mercadona",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8480000157164",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/848/000/015/7164/front_en.16.400.jpg",
+    "product_name": "Crema de Manos Elixir d'Automne",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:facial-creams",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "4005800137655",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/013/7655/front_es.6.400.jpg",
+    "product_name": "Nivea Creme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8720674353920",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/872/067/435/3920/front_nl.4.400.jpg",
+    "product_name": "Werkhanden handcream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "dm Balea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:open-beauty-facts"
+    ],
+    "code": "4058172675379",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/817/267/5379/front_en.9.400.jpg",
+    "product_name": "Balea Handcreme Urea 5%",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "SEPHORA",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:open-beauty-facts"
+    ],
+    "code": "3378872217763",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/337/887/221/7763/front_fr.3.400.jpg",
+    "product_name": "BAUME MAINS",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Body Shop",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5028197252533",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/502/819/725/2533/front_en.9.400.jpg",
+    "product_name": "Rescuing hand protector Hemp",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:facial-creams",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "4005800137556",
+    "ecoscore_tags": [
+      "unknown"
+    ],
+    "generic_name": "crema hidratante.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/013/7556/front_en.12.400.jpg",
+    "product_name": "Nivea Creme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea, Soft",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:facial-creams",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "4005808515592",
+    "ecoscore_tags": [
+      "unknown"
+    ],
+    "generic_name": "crema humectante suave refrescante para cara, cuerpo y manos.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/851/5592/front_es.14.400.jpg",
+    "product_name": "Nivea Soft",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cien",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:open-beauty-facts"
+    ],
+    "code": "4056489234081",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/648/923/4081/front_en.9.400.jpg",
+    "product_name": "Crème pour les mains soin anti-âge",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Isana",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4305615610054",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/430/561/561/0054/front_de.4.400.jpg",
+    "product_name": "Handcreme Milde Kamille",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Burt's Bee",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "0750850658998",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/075/085/065/8998/front_en.4.400.jpg",
+    "product_name": "advanced care hand cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dermolin",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8710276400412",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/027/640/0412/front_nl.3.400.jpg",
+    "product_name": "Handcrème",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3574661685960",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/168/5960/front_de.3.400.jpg",
+    "product_name": "Norwegische Formal Handcreme Konzentriert + Unparfümiert",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "sv:Handkräm"
+    ],
+    "code": "3574660600124",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/060/0124/front_sv.12.400.jpg",
+    "product_name": "Hand Cream concentrated",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "San-utize by Z",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5060518886928",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/506/051/888/6928/front_en.3.400.jpg",
+    "product_name": "Hand Sanitizer Gel",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Indulona",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8592297006367",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/859/229/700/6367/front_cs.4.400.jpg",
+    "product_name": "Indulona XXL měsíčková",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lavera",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4021457645022",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/402/145/764/5022/front_de.3.400.jpg",
+    "product_name": "Basis Sensitiv Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3574660258288",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/025/8288/front_en.16.400.jpg",
+    "product_name": "Hand Cream Concentrated Unscented",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "fer à cheval",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3519590262929",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/351/959/026/2929/front_fr.4.400.jpg",
+    "product_name": "crème mains thé blanc & yuzu",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Klar",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "7046110032329",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/704/611/003/2329/front_en.7.400.jpg",
+    "product_name": "Håndkrem",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Norma Maliandi",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:crema de ordeñe"
+    ],
+    "code": "0779579000348",
+    "generic_name": "Crema de ordeñe",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/077/957/900/0348/front_es.4.400.jpg",
+    "product_name": "Crema de ordeñe con miel y propóleos",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Arnica Essentiel, Yves Rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "00016165",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/000/001/6165/front_fr.5.400.jpg",
+    "product_name": "Crème quotidienne hydratante soin des mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Kitchen Lemon",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:moisturizer"
+    ],
+    "code": "0667553897497",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/066/755/389/7497/front_en.4.400.jpg",
+    "product_name": "Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Monoprix",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3350033199835",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/335/003/319/9835/front_en.4.400.jpg",
+    "product_name": "crème mains hydrante",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cien",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "20179069",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/002/017/9069/front_en.4.400.jpg",
+    "product_name": "Cien Hand Cream with Colloidal Oatmeal",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Urtekram",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5701058006925",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/570/105/800/6925/front_en.7.400.jpg",
+    "product_name": "Urtekram hand cream wild flowers",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Aphrodite",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5200393867890",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/520/039/386/7890/front_en.4.400.jpg",
+    "product_name": "olive oil hand cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Manufaktura",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8591113038551",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/859/111/303/8551/front_cs.3.400.jpg",
+    "product_name": "Carlsbad Relax Pečující krém na ruce",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dove",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8712561977074",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/256/197/7074/front_en.8.400.jpg",
+    "product_name": "DermaSpa Intensive",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Active aloe",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Hand Sanitizer"
+    ],
+    "code": "7391715011423",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/739/171/501/1423/front_en.12.400.jpg",
+    "product_name": "Handdesinfeksjon",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves Rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:Non-food-products",
+      "en:Open-beauty-facts"
+    ],
+    "code": "3660005551241",
+    "generic_name": "Crème mains hydratante",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/555/1241/front_en.6.400.jpg",
+    "product_name": "Crème mains hydratante longue durée",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:facial-creams",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "4005800137662",
+    "generic_name": "crema hidratante.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/013/7662/front_es.3.400.jpg",
+    "product_name": "Nivea Creme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Burnus",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4000196015396",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/019/601/5396/front_de.4.400.jpg",
+    "product_name": "Kamill - Hand & Nagelcrem Classic",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Shea Yeah AG",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "7649991751039",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/764/999/175/1039/front_de.4.400.jpg",
+    "product_name": "Shea Yeah Hand Balm",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Kamill",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4000196031976",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/019/603/1976/front_en.4.400.jpg",
+    "product_name": "Hand & Nagelcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Atragin",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "6260008720117",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/626/000/872/0117/front_en.4.400.jpg",
+    "product_name": "Almond Oil Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Makesenz",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5430000322416",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/543/000/032/2416/front_fr.4.400.jpg",
+    "product_name": "Crème main",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4058172925856",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/817/292/5856/front_de.4.400.jpg",
+    "product_name": "Ultra sensitive Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Alvasiem",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3770008103054",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/377/000/810/3054/front_fr.4.400.jpg",
+    "product_name": "Crème réparatrice",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Occitane",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3253581742518",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/358/174/2518/front_en.3.400.jpg",
+    "product_name": "Creme Mains dry skin hand cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "alverde",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4010355340115",
+    "generic_name": "Handcreme",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/035/534/0115/front_de.3.400.jpg",
+    "product_name": "Alverde Intensiv Handcreme Bio-Granatapfel Bio-Karitébutter",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Isana",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4305615629896",
+    "generic_name": "Handcreme",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/430/561/562/9896/front_de.11.400.jpg",
+    "product_name": "Isana Med Handcreme 5,5% Urea",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3660005165011",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/516/5011/front_fr.8.400.jpg",
+    "product_name": "riche crème",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cicabiafine",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3574660504293",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/050/4293/front_fr.3.400.jpg",
+    "product_name": "OBF",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Isana",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "de:Hautpflege"
+    ],
+    "code": "4047196040775",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/404/719/604/0775/front_pl.12.400.jpg",
+    "product_name": "Vaseline",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lindesa",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4260351680368",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/035/168/0368/front_en.12.400.jpg",
+    "product_name": "Lindesa klassik Hautschutz",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Aries",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4018874082004",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/887/408/2004/front_en.14.400.jpg",
+    "product_name": "Pflege-Ei",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "TAMA",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "6036000010231",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/603/600/001/0231/front_de.4.400.jpg",
+    "product_name": "Concentrated Shea Butter Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Breylee",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:facial-creams",
+      "en:body-creams",
+      "en:hand-creams"
+    ],
+    "code": "6970470534227",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/697/047/053/4227/front_en.12.400.jpg",
+    "product_name": "Acne cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "CIEN  - LIDL",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "fr:- soin quotidien"
+    ],
+    "code": "05976669",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/000/597/6669/front_en.6.400.jpg",
+    "product_name": "CARE CREME POUR LES MAINS - CIEN",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "CE'BIO",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3489940073065",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/348/994/007/3065/front_en.4.400.jpg",
+    "product_name": "Crème mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "share",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4260556675671",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/055/667/5671/front_de.4.400.jpg",
+    "product_name": "Limette & Koriander Regenerative Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Kamill",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4000196012098",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/019/601/2098/front_de.6.400.jpg",
+    "product_name": "Kamill Hand- & Nagelcreme classic",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Hildegard Braukmann",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4016083035309",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/608/303/5309/front_de.4.400.jpg",
+    "product_name": "Kräuter Hand Creme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea, dm",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4058172192449",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/817/219/2449/front_de.10.400.jpg",
+    "product_name": "Handcreme Urea",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "lavera",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4021457628537",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/402/145/762/8537/front_de.4.400.jpg",
+    "product_name": "Händchenhalten Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea, Balea Med, dm",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4058172618994",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/817/261/8994/front_en.9.400.jpg",
+    "product_name": "Ultra Sensitive Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea, dm",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4058172002144",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/817/200/2144/front_en.9.400.jpg",
+    "product_name": "Handkonzentrat (strapazierte und rissige Hände)",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea, dm",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4058172242984",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/817/224/2984/front_de.4.400.jpg",
+    "product_name": "Handcreme Hyaluron",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "rituals",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8719134096279",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/913/409/6279/front_fr.4.400.jpg",
+    "product_name": "flowering hand balm",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Physioderm",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4260037542676",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/003/754/2676/front_en.4.400.jpg",
+    "product_name": "Physioderm Creme - intensiv pflegend",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Natura",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "7899846023723",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/789/984/602/3723/front_en.9.400.jpg",
+    "product_name": "Crema hidratante para manos EKOS Castanha",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves Rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3660005984537",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/598/4537/front_de.4.400.jpg",
+    "product_name": "Feuchtigkeitsspendende Handcreme Pur Arnica",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Alterra",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4305615307596",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/430/561/530/7596/front_de.3.400.jpg",
+    "product_name": "Reichhaltige Handcreme mit Granatapfel & Sheabutter",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ombia",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4061458175814",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/145/817/5814/front_en.9.400.jpg",
+    "product_name": "Handkonzentrat",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "lavera",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4021457632824",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/402/145/763/2824/front_de.4.400.jpg",
+    "product_name": "Mein Glücksgriff",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dermophil",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3415900030427",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/341/590/003/0427/front_fr.11.400.jpg",
+    "product_name": "Crème mains réparateur intense formule indienne",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "florame",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams",
+      "en:non-food-products",
+      "en:open-beauty-facts"
+    ],
+    "code": "3516170023598",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/351/617/002/3598/front_fr.7.400.jpg",
+    "product_name": "crème mains nourrissante",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "janzen",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8717612811116",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/761/281/1116/front_fr.7.400.jpg",
+    "product_name": "janzen",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Occitane",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3253581485491",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/358/148/5491/front_en.4.400.jpg",
+    "product_name": "Crème mains - peaux sèches - karite 20%",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "seba med",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4103040909763",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/410/304/090/9763/front_de.4.400.jpg",
+    "product_name": "Handcreme &quot;Trockene Haut&quot; Urea akut 5%",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea dm",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4058172456312",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/817/245/6312/front_de.4.400.jpg",
+    "product_name": "Aroma Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Body & Soul Wellness",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "2200031373380",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/220/003/137/3380/front_de.4.400.jpg",
+    "product_name": "Orchidee & Paranuss Sensual Edition",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "aldo Vandini",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4003583175727",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/358/317/5727/front_en.9.400.jpg",
+    "product_name": "SENSUAL Aroma Handbalsam Hand Cream Tamarinde & Ingwer",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ombia",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4061458023696",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/145/802/3696/front_en.9.400.jpg",
+    "product_name": "Hand Konzentrat",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ombia",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4061458129749",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/145/812/9749/front_en.6.400.jpg",
+    "product_name": "Hand Konzentrat",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Schwarzkopf & Henkel",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4015100214260",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/510/021/4260/front_en.4.400.jpg",
+    "product_name": "Lycka Nutritive Handcream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "daniel jouvance",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3663109675806",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/310/967/5806/front_fr.4.400.jpg",
+    "product_name": "crème nourrissante mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Isana",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4305615629902",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/430/561/562/9902/front_de.7.400.jpg",
+    "product_name": "Isana Med Handcreme Ultra Sensitive",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Douglas",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4036221434825",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/403/622/143/4825/front_de.7.400.jpg",
+    "product_name": "Polynesian Dream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4010355476395",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/035/547/6395/front_de.9.400.jpg",
+    "product_name": "Balea Handcreme Aloe Vera",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Polaar",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3760114994295",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/376/011/499/4295/front_fr.7.400.jpg",
+    "product_name": "La véritable crème de Laponie",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Handsan, Lornamead GmbH",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "42232216",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/004/223/2216/front_de.4.400.jpg",
+    "product_name": "Intensiv-Handcreme 5% Urea",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lacura",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4061458121439",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/145/812/1439/front_de.4.400.jpg",
+    "product_name": "Hand- und Nagelpflege",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lacura",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4061458121422",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/145/812/1422/front_de.8.400.jpg",
+    "product_name": "Hand- und Nagelpflege",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Jeanne en Provence",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3430750048415",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/343/075/004/8415/front_de.4.400.jpg",
+    "product_name": "Verveine Agrumes Moisturizing Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ombia - Emil Kiesling GmbH",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "22130518",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/002/213/0518/front_de.24.400.jpg",
+    "product_name": "Ombia Hand Fluid für trockene Hände",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Alterra",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4305615537153",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/430/561/553/7153/front_de.7.400.jpg",
+    "product_name": "Handcreme Bio-Sanddorn & Bio-Arganöl",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3574661022543",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/102/2543/front_de.7.400.jpg",
+    "product_name": "Handcrem mit Nordic Berry",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4010355162564",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/035/516/2564/front_de.4.400.jpg",
+    "product_name": "Handcreme Olive",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "HEJ organic",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "02210245",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/000/221/0245/front_fr.3.400.jpg",
+    "product_name": "regenerative hand cream cactus",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cosnature Naturkosmetik",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4260370433662",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/037/043/3662/front_de.7.400.jpg",
+    "product_name": "Med Hand-Creme Natursole & Kamille",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Hydro Vital",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4024009020766",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/402/400/902/0766/front_de.6.400.jpg",
+    "product_name": "Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4010355407580",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/035/540/7580/front_de.6.400.jpg",
+    "product_name": "Handcreme Urea",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Eubos",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4021354033571",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/402/135/403/3571/front_de.5.400.jpg",
+    "product_name": "Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cien, Cien Nature",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "20654825",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/002/065/4825/front_fr.19.400.jpg",
+    "product_name": "Crème mains calendula",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "The Body Shop",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5028197197230",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/502/819/719/7230/front_fr.4.400.jpg",
+    "product_name": "Honeymania crème pour les mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "la vie claire",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3266191023595",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/326/619/102/3595/front_fr.13.400.jpg",
+    "product_name": "crème mains aloe vera",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3660005642185",
+    "generic_name": "Crème mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/564/2185/front_fr.4.400.jpg",
+    "product_name": "Thé Doré Golden Tea",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea, dm",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4010355135377",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/401/035/513/5377/front_de.4.400.jpg",
+    "product_name": "Reinigendes Handgel",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "cosnova, essence",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4250587766011",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/425/058/776/6011/front_de.4.400.jpg",
+    "product_name": "24h hand protection balm kiwi dark chocolate",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3574661287898",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/128/7898/front_de.3.400.jpg",
+    "product_name": "Sofort einziehende Handcreme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "essence",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4250035290839",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/425/003/529/0839/front_de.4.400.jpg",
+    "product_name": "24h hand protection balm",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Occitane",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3253581171820",
+    "generic_name": "Crème pour les mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/358/117/1820/front_fr.3.400.jpg",
+    "product_name": "Crème mains Karité 20%",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Urtekram",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "5765228837894",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/576/522/883/7894/front_de.3.400.jpg",
+    "product_name": "Hand Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Roger & Gallet",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3337875201360",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/787/520/1360/front_fr.8.400.jpg",
+    "product_name": "Crème mains et ongles Rose",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves Rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3660005545325",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/554/5325/front_fr.4.400.jpg",
+    "product_name": "Crème Mains Hydratante Longue Durée",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "8719238002596",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/923/800/2596/front_fr.4.400.jpg",
+    "product_name": "Handcream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Les Petits Plaisirs",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3331849003820",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/184/900/3820/front_fr.4.400.jpg",
+    "product_name": "Crème mains senteur vanille gourmande",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Modelite",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3579488141491",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/948/814/1491/front_fr.4.400.jpg",
+    "product_name": "Crème cuticules",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lavera",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "4021457619481",
+    "generic_name": "Soin 2 en 1",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/402/145/761/9481/front_fr.4.400.jpg",
+    "product_name": "Crème mains et ongles",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3660005542904",
+    "generic_name": "Crème mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/554/2904/front_fr.4.400.jpg",
+    "product_name": "Collector 50 ans Arnica bio de la Gacilly",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Occitane en Provence",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "12472482",
+    "generic_name": "Crème pour les mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/001/247/2482/front_en.4.400.jpg",
+    "product_name": "Pivoine Flora",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Groupe Panther, cottage",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3141380013000",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/314/138/001/3000/front_en.14.400.jpg",
+    "product_name": "Crème mains réparatrice fraise & menthe",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Garnier",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3600541255029",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/054/125/5029/front_fr.5.400.jpg",
+    "product_name": "Baume main réparateur SOS",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:moisturizing-creams"
+    ],
+    "code": "3574661369426",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/136/9426/front_fr.6.400.jpg",
+    "product_name": "Crème mains hydratante concentrée",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Evoluderm",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3760100682526",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/376/010/068/2526/front_fr.5.400.jpg",
+    "product_name": "Huile Précieuse Crème Mains Hydratante Huile d'Argan & d'Onagre",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Avène, Pierre Fabre",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "9518174877218",
+    "generic_name": "Crème mains concentrée",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/951/817/487/7218/front_fr.6.400.jpg",
+    "product_name": "Cold cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves Rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3660005020778",
+    "generic_name": "Crème sublimatrice 2 en 1 mains et ongles",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/502/0778/front_fr.9.400.jpg",
+    "product_name": "Beauté des mains",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves Rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3660005797595",
+    "generic_name": "Crème mains hydratante parfum clémentine",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/579/7595/front_fr.8.400.jpg",
+    "product_name": "Crème mains Clémentine & Epices édition limitée",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Laboratoire MARQUE VERTE",
+    "categories_tags": [
+      "en:body",
+      "en:body-creams",
+      "en:hand-creams",
+      "en:moisturizing-creams"
+    ],
+    "code": "3401360193208",
+    "generic_name": "Crème mains sèches et abimées (sans parabène)",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/340/136/019/3208/front_fr.5.400.jpg",
+    "product_name": "Crème mains Dermasens 0% - Laboratoire MARQUE VERTE",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves Rocher",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3660005240718",
+    "generic_name": "Crème hydratante pour les mains parfum Cacao & Orange",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/524/0718/front_fr.5.400.jpg",
+    "product_name": "Crème mains Cacao & Orange",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Life Brand",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "0057800115816",
+    "generic_name": "Hand Lotion",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/005/780/011/5816/front_en.8.400.jpg",
+    "product_name": "Healthy Hand & Nail Lotion",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "HEMA",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "2016316099995",
+    "generic_name": "Crème pour les mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/201/631/609/9995/front_fr.5.400.jpg",
+    "product_name": "Hand cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Le Petit Olivier",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3549629000024",
+    "generic_name": "Crème pour les mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/354/962/900/0024/front_fr.6.400.jpg",
+    "product_name": "Crème mains hydratante Huile d'olive",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Florame",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3516170022751",
+    "generic_name": "Crème pour les mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/351/617/002/2751/front_fr.6.400.jpg",
+    "product_name": "Crème mains de Provence Essence d'amande",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cattier",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3283950916776",
+    "generic_name": "Crème mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/328/395/091/6776/front_fr.5.400.jpg",
+    "product_name": "Crème mains Argile blanche Fleur d'impératoire",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Caudalie",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3522930001577",
+    "generic_name": "Crème pour les mains",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/352/293/000/1577/front_fr.5.400.jpg",
+    "product_name": "Crème gourmande mains et ongles Pamplemousse rose",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Qiriness, Trimar",
+    "categories_tags": [
+      "en:body",
+      "en:hand-creams"
+    ],
+    "code": "3760096760697",
+    "generic_name": "Crème mains et ongles",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/376/009/676/0697/front_fr.6.400.jpg",
+    "product_name": "Caresse main velours",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Parachute",
+    "categories_tags": [
+      "en:Hair oil"
+    ],
+    "code": "8901088728904",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/890/108/872/8904/front_en.3.400.jpg",
+    "product_name": "Jasmine Gold Hair Oil",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Naturehla",
+    "categories_tags": [
+      "en:Hair oil"
+    ],
+    "code": "4796020150776",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/479/602/015/0776/front_en.3.400.jpg",
+    "product_name": "Hair oil with 4 herbs",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bajaj",
+    "categories_tags": [
+      "en:Hair oil"
+    ],
+    "code": "8906014765121",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/890/601/476/5121/front_en.5.400.jpg",
+    "product_name": "Almond Drops Hair Oil",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Oréal Paris, Loreal",
+    "categories_tags": [
+      "en:hair",
+      "en:hair-care",
+      "en:Hair oil"
+    ],
+    "code": "0604454914892",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/060/445/491/4892/front_sv.3.400.jpg",
+    "product_name": "Elvital Extraordinary oil Sublime Hair Serum",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Joanna",
+    "categories_tags": [
+      "en:Argan oil",
+      "en:Hair oil"
+    ],
+    "code": "5901018021566",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/101/802/1566/front_en.3.400.jpg",
+    "product_name": "Silky leave-in conditioner regenerating",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Shinol",
+    "categories_tags": [
+      "en:Hair Oil"
+    ],
+    "code": "8904281900368",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/890/428/190/0368/front_en.6.400.jpg",
+    "product_name": "Shinol sarson Hair oil",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Parachute",
+    "categories_tags": [
+      "en:Hair Oil"
+    ],
+    "code": "8901088150729",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/890/108/815/0729/front_en.3.400.jpg",
+    "product_name": "Parachute Advansed Gold Coconut Hair Oil",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Orientana",
+    "categories_tags": [
+      "en:Hair Oil"
+    ],
+    "code": "5902596416997",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/259/641/6997/front_en.3.400.jpg",
+    "product_name": "Thickening Hair Oil - Amla - Bhringraj",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Marico, Parachute",
+    "categories_tags": [
+      "en:hair",
+      "en:hair-care",
+      "en:Hair Oil"
+    ],
+    "code": "8901088047265",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/890/108/804/7265/front_en.3.400.jpg",
+    "product_name": "Ayurveda Hot Oil",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Rebond 18",
+    "categories_tags": [
+      "en:hair oil"
+    ],
+    "code": "5713868005722",
+    "generic_name": "Hair oil",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/571/386/800/5722/front_en.6.400.jpg",
+    "product_name": "N°5 Softening hair recovery oil",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Maison Sidonie Champagne",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "3770003788324",
+    "generic_name": "Savon corps et cheveux tous types de cheveux",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/377/000/378/8324/front_fr.7.400.jpg",
+    "product_name": "Savon shampoing le plus malin blanc",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Secrets de Provence",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "3355312146401",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/335/531/214/6401/front_en.7.400.jpg",
+    "product_name": "Mon Shampoing Solide",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Aussie",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "8001090532183",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/800/109/053/2183/front_fr.4.400.jpg",
+    "product_name": "Wash+Blow in a can tropical punch",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Colab",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "5016155120031",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/501/615/512/0031/front_fr.4.400.jpg",
+    "product_name": "Shampooing sec Monaco",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Oribe",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos",
+      "fr:Texturisant cheveux"
+    ],
+    "code": "0811913015209",
+    "generic_name": "shampooing sec et texturisant",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/081/191/301/5209/front_fr.4.400.jpg",
+    "product_name": "Dry Texturizing Spray - Spray Texturant Sec",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Monoprix",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "3350033147003",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/335/003/314/7003/front_fr.6.400.jpg",
+    "product_name": "Shampoing sec",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Klorane",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "3282779049535",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/328/277/904/9535/front_fr.7.400.jpg",
+    "product_name": "Shampooing sec au lait d'avoine",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Secrets de Provence",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "3355312106528",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/335/531/210/6528/front_fr.3.400.jpg",
+    "product_name": "Shampoing cheveux secs Bio",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Klorane",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "3282779008686",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/328/277/900/8686/front_fr.10.400.jpg",
+    "product_name": "Shampooing sec à l'ortie",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Oréal Paris, Elseve",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "3600523216246",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/052/321/6246/front_fr.6.400.jpg",
+    "product_name": "Elseve Argile Extraordinaire Shampooing sec argile en spray",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cora",
+    "categories_tags": [
+      "en:hair",
+      "en:shampoos",
+      "en:dry-shampoos"
+    ],
+    "code": "3257984523514",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/798/452/3514/front_fr.8.400.jpg",
+    "product_name": "Shampooing sec",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mediheal",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8809936741092",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/993/674/1092/front_en.3.400.jpg",
+    "product_name": "Derma Synergy Wrapping Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mediheal",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8809936740262",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/993/674/0262/front_en.3.400.jpg",
+    "product_name": "Derma Synergy Wrapping Mask Blemish",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mediheal",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8809936744031",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/993/674/4031/front_en.3.400.jpg",
+    "product_name": "Vitamin C Essential Mask Clear Toning",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mediheal",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8809936741061",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/993/674/1061/front_en.3.400.jpg",
+    "product_name": "Seems Synergy Wrapping Mask Calming",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mediheal",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8809936743973",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/993/674/3973/front_en.3.400.jpg",
+    "product_name": "Tester Essentian Mask Calming Moisture",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Balea",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4066447967678",
+    "generic_name": "Gesichtsmaske",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/644/796/7678/front_de.4.400.jpg",
+    "product_name": "Glass Skin Collagen Maske",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Primanest",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Beauty Mask"
+    ],
+    "code": "8859109895046",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/885/910/989/5046/front_en.3.400.jpg",
+    "product_name": "Bird nest Beauty White Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Schaebens",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4003573021959",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/357/302/1959/front_de.3.400.jpg",
+    "product_name": "AHA Peeling Tuchmaske",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "KOREACO",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Skin care"
+    ],
+    "code": "0690864505263",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/069/086/450/5263/front_tr.9.400.jpg",
+    "product_name": "KOREACO Matcha Mucize Bubble Clay Yüz Maskesi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Over The Moon Global Co. Ltd., tokki on the moon",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Bubble mask"
+    ],
+    "code": "8809990942121",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/999/094/2121/front_en.5.400.jpg",
+    "product_name": "purple rice PDRN bubble mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "AA",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Maseczki do twarzy"
+    ],
+    "code": "5900116091990",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/011/609/1990/front_en.7.400.jpg",
+    "product_name": "Face it!",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Anko",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "9341106912899",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/934/110/691/2899/front_en.3.400.jpg",
+    "product_name": "OXX Coconut face mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yeauty",
+    "categories_tags": [
+      "en:eyes",
+      "en:face",
+      "en:face-masks",
+      "en:Eye masks",
+      "en:Skincare"
+    ],
+    "code": "4260199896983",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/019/989/6983/front_en.8.400.jpg",
+    "product_name": "Eye Pad Mask Paradise Punch",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Miniso",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "6931583605884",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/693/158/360/5884/front_fr.6.400.jpg",
+    "product_name": "Masque Tissu Visage Hydratant Vitamine A",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Gutto",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8699211771018",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/921/177/1018/front_fr.3.400.jpg",
+    "product_name": "Black Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ziaja",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Skin care"
+    ],
+    "code": "5901887946212",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/188/794/6212/front_en.4.400.jpg",
+    "product_name": "Ziaja Ferahlatıcı Dengeleyici Nemlendirici Yüz Maskesi 7 ml (Kuru Ciltler)",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Garnier",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Sheet masks",
+      "en:Skin care"
+    ],
+    "code": "3600542385312",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/054/238/5312/front_en.4.400.jpg",
+    "product_name": "Garnier Nem Bombası Canlandırıcı Kağıt Maske 28 gr",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ziaja",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Skin care"
+    ],
+    "code": "5901887946243",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/188/794/6243/front_en.4.400.jpg",
+    "product_name": "Ziaja Ferahlatıcı Dengeleyici Yağsız Yüz Maskesi 7 ml (Yağlı Ciltler)",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dermal",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Brightening masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Moisturising masks",
+      "en:Sheet masks",
+      "en:Skin care"
+    ],
+    "code": "8809647110538",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/964/711/0538/front_en.4.400.jpg",
+    "product_name": "Dermal It's Real Superfood Pirinç Aydınlatıcı Yüz Maskesi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dermokil",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Clay masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Peel-off masks",
+      "en:Skin care"
+    ],
+    "code": "8697916020158",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/791/602/0158/front_en.4.400.jpg",
+    "product_name": "Dermolik Special Gold Maske 15 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Garnier",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Moisturising masks",
+      "en:Sheet masks",
+      "en:Skin care"
+    ],
+    "code": "3600542385336",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/054/238/5336/front_en.4.400.jpg",
+    "product_name": "Garnier Nem Bombası Dinlendirici Kağıt Maske 28 gr",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Garnier",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Moisturizing face masks",
+      "en:Sheet masks",
+      "en:Skin care"
+    ],
+    "code": "3600542385329",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/054/238/5329/front_en.4.400.jpg",
+    "product_name": "Garnier Moisture Bomb Refreshing Sheet Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dermokil",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Clay masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Skin care"
+    ],
+    "code": "8697916017424",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/791/601/7424/front_en.4.400.jpg",
+    "product_name": "Dermokil Beyaz Kil Maskesi 2 x 7,5 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Pure Korean",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Anti-aging face masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Hydrogel masks",
+      "en:Skin care"
+    ],
+    "code": "8809440686490",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/944/068/6490/front_en.4.400.jpg",
+    "product_name": "Pure Korean Melting Hydrogel Maske",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Himalaya",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Detox masks",
+      "en:Face care",
+      "en:Moisturizing masks",
+      "en:Purifying masks",
+      "en:Sheet masks",
+      "en:Skin care"
+    ],
+    "code": "4895175201248",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/489/517/520/1248/front_en.4.400.jpg",
+    "product_name": "Himalaya Detoks Kömür ve Yeşil Çay Etkili Kağıt Maske 30 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Claderm",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Clay masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Purifying masks",
+      "en:Skin care"
+    ],
+    "code": "8682190064028",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/219/006/4028/front_en.4.400.jpg",
+    "product_name": "Claderm Arındırıcı Kil Maskesi Propolis 20 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bee Beauty",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Exfoliating masks",
+      "en:Face care",
+      "en:Face serums",
+      "en:Multi-step skincare",
+      "en:Night masks",
+      "en:Peeling masks",
+      "en:Skin care"
+    ],
+    "code": "2050002057722",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/205/000/205/7722/front_en.4.400.jpg",
+    "product_name": "Bee Beauty 3 Adımda Canlandırıcı Maske 13 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yeauty",
+    "categories_tags": [
+      "en:eyes",
+      "en:face",
+      "en:face-masks",
+      "en:Eye masks",
+      "en:Skincare"
+    ],
+    "code": "4260199894279",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/019/989/4279/front_en.3.400.jpg",
+    "product_name": "Beauty Boost Eye Pad Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yeauty",
+    "categories_tags": [
+      "en:eyes",
+      "en:face",
+      "en:face-masks",
+      "en:Eye masks",
+      "en:Skincare"
+    ],
+    "code": "4260199892473",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/019/989/2473/front_en.3.400.jpg",
+    "product_name": "Deep Hydration Eye Pad Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yeauty",
+    "categories_tags": [
+      "en:eyes",
+      "en:face",
+      "en:face-masks",
+      "en:Eye masks",
+      "en:Skincare"
+    ],
+    "code": "4260199895917",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/019/989/5917/front_en.3.400.jpg",
+    "product_name": "Bakuchiol Boost Eye Pad Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yeauty",
+    "categories_tags": [
+      "en:eyes",
+      "en:face",
+      "en:face-masks",
+      "en:Eye masks",
+      "en:Skincare"
+    ],
+    "code": "4260199892572",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/019/989/2572/front_en.3.400.jpg",
+    "product_name": "Recharging Retinol Eye Pad Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yeauty",
+    "categories_tags": [
+      "en:eyes",
+      "en:face",
+      "en:face-masks",
+      "en:Eye masks",
+      "en:Skincare"
+    ],
+    "code": "4260199892268",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/426/019/989/2268/front_en.3.400.jpg",
+    "product_name": "Cucumber Cooler Eye Pad Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Kalysta",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "7629999091795",
+    "generic_name": "Hydrogel anti-aging face mask",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/762/999/909/1795/front_en.3.400.jpg",
+    "product_name": "The Peptide Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "SOHO N.Y.C",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Facial serums",
+      "en:Skin care"
+    ],
+    "code": "8683420170045",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/342/017/0045/front_fr.19.400.jpg",
+    "product_name": "SOHO N.Y.C. Anti-Aging No Rinse 2in1 Face Serum + Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ph Lab",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Gel masks",
+      "en:Overnight masks",
+      "en:Peel-off masks",
+      "en:Skin care"
+    ],
+    "code": "8681717006800",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/171/700/6800/front_tr.6.400.jpg",
+    "product_name": "Ph Lab Collagen Night Soyulabilir Kolajen Gece Maskesi",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Kocostar",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Cosmetics",
+      "en:Face care",
+      "en:Hydrogel masks",
+      "en:Sheet masks",
+      "en:Skin care"
+    ],
+    "code": "8809328326098",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/932/832/6098/front_tr.3.400.jpg",
+    "product_name": "Kocostar A.M. Sunday Happy Hydrogel Mask 25 g",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Karité",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "6132321304810",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/613/232/130/4810/front_fr.3.400.jpg",
+    "product_name": "10 MINS PURIFYING MASK",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Caudalie",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Skin care"
+    ],
+    "code": "3522930004349",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/352/293/000/4349/front_tr.3.400.jpg",
+    "product_name": "Caudalie Instant Detox Mask 75 ml",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lacura skin",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4068706887949",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/870/688/7949/front_fr.3.400.jpg",
+    "product_name": "Masque visage en tissu pack multiple",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cien",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4335619112025",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/433/561/911/2025/front_en.4.400.jpg",
+    "product_name": "Sheet Mask Aloe Vera",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mimo",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3700563203005",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/370/056/320/3005/front_fr.7.400.jpg",
+    "product_name": "Masque tissu pour visage Miel",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Seomou",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "6974998720971",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/697/499/872/0971/front_fr.6.400.jpg",
+    "product_name": "Aloe Vera Nicotinamide Moisturizing Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bioré",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "5017634256739",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/501/763/425/6739/front_fr.12.400.jpg",
+    "product_name": "Sebum Control Masque purifiant charbon végétal façon crème fouettée",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Somatoline Cosmetic",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8002410067279",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/800/241/006/7279/front_fr.6.400.jpg",
+    "product_name": "Cellulite masque de boue",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Beauugreen",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8809389032150",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/938/903/2150/front_en.7.400.jpg",
+    "product_name": "Coenzyme Q10 Essence mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "sence",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8720964894164",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/872/096/489/4164/front_en.5.400.jpg",
+    "product_name": "Sweet Lollipop Face Sheet Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Garnier, Garnier SkinActive",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3600542097024",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/054/209/7024/front_fr.5.400.jpg",
+    "product_name": "Garnier SkinActive Pure Charcoal Tissuemasker",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Soda pop",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "0810208300143",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/081/020/830/0143/front_en.3.400.jpg",
+    "product_name": "Brightening & refining face mask Strawberry Matcha Boba",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "the beautydept",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8719238065621",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/923/806/5621/front_fr.3.400.jpg",
+    "product_name": "Strawberry fruity face sheet mask smoothing",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Barbara Gould",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3331300096460",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/130/009/6460/front_fr.5.400.jpg",
+    "product_name": "1 Masque Anti-Rides Bio-Cellulose",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "La Provençale",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3600550972153",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/055/097/2153/front_fr.7.400.jpg",
+    "product_name": "Le masque de pureté nettoyant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "thebeautydept.",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8719238063375",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/923/806/3375/front_en.6.400.jpg",
+    "product_name": "Holy Guacamole",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "codage Paris",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3760215878241",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/376/021/587/8241/front_fr.3.400.jpg",
+    "product_name": "masque micro-peeling",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dermika",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "pl:moisturizing mask"
+    ],
+    "code": "5902046370039",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/204/637/0039/front_pl.3.400.jpg",
+    "product_name": "Dermika Maseczka Do Twarzy Ukojenie",
+    "_srcPrefix": "obf"
+  },
+  {
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4560401461436",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/456/040/146/1436/front_en.4.400.jpg",
+    "product_name": "Derma laser 100",
+    "_srcPrefix": "obf"
+  },
+  {
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8721073613677",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/872/107/361/3677/front_fr.3.400.jpg",
+    "product_name": "Masque visage",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bravo",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "2050001419545",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/205/000/141/9545/front_es.3.400.jpg",
+    "product_name": "Bravo mascarilla facial ácido hialurónico",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Swiss Toniq Geneva",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:Face oil"
+    ],
+    "code": "7640183490279",
+    "generic_name": "Hydration Recovery Masks",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/764/018/349/0279/front_en.3.400.jpg",
+    "product_name": "Hydration Recovery Masks (set of 5 masks)",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Neutrogena",
+    "categories_tags": [
+      "en:face",
+      "en:facial-creams",
+      "en:face-masks"
+    ],
+    "code": "3574661799797",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/357/466/179/9797/front_fr.3.400.jpg",
+    "product_name": "Anti-boutons Masque Nettoyant 2-en-1",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Avogood Time With Me",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8721073626417",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/872/107/362/6417/front_fr.3.400.jpg",
+    "product_name": "Masque pour visage",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ariul",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "fr:Masque feuille"
+    ],
+    "code": "8809301767566",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/880/930/176/7566/front_fr.3.400.jpg",
+    "product_name": "Bambou + B hydrating mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Primark",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "fr:Masque tissu"
+    ],
+    "code": "5397256457500",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/539/725/645/7500/front_fr.3.400.jpg",
+    "product_name": "Masque en feuille Curcuma",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Uriage",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3661434003424",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/143/400/3424/front_fr.3.400.jpg",
+    "product_name": "Roséliane",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Skinbliss",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8715342036885",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/534/203/6885/front_it.3.400.jpg",
+    "product_name": "Clay Stick face Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Foxtale",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4908474775881",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/490/847/477/5881/front_en.3.400.jpg",
+    "product_name": "Skin radiance purple mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "La vie est à Nous",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "06147198",
+    "generic_name": "Masque purifiant à rincer",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/000/614/7198/front_fr.4.400.jpg",
+    "product_name": "Soin + - peau à boutons",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Beauty Society",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "0714847735489",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/071/484/773/5489/front_en.4.400.jpg",
+    "product_name": "Let's Face It",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nacomï",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "5902539710427",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/253/971/0427/front_fr.4.400.jpg",
+    "product_name": "White Black Face Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Freeman",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:face-scrubs"
+    ],
+    "code": "0072151421119",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/007/215/142/1119/front_en.12.400.jpg",
+    "product_name": "Polishing Charcoal + Black Sugar Gel Mask + Scrub",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4005808183234",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/818/3234/front_fr.5.400.jpg",
+    "product_name": "Masque exfoliant lissant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lush",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "0684742086937",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/068/474/208/6937/front_en.4.400.jpg",
+    "product_name": "Cosmetic Warrior Fresh Face Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "PHYT'S",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3760126263358",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/376/012/626/3358/front_fr.7.400.jpg",
+    "product_name": "Masque Hydra Instant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "hellobody",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4251347400107",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/425/134/740/0107/front_fr.4.400.jpg",
+    "product_name": "aloé night",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Uriage",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3661434004322",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/143/400/4322/front_en.8.400.jpg",
+    "product_name": "Uriage  Hyséac masque purifiant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4005808824830",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/882/4830/front_en.9.400.jpg",
+    "product_name": "EXTRA WHITE PORE MINIMISER MUD FOAM",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Le Petit Olivier",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3549620009033",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/354/962/000/9033/front_fr.5.400.jpg",
+    "product_name": "Masque Visage Revitalisant Argile Jaune",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cien",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "20516536",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/002/051/6536/front_en.6.400.jpg",
+    "product_name": "Cien Pure Cleansing Mask with zinc and white clay",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Hada Labo",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4895186007365",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/489/518/600/7365/front_fr.4.400.jpg",
+    "product_name": "Floral Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ray",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8857123331137",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/885/712/333/1137/front_fr.4.400.jpg",
+    "product_name": "Masque visage",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Erborian",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3760239242035",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/376/023/924/2035/front_fr.4.400.jpg",
+    "product_name": "Masque visage sublimant au magnolia",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cattier",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "fr:Soins visage"
+    ],
+    "code": "3283950910910",
+    "generic_name": "masque à l'argile",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/328/395/091/0910/front_fr.9.400.jpg",
+    "product_name": "Masque Argile rose",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "absolution",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "fr:Hydratant visage",
+      "fr:Soins visage"
+    ],
+    "code": "3700562300156",
+    "generic_name": "masque hydratant visage",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/370/056/230/0156/front_fr.4.400.jpg",
+    "product_name": "Le Soin Repulpant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Vanedo",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4562323640104",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/456/232/364/0104/front_en.11.400.jpg",
+    "product_name": "Royal Jelly Essence Mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "IDC Institute",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8436025300221",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/843/602/530/0221/front_fr.10.400.jpg",
+    "product_name": "Masque à l'huile de cacao",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Caudalie",
+    "categories_tags": [
+      "en:body",
+      "en:face",
+      "en:facial-creams",
+      "en:body-creams",
+      "en:face-masks",
+      "en:moisturizing-creams"
+    ],
+    "code": "3522932031787",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/352/293/203/1787/front_fr.7.400.jpg",
+    "product_name": "Masque crème hydratant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "INNOVATOUCH",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3701063802873",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/370/106/380/2873/front_fr.4.400.jpg",
+    "product_name": "masque au concentré pur de bave d'escargot",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Argiletz",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "fr:Argiles",
+      "fr:Pâtes d'argile"
+    ],
+    "code": "3326100000557",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/332/610/000/0557/front_fr.9.400.jpg",
+    "product_name": "Pâte argile verte",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Maxbrands",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8719874190008",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/987/419/0008/front_fr.9.400.jpg",
+    "product_name": "Peel-off gold mask for normal skin",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bubbly, Maxbrands",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "8719497834952",
+    "generic_name": "Masque visage à l'extrait de réglisse et à la protéine de lait",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/949/783/4952/front_fr.8.400.jpg",
+    "product_name": "Bubble mask",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Sephora",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3378872100072",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/337/887/210/0072/front_fr.4.400.jpg",
+    "product_name": "Masque yeux thé vert",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Caudalie",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3522930001812",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/352/293/000/1812/front_en.3.400.jpg",
+    "product_name": "Masque peeling glycolique",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Auriège",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3661500521975",
+    "generic_name": "Masque de beauté",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/150/052/1975/front_fr.9.400.jpg",
+    "product_name": "Masque confort",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Oréal",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3600523475780",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/052/347/5780/front_fr.3.400.jpg",
+    "product_name": "Age perfect crème-masque éclat",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Sanoflore",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3337875491419",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/787/549/1419/front_fr.6.400.jpg",
+    "product_name": "Masque des reines",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea, Nivea Essentials",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "4005900446428",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/590/044/6428/front_fr.5.400.jpg",
+    "product_name": "Essentials Masque 1 Minute Skin Detox + Purifiant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bioré",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "5017634237080",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/501/763/423/7080/front_nl.6.400.jpg",
+    "product_name": "1-Minute-Thermomaske Aktivkohle!",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "BELLE ET BIO, Bivea",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3700446411596",
+    "generic_name": "Gel Aloé Vera",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/370/044/641/1596/front_fr.6.400.jpg",
+    "product_name": "Gel Aloé Vera bio",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cattier",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3283950914819",
+    "generic_name": "Masque pour peaux grasses",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/328/395/091/4819/front_fr.6.400.jpg",
+    "product_name": "Masque Argile - Argile verte Menthe",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Biocos, Lovea nature",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3329310002113",
+    "generic_name": "Masque visage peaux grasses",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/332/931/000/2113/front_fr.7.400.jpg",
+    "product_name": "Masque visage purifiant Argile verte",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cattier",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks"
+    ],
+    "code": "3283950914826",
+    "generic_name": "Masque pour peaux sèches",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/328/395/091/4826/front_fr.5.400.jpg",
+    "product_name": "Masque Argile - Argile jaune Hamamélis",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Montagne Jeunesse",
+    "categories_tags": [
+      "en:face",
+      "en:face-masks",
+      "en:face-scrubs"
+    ],
+    "code": "0083800034284",
+    "generic_name": "Masques visage gommants",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/008/380/003/4284/front_fr.5.400.jpg",
+    "product_name": "Passion peel off + lemon zest peel off",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Benri",
+    "categories_tags": [
+      "en:suncare",
+      "en:self-tanner"
+    ],
+    "code": "2050000222511",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/205/000/022/2511/front_en.4.400.jpg",
+    "product_name": "Benri Parıltılı Bronzlaştırıcı Vücut Losyonu",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bebak",
+    "categories_tags": [
+      "en:suncare",
+      "en:self-tanner"
+    ],
+    "code": "8690841010478",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/084/101/0478/front_en.4.400.jpg",
+    "product_name": "Bebak Güneş Bakım Sütü Kakao Özlü",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bebak",
+    "categories_tags": [
+      "en:suncare",
+      "en:self-tanner"
+    ],
+    "code": "8690841010751",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/084/101/0751/front_en.4.400.jpg",
+    "product_name": "Bebak Güneş Bakım Kremi Havuç Özlü",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cien",
+    "categories_tags": [
+      "en:suncare",
+      "en:self-tanner"
+    ],
+    "code": "4056489368182",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/648/936/8182/front_fr.13.400.jpg",
+    "product_name": "lait autobronzant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Yves Rocher",
+    "categories_tags": [
+      "en:face",
+      "en:suncare",
+      "en:facial-creams",
+      "en:self-tanner"
+    ],
+    "code": "3660005351827",
+    "generic_name": "Autobronzant visage",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/366/000/535/1827/front_fr.7.400.jpg",
+    "product_name": "Ensoleillant hydratant hâle progressif visage",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Pulpe de vie",
+    "categories_tags": [
+      "en:face",
+      "en:suncare",
+      "en:facial-creams",
+      "en:self-tanner"
+    ],
+    "code": "3770002306062",
+    "generic_name": "Crème hydratante et autobronzante pour le visage",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/377/000/230/6062/front_fr.11.400.jpg",
+    "product_name": "Comme à la plage Crème bonne mine hydratante et autobronzante",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "L'Oréal",
+    "categories_tags": [
+      "en:suncare",
+      "en:self-tanner"
+    ],
+    "code": "3054080071105",
+    "generic_name": "Lait fondant autobronzant visage et corps",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/305/408/007/1105/front_fr.7.400.jpg",
+    "product_name": "Sublime Bronze",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "AXE",
+    "categories_tags": [
+      "en:incorrect-product-type",
+      "en:perfumes",
+      "en:cologne",
+      "en:Cosmetic products",
+      "en:non-food-products",
+      "en:open-beauty-facts"
+    ],
+    "code": "0079400448736",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/007/940/044/8736/front_en.3.400.jpg",
+    "product_name": "Apollo 48H High Definition Scent",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "BOD man",
+    "categories_tags": [
+      "en:perfumes",
+      "en:cologne",
+      "en:non-food-products",
+      "en:open-beauty-facts"
+    ],
+    "code": "0026169059314",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/002/616/905/9314/front_en.3.400.jpg",
+    "product_name": "Really Ripped Abs Fragrance Body Spray",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Sterilan",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "70116922",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/007/011/6922/front_en.4.400.jpg",
+    "product_name": "Sport protect",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Palmolive",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "8718951128279",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/895/112/8279/front_en.4.400.jpg",
+    "product_name": "pure arctic",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dr.Greve",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "70118858",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/007/011/8858/front_en.4.400.jpg",
+    "product_name": "Mann",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dr.Greve",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "70117011",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/007/011/7011/front_en.4.400.jpg",
+    "product_name": "Pleiende",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Rexona, Sure, Rexona Men, Rexona Men Sensitive, Sure Men",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "50096725",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/005/009/6725/front_en.8.400.jpg",
+    "product_name": "MotionSense Sensitive",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Adidas",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "3614221999196",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/361/422/199/9196/front_fr.4.400.jpg",
+    "product_name": "Cool & dry - Deodorant fresh compressé",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Mixa",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "3600550900187",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/055/090/0187/front_fr.5.400.jpg",
+    "product_name": "Déodorant 48h Sensitive Confort",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Barnängen, Schwarzkopf & Henkel",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "7332531031318",
+    "generic_name": "Antiperspirant",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/733/253/103/1318/front_en.8.400.jpg",
+    "product_name": "Barnängen Active Pearls Aqua spirit",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Barnängen, Schwarzkopf & Henkel",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "7332531042031",
+    "generic_name": "Antiperspirant",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/733/253/104/2031/front_en.12.400.jpg",
+    "product_name": "Barnängen NutriSkin Care & Fresh",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "OE, OE Men, Unhycos",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "3760070499667",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/376/007/049/9667/front_fr.6.400.jpg",
+    "product_name": "Aqua Activ' 24H",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Axe",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "96119600",
+    "generic_name": "Anti-transpirant 48h anti-traces",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/009/611/9600/front_en.3.400.jpg",
+    "product_name": "Signature anti-marks protection",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Colgate-Palmolive, Sanex",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:deodorant-with-alum-stone"
+    ],
+    "code": "8718951068520",
+    "generic_name": "Déodorant à la pierre d'alun",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/895/106/8520/front_fr.7.400.jpg",
+    "product_name": "Sanex Men natur protect®",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "adidas",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "3614223736485",
+    "generic_name": "Déodorant",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/361/422/373/6485/front_fr.8.400.jpg",
+    "product_name": "Déodorant Adipure",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Rexona, Rexona Men",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants",
+      "fr:Produits marketés pour les hommes"
+    ],
+    "code": "96033234",
+    "generic_name": "Déodorant à bille anti-transpirant",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/009/603/3234/front_fr.4.400.jpg",
+    "product_name": "Adventure anti-perspirant/anti-transpirant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Williams",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "8712561439978",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/256/143/9978/front_fr.6.400.jpg",
+    "product_name": "Déodorant Protect+ 48H Fresh Control",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Netto",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "3250391375523",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/039/137/5523/front_fr.5.400.jpg",
+    "product_name": "Déodorant anti-transpirant 24H Thé Blanc",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Dove",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "50097623",
+    "generic_name": "Anti-Perspirant / Anti-Transpirant Deodorant",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/005/009/7623/front_en.14.400.jpg",
+    "product_name": "Dove silk dry 24h",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Narta",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "3600550817140",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/055/081/7140/front_fr.5.400.jpg",
+    "product_name": "Dry Resist 48H Homme",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Rexona",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "96086179",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/009/608/6179/front_fr.5.400.jpg",
+    "product_name": "Motion Sense Invisible Black + White 48H",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Narta",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "3607092261363",
+    "generic_name": "Anti-transpirant 48h",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/709/226/1363/front_fr.6.400.jpg",
+    "product_name": "5 protections efficacité intégrale 48h",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Sanex",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "8714789999890",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/871/478/999/9890/front_fr.7.400.jpg",
+    "product_name": "Atopiderm",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Beiersdorf, Nivea",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "42236931",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/004/223/6931/front_en.8.400.jpg",
+    "product_name": "Anti-Perspirant Stress Protect",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "4005900285034",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/590/028/5034/front_fr.6.400.jpg",
+    "product_name": "Protect & Care Pocket",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "50330218",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/005/033/0218/front_ru.6.400.jpg",
+    "product_name": "Rexona Men",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "LASCAD, Narta",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants",
+      "fr:Produits marketés pour les hommes"
+    ],
+    "code": "3600550580051",
+    "generic_name": "Anti-transpirant Peau rasée ou tondue",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/055/058/0051/front_fr.5.400.jpg",
+    "product_name": "Anti-transpirant Narta Homme Peau parfaite",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "LASCAD, Narta",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "3600550578041",
+    "generic_name": "Anti-transpirant peau rasée ou épilée",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/360/055/057/8041/front_fr.5.400.jpg",
+    "product_name": "Anti-transpirant Narta Peau parfaite ",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "42242109",
+    "generic_name": "Déodorant à bille anti-transpirant ",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/000/004/224/2109/front_fr.5.400.jpg",
+    "product_name": "Anti-transpirant Pearl & beauty",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Marque Repère, Manava",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants"
+    ],
+    "code": "3564700658574",
+    "generic_name": "Déodorant à bille anti-transpirant, anti-traces, 48H, sans alcool.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/356/470/065/8574/front_fr.6.400.jpg",
+    "product_name": "Fruit du dragon Anti-transpirant, anti-traces",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nivea, Nivea for Men",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants",
+      "en:roll-on-deodorants",
+      "fr:Produits marketés pour les hommes"
+    ],
+    "code": "4005808302444",
+    "generic_name": "Déodorant à bille",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/580/830/2444/front_fr.5.400.jpg",
+    "product_name": "Silver Protect 24h Anti-Transpirant",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Marque Repère, Manava",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "3564700750407",
+    "generic_name": "Déodorant anti-transpirant anti-traces",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/356/470/075/0407/front_fr.6.400.jpg",
+    "product_name": "Invisible anti-transpirant anti-traces",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Leader Price",
+    "categories_tags": [
+      "en:hygiene",
+      "en:deodorants",
+      "en:anti-perspirants"
+    ],
+    "code": "3263855887012",
+    "generic_name": "Déodorant",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/326/385/588/7012/front_fr.6.400.jpg",
+    "product_name": "Déospray anti-transpirant 24h",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "REMA 1000, Lemoine France, Prima",
+    "categories_tags": [
+      "en:cotton-buds"
+    ],
+    "code": "7032069101513",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/703/206/910/1513/front_nb.4.400.jpg",
+    "product_name": "Bomullspinner 200 stk",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Naturelle",
+    "categories_tags": [
+      "en:cotton-buds",
+      "en:Ватні палички"
+    ],
+    "code": "5900095031673",
+    "generic_name": "Cotton buds",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/009/503/1673/front_uk.3.400.jpg",
+    "product_name": "Cosmetic cotton buds",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Apollo life",
+    "categories_tags": [
+      "en:cotton-buds"
+    ],
+    "code": "8904355405232",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/890/435/540/5232/front_en.3.400.jpg",
+    "product_name": "Cotton buds",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Simply Care",
+    "categories_tags": [
+      "en:hygiene",
+      "en:cotton-buds"
+    ],
+    "code": "4823071651256",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/482/307/165/1256/front_en.15.400.jpg",
+    "product_name": "Cotton buds",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Benri",
+    "categories_tags": [
+      "en:cotton-buds",
+      "en:Cosmetics",
+      "en:Personal care"
+    ],
+    "code": "2050002947306",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/205/000/294/7306/front_en.4.400.jpg",
+    "product_name": "Benri Renkli Kulak Temizleme Çubuğu 200 Adet",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Ebelin",
+    "categories_tags": [
+      "en:cotton-buds"
+    ],
+    "code": "4066447016741",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/644/701/6741/front_de.7.400.jpg",
+    "product_name": "Wattestäbchen",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Shisara",
+    "categories_tags": [
+      "en:cotton-buds"
+    ],
+    "code": "4311596007738",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/431/159/600/7738/front_de.3.400.jpg",
+    "product_name": "Bio-Wattestäbchen",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Cien",
+    "categories_tags": [
+      "en:cotton-buds",
+      "bg:клечки-за-уши"
+    ],
+    "code": "4056489988854",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/405/648/998/8854/front_bg.6.400.jpg",
+    "product_name": "Клечки за уши",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Tulips",
+    "categories_tags": [
+      "en:cotton-buds"
+    ],
+    "code": "8904117400307",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/890/411/740/0307/front_en.5.400.jpg",
+    "product_name": "Paper Stick Cotton Swabs",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Tulips",
+    "categories_tags": [
+      "en:cotton-buds"
+    ],
+    "code": "8904117401632",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/890/411/740/1632/front_en.3.400.jpg",
+    "product_name": "Paper Stick Cotton Swabs",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Q-tips",
+    "categories_tags": [
+      "en:cotton-buds"
+    ],
+    "code": "4000576027230",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/400/057/602/7230/front_de.3.400.jpg",
+    "product_name": "Q-tips",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Lacura Skin",
+    "categories_tags": [
+      "en:cotton-buds"
+    ],
+    "code": "4061462341588",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/406/146/234/1588/front_de.7.400.jpg",
+    "product_name": "Wattestäbchen",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "COTONET",
+    "categories_tags": [
+      "en:cotton-buds"
+    ],
+    "code": "8003350528769",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/800/335/052/8769/front_it.4.400.jpg",
+    "product_name": "Bastoncini in carta riciclata",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Crew",
+    "categories_tags": [
+      "en:shaving",
+      "en:shaving-gel"
+    ],
+    "code": "0738678239940",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/073/867/823/9940/front_en.3.400.jpg",
+    "product_name": "Shaving Gel",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Laboratoire du Haut-Ségala",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:post-epilation-lotion"
+    ],
+    "code": "3559480332912",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/355/948/033/2912/front_fr.3.400.jpg",
+    "product_name": "Huiler de souchet biologique",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Gillette",
+    "categories_tags": [
+      "en:hygiene",
+      "en:accessories",
+      "en:hair-removal",
+      "en:razors"
+    ],
+    "code": "8001090634924",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/800/109/063/4924/front_de.5.400.jpg",
+    "product_name": "All-In-One Styler Proglide",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bielenda",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "5904879006819",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/590/487/900/6819/front_en.12.400.jpg",
+    "product_name": "Hair Removal Cream",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Veet",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Crèmes dépilatoires"
+    ],
+    "code": "3059944026734",
+    "generic_name": "De formule van de Veet Minima Ontharinsgcrème voor de gevoelige huid bevat minder chemische ingrediënten dan andere ontharingscrèmes. De crème is geschikt voor je benen, armen, oksels en je bikinilijn.",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/305/994/402/6734/front_nl.3.400.jpg",
+    "product_name": "Veet Minima Ontharingscrème",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nascita",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:Beauty tools",
+      "en:Cosmetics",
+      "en:Personal care",
+      "en:Tweezers"
+    ],
+    "code": "8680742465460",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/074/246/5460/front_en.4.400.jpg",
+    "product_name": "Nascita Pixy Pop Girls Cımbız Mor",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nascita",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:Beauty tools",
+      "en:Cosmetics",
+      "en:Personal care",
+      "en:Tweezers"
+    ],
+    "code": "8680742465491",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/868/074/246/5491/front_en.4.400.jpg",
+    "product_name": "Nascita Pixy Pop Girls Cımbız Seti Yeşil",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nascita",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:Beauty tools",
+      "en:Cosmetics",
+      "en:Personal care",
+      "en:Tweezers"
+    ],
+    "code": "8697415102676",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/741/510/2676/front_en.4.400.jpg",
+    "product_name": "Nascita Krom Düz Ağız Cımbız",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "labell",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Crèmes dépilatoires"
+    ],
+    "code": "3250391547500",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/039/154/7500/front_fr.7.400.jpg",
+    "product_name": "Crème dépilatoire peaux sensibles",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Agiss",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:Cosmetics",
+      "en:Waxing",
+      "en:Waxing accessories",
+      "en:Waxing strips"
+    ],
+    "code": "8698703022447",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/869/870/302/2447/front_tr.3.400.jpg",
+    "product_name": "Agiss Ağda Bezi 25 m Rulo",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "labell",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Crèmes dépilatoires"
+    ],
+    "code": "3250391547395",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/039/154/7395/front_fr.8.400.jpg",
+    "product_name": "Crème dépilatoire peaux normales",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Veet",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Crèmes dépilatoires"
+    ],
+    "code": "3059944151443",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/305/994/415/1443/front_fr.9.400.jpg",
+    "product_name": "Expert 16 bandes de cire peaux snesibles maillot bikini",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Cires",
+      "fr:Cires dépilatoires"
+    ],
+    "code": "3256228942289",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/622/894/2289/front_fr.7.400.jpg",
+    "product_name": "Cire dépilatoire maillot aisselles peaux sensibles",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "U",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Cires",
+      "fr:Cires dépilatoires"
+    ],
+    "code": "3256228415646",
+    "generic_name": "Cire dépilatoire orientale au sucre",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/325/622/841/5646/front_fr.5.400.jpg",
+    "product_name": "Cire orientale au sucre",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nair",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Masques dépilatoires"
+    ],
+    "code": "3331300000832",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/130/000/0832/front_fr.4.400.jpg",
+    "product_name": "Masque dépilatoire jambes 3 en 1",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Laboratoires Orescience",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Mousses dépilatoires"
+    ],
+    "code": "3700795202920",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/370/079/520/2920/front_fr.7.400.jpg",
+    "product_name": "Mousse dépilatoire",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "glam WORKS",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "4806528110087",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/480/652/811/0087/front_en.3.400.jpg",
+    "product_name": "Hair Removal Cold Wax Kit",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Monoprix",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3350033692596",
+    "generic_name": "Crème dépilatoire",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/335/003/369/2596/front_fr.5.400.jpg",
+    "product_name": "Crème dépilatoire Peaux sensibles",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Nair",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "0022600600046",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/002/260/060/0046/front_en.3.400.jpg",
+    "product_name": "Nair NourishShower Power",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3560071001308",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/356/007/100/1308/front_fr.5.400.jpg",
+    "product_name": "Crème dépilatoire maillot et aisselles Huile de rose musquée & Beurre de karité",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Blondépil",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:bleaching-gels"
+    ],
+    "code": "3331840550002",
+    "generic_name": "Gel décolorant visage peaux normales",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/184/055/0002/front_fr.6.400.jpg",
+    "product_name": "Gel Décolor' Express visage",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Blondépil",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:bleaching-gels"
+    ],
+    "code": "3331849000041",
+    "generic_name": "Gel décolorant visage",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/184/900/0041/front_fr.5.400.jpg",
+    "product_name": "Decolor' sans ammoniaque",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Xanitalia",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:depilatory-wax"
+    ],
+    "code": "8019622128087",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/801/962/212/8087/front_fr.4.400.jpg",
+    "product_name": "Pastilles de cire d'épilation",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Quo",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "0057800704249",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/005/780/070/4249/front_en.4.400.jpg",
+    "product_name": "Brush Cleaner",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Bath and body works",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:lotion-post-epilation"
+    ],
+    "code": "0667551909260",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/066/755/190/9260/front_en.5.400.jpg",
+    "product_name": "wild lime& Gardenia",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Breylee",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:bleaching-gels"
+    ],
+    "code": "6973665941428",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/697/366/594/1428/front_en.4.400.jpg",
+    "product_name": "Acne treatment gel",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Acorelle",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Produits dépilatoires"
+    ],
+    "code": "3700343040165",
+    "generic_name": "bandes de cire froide",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/370/034/304/0165/front_fr.9.400.jpg",
+    "product_name": "20 Bandes de Cire Froide",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Acorelle",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Produits dépilatoires"
+    ],
+    "code": "3700343040141",
+    "generic_name": "Cire chaude dépilatoire",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/370/034/304/0141/front_fr.5.400.jpg",
+    "product_name": "Cire Royale - Aisselles, Maillot, Visage",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Laurence Dumont",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3450270012031",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/345/027/001/2031/front_fr.8.400.jpg",
+    "product_name": "24 bandes de cire froide visage",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Veet",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3059944021302",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/305/994/402/1302/front_fr.10.400.jpg",
+    "product_name": "Bandes de cire froide, peaux sèches",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Monoprix",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3350033307353",
+    "generic_name": "Crème dépilatoire - peaux sensibles",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/335/003/330/7353/front_fr.10.400.jpg",
+    "product_name": "Crème dépilatoire peaux sensibles beurre de karité",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Sibel",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "5412058150555",
+    "generic_name": "Lait post-épilation",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/541/205/815/0555/front_fr.15.400.jpg",
+    "product_name": "Post-Depilation Choco-Mousse Soin nutritif au chocolat",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Blondépil",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3331849007552",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/333/184/900/7552/front_fr.5.400.jpg",
+    "product_name": "Crème dépilatoire sous la douche Homme Peaux sensibles",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Veet",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3059944024051",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/305/994/402/4051/front_fr.10.400.jpg",
+    "product_name": "Crème dépilatoire sous la douche",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Acorelle",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:depilatory-wax"
+    ],
+    "code": "3700343040134",
+    "generic_name": "Cire épilatoire sourcils",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/370/034/304/0134/front_fr.10.400.jpg",
+    "product_name": "Acorelle cire orientale sourcils parfaits",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Body Natur, Body Natur Sensitive",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Crèmes dépilatoire"
+    ],
+    "code": "8414719402772",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/841/471/940/2772/front_fr.6.400.jpg",
+    "product_name": "Crème dépilatoire douche aux fruits des bois",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Veet",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Crèmes dépilatoire"
+    ],
+    "code": "3059944023054",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/305/994/402/3054/front_fr.14.400.jpg",
+    "product_name": "Crème dépilatoire Suprem' essence",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Laurence Dumont, Loua",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3450270016169",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/345/027/001/6169/front_fr.6.400.jpg",
+    "product_name": "Bandes de cire froide aisselles",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Laurence Dumont, Loua",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3450270016152",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/345/027/001/6152/front_fr.6.400.jpg",
+    "product_name": "Bandes de cire froide jambes",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Laurence Dumont, Loua",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "fr:Bandes de cire"
+    ],
+    "code": "3450270016176",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/345/027/001/6176/front_fr.6.400.jpg",
+    "product_name": "12 bandes de cire froide maillot",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Veet",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "0062200825029",
+    "generic_name": "Hair Removal Cream",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/006/220/082/5029/front_en.6.400.jpg",
+    "product_name": "Hair Removal Cream Dry Skin Shea Butter & Lily Fragrance ",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Auchan",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:depilatory-wax"
+    ],
+    "code": "3596710375776",
+    "generic_name": "Cire épilatoire",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/359/671/037/5776/front_fr.6.400.jpg",
+    "product_name": "Cire professionnelle parfum vanille",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Sibel",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal"
+    ],
+    "code": "3584250065806",
+    "generic_name": "Tonique pré-épilation",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/358/425/006/5806/front_fr.7.400.jpg",
+    "product_name": "Pre Epilation Tonic",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Sibel",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:depilatory-wax",
+      "en:cold-depilatory-wax",
+      "en:face-depilatory-wax"
+    ],
+    "code": "3584250000838",
+    "generic_name": "Cire épilatoire faciale froide",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/358/425/000/0838/front_fr.5.400.jpg",
+    "product_name": "Cold Depilatory Wax for the face",
+    "_srcPrefix": "obf"
+  },
+  {
+    "brands": "Laurence Dumont",
+    "categories_tags": [
+      "en:hygiene",
+      "en:hair-removal",
+      "en:lotion-post-epilation"
+    ],
+    "code": "3450270012772",
+    "generic_name": "",
+    "image_front_url": "https://images.openbeautyfacts.org/images/products/345/027/001/2772/front_fr.5.400.jpg",
+    "product_name": "Dermo-Soin Huile d'Azulène",
+    "_srcPrefix": "obf"
   }
 ]

@@ -308,8 +308,12 @@ const BEAUTY_CATS = [
   'face-wash', 'facial-cleanser', 'face-care', 'concealer', 'powder', 'blush',
   'eyeliner', 'make-up-remover', 'after-sun-care', 'shaving', 'shaving-foam', 'shaving-cream',
   'beard-oil', 'oral-care', 'mouthwash', 'wipes',
+  // 第二轮扩展（探针实测首页高带图率）：手护/发油/干洗/面膜/卸妆/美黑/淡香/古龙/止汗/棉签/剃须/须后/脱毛
+  'lip-gloss', 'hand-cream', 'hair-oil', 'dry-shampoo', 'face-mask', 'eye-makeup-remover',
+  'self-tanner', 'eau-de-toilette', 'cologne', 'antiperspirant', 'cotton-swab', 'shaving-gel',
+  'aftershave', 'hair-removal',
 ];
-const PET_CATS = ['dog-foods', 'cat-foods', 'pet-foods', 'pet-care', 'bird-foods', 'fish-foods', 'dog-treats', 'cat-treats', 'rodent-food', 'reptile-food', 'bird-food', 'fish-food'];
+const PET_CATS = ['dog-foods', 'cat-foods', 'pet-foods', 'pet-care', 'bird-foods', 'fish-foods', 'dog-treats', 'cat-treats', 'rodent-food', 'reptile-food', 'bird-food', 'fish-food', 'senior-cat-food', 'rabbit-food'];
 const PRODUCT_CATS = ['dietary-supplements', 'vitamins', 'sports-nutrition', 'proteins', 'minerals'];
 const FOOD_CATS = [
   // ===== 烘焙 / 零食 / 甜点 =====
@@ -360,6 +364,16 @@ async function fetchOFFFamily(host, cats, key) {
   const fields = 'code,product_name,brands,categories_tags,image_front_url,price,generic_name';
   const seen = new Set();
   const out = [];
+  // 合并已有缓存：live 抓取只增不减。off 主食品库间歇 503，若整轮只抓到部分就直接覆盖缓存会回退已抓数据；
+  // 先载入已提交缓存，live 只在既有无重复的基础上追加，保证任何情况下不丢已抓商品。
+  const prior = loadFamilyCache(key);
+  for (const p of prior) {
+    const code = String(p.code || p._id || '');
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    out.push(p);
+  }
+  if (prior.length) console.log(`    · ${key}: 载入已有缓存 ${prior.length} 条（合并抓取，只增不减）`);
   for (const c of cats) {
     if (out.length >= OFF_CAP) break;
     let page = 1;

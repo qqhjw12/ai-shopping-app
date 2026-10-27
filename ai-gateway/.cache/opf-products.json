@@ -24049,5 +24049,131 @@
     "image_front_url": "https://images.openpetfoodfacts.org/images/products/871/756/836/2243/front_fr.4.400.jpg",
     "product_name": "Souris Blanches Adultes",
     "_srcPrefix": "opf"
+  },
+  {
+    "brands": "Vitakraft",
+    "categories_tags": [
+      "en:rabbit-food",
+      "en:pet-food"
+    ],
+    "code": "4008239252272",
+    "generic_name": "",
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/400/823/925/2272/front_en.5.400.jpg",
+    "product_name": "Vitakraft Kracker konijn groente noten bosbessen",
+    "_srcPrefix": "opf"
+  },
+  {
+    "brands": "Carrefour",
+    "categories_tags": [
+      "en:rabbit-food"
+    ],
+    "code": "3608141629738",
+    "generic_name": "Aliment complet pour lapins nains",
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/360/814/162/9738/front_fr.20.400.jpg",
+    "product_name": "LAPINS NAINS Avec un mélange de graines et céréales Avec des fruits et légumes",
+    "_srcPrefix": "opf"
+  },
+  {
+    "brands": "",
+    "categories_tags": [
+      "en:rabbit-food",
+      "en:pet-food"
+    ],
+    "code": "4008239249593",
+    "generic_name": "",
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/400/823/924/9593/front_fr.10.400.jpg",
+    "product_name": "Manger pour lapin",
+    "_srcPrefix": "opf"
+  },
+  {
+    "brands": "",
+    "categories_tags": [
+      "en:rabbit-food",
+      "en:pet-food"
+    ],
+    "code": "5410340613108",
+    "generic_name": "",
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/541/034/061/3108/front_fr.21.400.jpg",
+    "product_name": "Versele Laga Complete Cuni Sensitive Rabbit Food 6 X",
+    "_srcPrefix": "opf"
+  },
+  {
+    "brands": "Vitakraft",
+    "categories_tags": [
+      "en:rabbit-food",
+      "en:pet-food"
+    ],
+    "code": "4008239250049",
+    "generic_name": "Aliment composé pour lapins nains",
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/400/823/925/0049/front_fr.20.400.jpg",
+    "product_name": "Original Kräcker Fruits des bois & Baies de sureau",
+    "_srcPrefix": "opf"
+  },
+  {
+    "brands": "Versele-laga",
+    "categories_tags": [
+      "en:rabbit-food",
+      "en:pet-food"
+    ],
+    "code": "5410340614563",
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/541/034/061/4563/front_fr.4.400.jpg",
+    "product_name": "Nature original",
+    "_srcPrefix": "opf"
+  },
+  {
+    "brands": "Netto",
+    "categories_tags": [
+      "en:rabbit-food",
+      "en:non-food-products",
+      "en:open-pet-food-facts",
+      "en:pet-food"
+    ],
+    "code": "3250392723323",
+    "ecoscore_tags": [
+      "unknown"
+    ],
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/325/039/272/3323/front_fr.5.400.jpg",
+    "product_name": "Nourriture pour lapin",
+    "_srcPrefix": "opf"
+  },
+  {
+    "brands": "Zolux",
+    "categories_tags": [
+      "en:rabbit-food",
+      "en:non-food-products",
+      "en:open-pet-food-facts",
+      "en:pet-food"
+    ],
+    "code": "3336022092561",
+    "ecoscore_tags": [
+      "unknown"
+    ],
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/333/602/209/2561/front_fr.3.400.jpg",
+    "product_name": "Crunchy cup",
+    "_srcPrefix": "opf"
+  },
+  {
+    "brands": "",
+    "categories_tags": [
+      "en:rabbit-food",
+      "en:pet-food"
+    ],
+    "code": "3166780050691",
+    "generic_name": "",
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/316/678/005/0691/front_fr.4.400.jpg",
+    "product_name": "Graine pour lapin nain",
+    "_srcPrefix": "opf"
+  },
+  {
+    "brands": "Riga",
+    "categories_tags": [
+      "en:rabbit-food",
+      "en:pet-food"
+    ],
+    "code": "3166780030075",
+    "generic_name": "",
+    "image_front_url": "https://images.openpetfoodfacts.org/images/products/316/678/003/0075/front_fr.7.400.jpg",
+    "product_name": "X'Perf Digest+",
+    "_srcPrefix": "opf"
   }
 ]
