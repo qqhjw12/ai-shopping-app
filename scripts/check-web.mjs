@@ -167,6 +167,7 @@ if (failed === 0) {
     for (const pid of ['p017', 'p033', 'p097']) {
       const pdp = new El('main');
       await renderProductDetail(pdp, pid, 'list');
+      await new Promise((r) => setTimeout(r, 0)); // 让 AI 摘要的异步填充先跑完
       const text = pdp.textContent;
       const n = (cls) => pdp.querySelectorAll(cls).length;
       const cases = [
@@ -175,9 +176,19 @@ if (failed === 0) {
         ['价格+原价划线', n('.pdp-price') >= 1 && text.includes('¥') && n('.price-old') >= 1],
         ['SKU 规格', n('.pdp-sku') >= 2],
         ['库存/数量/配送退换卡', n('.pdp-stock') >= 1 && n('.pdp-stepper') === 1 && n('.pdp-service-card') === 1],
-        ['AI 摘要+评价区+星级入口', n('.pdp-ai-summary') === 1 && n('.pdp-reviews') === 1 && n('.pdp-rating-link') === 1],
+        ['星级入口', n('.pdp-rating-link') === 1],
         ['加购/立即购买/收藏', text.includes('加入购物袋') && text.includes('立即购买') && text.includes('收藏')],
         ['移动端吸底条', n('.pdp-mobile-actions') === 1],
+        // 本步骤新增：AI 评价摘要 + 真实评价列表
+        ['AI 摘要 好评率+结论', n('.pdp-ai-rate') === 1 && n('.pdp-ai-verdict') === 1],
+        ['AI 摘要 要点/顾虑条目', n('.pdp-ai-point') >= 3 && text.includes('人提及')],
+        ['评价区 分布条(5档)', n('.pdp-reviews') === 1 && n('.pdp-dist-row') === 5],
+        ['评价列表 条目', n('.review') >= 3],
+        ['评价 筛选+排序', n('.pdp-review-filter') === 4 && n('.pdp-review-sort') === 2],
+        // 本步骤新增：写评价表单 + 有用投票
+        ['写评价 入口+表单', n('.pdp-write-review') === 1 && n('.pdp-review-form') === 1],
+        ['写评价 星级5+文本域+提交', n('.pdp-form-star') === 5 && n('.pdp-form-textarea') === 1 && n('.pdp-form-submit') === 1],
+        ['每条评价都有用按钮', n('.pdp-vote') >= 3],
       ];
       const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
       console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} #/product/${pid}${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
@@ -186,6 +197,77 @@ if (failed === 0) {
   } catch (e) {
     failed++;
     console.log(`  FAIL PDP 渲染异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
+/* ---------------- PDP 交互闭环：有用投票 + 写评价 ---------------- */
+// 结构断言只能证明「渲染出来了」，这里进一步触发真实点击事件，
+// 验证计数联动、表单折叠、列表插入与 localStorage 持久化链路。
+if (failed === 0) {
+  console.log('\nPDP 交互断言（有用投票 / 写评价）');
+  try {
+    const { renderProductDetail } = await import(pathToFileURL(join(WEB_DIR, 'views.js')).href);
+    const store = await import(pathToFileURL(join(WEB_DIR, 'store', 'productDetailStore.js')).href);
+    const pdp = new El('main');
+    await renderProductDetail(pdp, 'p017', 'list');
+    await new Promise((r) => setTimeout(r, 0));
+
+    const cnt = (node) => Number((node.querySelectorAll('.pdp-vote-count')[0] || {}).textContent || 0);
+    const voteBtn = pdp.querySelectorAll('.pdp-vote')[0];
+    const base = cnt(voteBtn);
+    voteBtn.listeners.click();                       // 点赞
+    const voted = cnt(voteBtn);
+    const votedState = voteBtn.classList.contains('is-active') && /已赞同/.test(voteBtn.textContent);
+    voteBtn.listeners.click();                       // 再点一次 → 取消赞，计数回退
+    const cancelled = cnt(voteBtn);
+
+    const form = pdp.querySelectorAll('.pdp-review-form')[0];
+    const writeBtn = pdp.querySelectorAll('.pdp-write-review')[0];
+    const allFilter = pdp.querySelectorAll('.pdp-review-filter')[0];
+    // 「全部」标签上的计数就是真实评价总数，用它校验新增（列表默认只渲染一页）。
+    const num = (node) => Number(String((node || {}).textContent || '').replace(/[^\d]/g, ''));
+    const total = num(allFilter);
+    const closedBefore = form.getAttribute('hidden') != null;
+    writeBtn.listeners.click();                      // 展开表单
+    const opened = form.getAttribute('hidden') == null;
+
+    const stars = pdp.querySelectorAll('.pdp-form-star');
+    stars[4].listeners.click();                      // 选 5 星
+    const litStars = stars.filter((s) => s.classList.contains('is-on')).length;
+
+    const textarea = pdp.querySelectorAll('.pdp-form-textarea')[0];
+    textarea.value = '这是我写的自动化测试评价，用于验证发布链路是否通畅。';
+    if (textarea.listeners.input) textarea.listeners.input();
+    if (form.listeners.submit) form.listeners.submit({ preventDefault() {} });
+    await new Promise((r) => setTimeout(r, 0));
+
+    // 列表默认只渲染一页（6 条），点「展开更多」后才能看到完整增量。
+    const moreBtn = pdp.querySelectorAll('.pdp-review-more')[0];
+    if (moreBtn && moreBtn.listeners.click) moreBtn.listeners.click();
+
+    const listAfter = pdp.querySelectorAll('.review');
+    const mine = listAfter[0];
+    const totalText = (pdp.querySelectorAll('.pdp-review-total')[0] || {}).textContent || '';
+    const persisted = store.readUserReviews('p017').length;
+
+    const cases = [
+      ['投票计数 +1', voted === base + 1],
+      ['投票选中态与文案', votedState],
+      ['再点取消赞计数回退', cancelled === base && !voteBtn.classList.contains('is-active')],
+      ['表单默认收起→点击展开', closedBefore && opened],
+      ['星级点亮 5 颗', litStars === 5],
+      ['评价总数 +1', num(allFilter) === total + 1],
+      ['展开全部后列表含新评价', listAfter.length === total + 1],
+      ['我的评价置顶且带标记', /我的评价/.test(mine.textContent || '') && /自动化测试/.test(mine.textContent || '')],
+      ['概览总数同步更新', /条评价/.test(totalText)],
+      ['写入 localStorage 可回读', persisted >= 1],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 有用投票 / 写评价${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 交互断言异常: ${String(e.message).split('\n')[0]}`);
   }
 }
 

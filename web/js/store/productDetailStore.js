@@ -4,6 +4,7 @@
 //              shippingNote / returnNote / rating / reviewCount。
 import { productArtSvg } from '../art.js';
 import { PRODUCT_DETAIL_MOCKS } from '../mock/productDetails.js';
+import { getMockReviews } from '../mock/productReviews.js';
 
 const DETAIL_CACHE_KEY = 'maison_pdp_cache_v2';
 const FAVORITES_KEY = 'maison_pdp_favorites_v1';
@@ -89,6 +90,24 @@ function normalizeSkus(product) {
 }
 
 /**
+ * 归一化评价：补齐 reviewCard 需要的字段，并保留每条自带的极性侧写 aspects。
+ * 网关真实评价没有 aspects（只有 rating/content），此时 AI 摘要会走词典模式。
+ */
+function normalizeReviews(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((r, index) => ({
+    ...r,
+    id: r.id || `rv-${index}`,
+    author: r.author || '匿名用户',
+    rating: Number(r.rating) || 0,
+    content: r.content || '',
+    created_at: r.created_at || '',
+    helpful: Number(r.helpful) || 0,
+    aspects: Array.isArray(r.aspects) ? r.aspects.filter((a) => a && a.text) : [],
+  }));
+}
+
+/**
  * 把任意商品（API / demo / mock）收敛为 PDP 的 ProductDetail。
  * 既保留旧字段（pic、reviews、reviewsCount 等），又补齐本步骤要求的标准字段。
  */
@@ -101,10 +120,16 @@ export function normalizeProductDetail(baseProduct = {}) {
   const summedStock = skus.reduce((sum, sku) => sum + (Number(sku.stock) || 0), 0);
   const stock = Number(product.stock ?? product.totalStock ?? summedStock) || 0;
   const reviewCount = Number(product.reviewCount ?? product.reviewsCount ?? 0) || 0;
+  // 评价：优先用商品自带数据（网关 / 本地库），缺失时回落到内置 mock 评价；
+  // 内置 mock 自带 aspects 极性标签，AI 摘要可据此统计要点（网关真实评价则走词典模式）。
+  const reviews = normalizeReviews(
+    Array.isArray(product.reviews) && product.reviews.length ? product.reviews : getMockReviews(id),
+  );
   return {
     ...product,
     images,
     skus,
+    reviews,
     stock,
     rating: Number(product.rating) || 0,
     reviewCount,
@@ -156,4 +181,181 @@ export function toggleFavoriteProduct(id) {
 export function getFavoriteProductIds() {
   const favorites = readJSON(FAVORITES_KEY, []);
   return Array.isArray(favorites) ? favorites : [];
+}
+
+/* ---------------- 评价交互：有用投票 & 写评价 ---------------- */
+// 当前阶段无写评价 / 投票后端，全部落在 localStorage，保持幂等：
+// 同一条评价重复点击视为取消赞，同一商品的评价按时间倒序追加且上限收敛。
+
+const REVIEW_VOTES_KEY = 'maison_pdp_review_votes_v1';
+const USER_REVIEWS_KEY = 'maison_pdp_user_reviews_v1';
+const REVIEW_MAX_PER_PRODUCT = 20;
+
+/** 已投票集合：{ [reviewId]: votedAt } —— 用于回显「已赞」状态，避免刷新后被重置。 */
+export function readReviewVotes() {
+  const raw = readJSON(REVIEW_VOTES_KEY, {});
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+}
+
+/** 投票 / 取消赞：返回投票后的布尔状态，UI 据此把本地计数 ±1，保证视觉与存储一致。 */
+export function toggleReviewVote(reviewId) {
+  const votes = readReviewVotes();
+  const key = String(reviewId);
+  if (votes[key]) delete votes[key];
+  else votes[key] = Date.now();
+  writeJSON(REVIEW_VOTES_KEY, votes);
+  return Boolean(votes[key]);
+}
+
+/** 读取我在某个商品下写过的评价（按时间倒序，新的在前）。 */
+export function readUserReviews(productId) {
+  const all = readJSON(USER_REVIEWS_KEY, {});
+  const list = all && all[String(productId)];
+  return Array.isArray(list) ? list : [];
+}
+
+/**
+ * 保存一条我写的评价。
+ * 返回结构与 Review 契约一致（含 content / rating / created_at / skuSpec / aspects），
+ * 因此可以直接喂给 reviewCard 与 AI 摘要统计，无需 UI 做额外适配。
+ */
+export function saveUserReview(productId, payload = {}) {
+  const id = String(productId);
+  const all = readJSON(USER_REVIEWS_KEY, {});
+  const list = Array.isArray(all[id]) ? all[id] : [];
+  const review = {
+    id: `ur-${id}-${Date.now()}`,
+    author: '我',
+    rating: Math.min(5, Math.max(1, Math.round(Number(payload.rating) || 5))),
+    content: String(payload.content || '').trim().slice(0, 500),
+    created_at: new Date().toISOString().slice(0, 10),
+    skuSpec: payload.skuSpec || '',
+    helpful: 0,
+    aspects: [],
+    mine: true, // 标记「我的评价」，UI 据此高亮；后续换真实接口时由服务端标记取代
+  };
+  all[id] = [review, ...list].slice(0, REVIEW_MAX_PER_PRODUCT);
+  writeJSON(USER_REVIEWS_KEY, all);
+  return review;
+}
+
+/**
+ * 把「我写的评价」与「基础评价」合并给 UI：
+ * - 我的评价置顶（自己刚写的要立刻看到）；
+ * - 已投过票的评价在基础票数上 +1，避免「点了有用但数字不变」的割裂感。
+ */
+export function mergeReviews(baseReviews = [], userReviews = [], votes = {}) {
+  return [...userReviews, ...baseReviews].map((r) => {
+    const voted = Boolean(votes[String(r.id)]);
+    return {
+      ...r,
+      helpful: Number(r.helpful || 0) + (voted ? 1 : 0),
+      voted,
+      mine: Boolean(r.mine),
+    };
+  });
+}
+
+/* ---------------- 评价概览 & AI 摘要 service ---------------- */
+// 设计令牌无关的数据层：只负责产出结构与统计，UI 层自行套用 --gold / --ink 等令牌。
+
+const AI_SUMMARY_CACHE_KEY = 'maison_pdp_ai_summary_v1';
+
+// 词典模式：评价缺少 aspects 极性标签时（网关返回的真实评价），用关键词从正文抽取要点。
+const POSITIVE_LEXICON = ['清晰', '舒服', '舒适', '安静', '细腻', '惊喜', '满意', '推荐', '方便', '流畅', '稳', '耐用', '值', '通透', '实用', '好看', '快'];
+const NEGATIVE_LEXICON = ['噪音', '吵', '卡', '慢', '贵', '失望', '瑕疵', '问题', '松动', '异响', '误触', '发烫', '偏少', '缺', '不足'];
+
+/** 评价概览：总数、均分、星级分布、好评率（4-5 星占比）。 */
+export function buildReviewSummary(reviews = []) {
+  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let sum = 0;
+  reviews.forEach((r) => {
+    const star = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 0)));
+    distribution[star] += 1;
+    sum += Number(r.rating) || 0;
+  });
+  const total = reviews.length;
+  const positive = (distribution[5] + distribution[4]) || 0;
+  return {
+    total,
+    avg: total ? Number((sum / total).toFixed(1)) : 0,
+    distribution,
+    positiveRate: total ? Math.round((positive / total) * 100) : 0,
+  };
+}
+
+function topByCount(bucket, limit) {
+  return Object.entries(bucket)
+    .map(([text, count]) => ({ text, count }))
+    .sort((a, b) => b.count - a.count || String(a.text).localeCompare(String(b.text)))
+    .slice(0, limit);
+}
+
+/**
+ * AI 评价摘要：本地规则引擎（当前阶段）。
+ * - mode='aspect'：评价自带极性标签（内置 mock），直接统计「被提及最多的优点 / 顾虑」；
+ * - mode='lexicon'：网关真实评价无标签，改用中文关键词词典从正文抽取；
+ * - mode='insufficient'：无评价可依据，UI 退回首屏说明。
+ * 结论均可回溯到具体评价条目，避免凭空生成。
+ */
+export function buildAiReviewSummary(product, reviews = []) {
+  const base = buildReviewSummary(reviews);
+  if (!reviews.length) {
+    return { ...base, mode: 'insufficient', sampleSize: 0, highlights: [], watchouts: [], verdict: '' };
+  }
+
+  const pos = {};
+  const neg = {};
+  let aspectMode = false;
+  reviews.forEach((r) => {
+    if (r.aspects && r.aspects.length) {
+      aspectMode = true;
+      r.aspects.forEach((a) => {
+        const bucket = a.polarity === 'neg' ? neg : pos;
+        bucket[a.text] = (bucket[a.text] || 0) + 1;
+      });
+    }
+  });
+  if (!aspectMode) {
+    reviews.forEach((r) => {
+      const text = String(r.content || '');
+      POSITIVE_LEXICON.forEach((w) => { if (text.includes(w)) pos[w] = (pos[w] || 0) + 1; });
+      NEGATIVE_LEXICON.forEach((w) => { if (text.includes(w)) neg[w] = (neg[w] || 0) + 1; });
+    });
+  }
+
+  const rate = base.positiveRate;
+  let verdict = '整体评价较好，优点多集中在使用体验';
+  if (reviews.length < 3) verdict = '样本偏少，结论仅供参考';
+  else if (rate >= 90) verdict = '好评度很高，多数买家认可它的核心体验';
+  else if (rate >= 75) verdict = '好评占多数，可结合下方顾虑判断是否适合你';
+  else if (rate >= 60) verdict = '口碑有分化，入手前建议留意提及较多的问题';
+  else verdict = '口碑偏弱，建议谨慎考虑或对比同类商品';
+
+  return {
+    ...base,
+    mode: aspectMode ? 'aspect' : 'lexicon',
+    sampleSize: reviews.length,
+    highlights: topByCount(pos, 3),
+    watchouts: topByCount(neg, 2),
+    verdict,
+  };
+}
+
+/**
+ * AI 摘要 service：对外保持 async 契约，后续接真实 LLM 接口时只需替换本函数内部实现，
+ * UI 层无需改动。当前为本地规则生成 + localStorage 结果缓存（样本数变化时重算）。
+ */
+export async function requestAiReviewSummary(product) {
+  const reviews = (product && product.reviews) || [];
+  const cache = readJSON(AI_SUMMARY_CACHE_KEY, {});
+  const hit = product ? cache[String(product.id)] : null;
+  if (hit && hit.summary && hit.sampleSize === reviews.length) return hit.summary;
+  const summary = buildAiReviewSummary(product, reviews);
+  if (product && product.id) {
+    const next = readJSON(AI_SUMMARY_CACHE_KEY, {});
+    next[String(product.id)] = { savedAt: Date.now(), sampleSize: reviews.length, summary };
+    writeJSON(AI_SUMMARY_CACHE_KEY, next);
+  }
+  return summary;
 }

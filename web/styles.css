@@ -3377,6 +3377,214 @@ textarea { resize: vertical; }
 }
 .pdp-review-placeholder p { margin: 0; color: var(--body); font-size: 13px; }
 
+/* ---------- AI 评价摘要：好评率用 --serif + --gold-deep + tabular-nums ---------- */
+.pdp-ai-body { display: flex; flex-direction: column; gap: 10px; }
+.pdp-ai-empty { margin: 0; color: var(--body); font-size: 11px; line-height: 1.65; }
+.pdp-ai-score {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--line);
+}
+.pdp-ai-rate {
+  color: var(--gold-deep);
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.pdp-ai-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pdp-ai-rate-label { color: var(--muted); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; }
+.pdp-ai-verdict { color: var(--body); font-size: 11px; line-height: 1.5; }
+.pdp-ai-group { display: flex; flex-direction: column; gap: 6px; }
+.pdp-ai-label { color: var(--muted); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; }
+.pdp-ai-points { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.pdp-ai-point {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+}
+.pdp-ai-point.pos { color: var(--ink); }
+/* 顾虑项：虚线边框区分，不用红色，保持 Editorial 克制 */
+.pdp-ai-point.neg { color: var(--body); border-style: dashed; }
+.pdp-ai-point-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdp-ai-point-count { flex: none; color: var(--muted); font-size: 9.5px; font-variant-numeric: tabular-nums; }
+.pdp-ai-foot { margin: 2px 0 0; color: var(--muted); font-size: 9px; letter-spacing: 0.04em; }
+
+/* ---------- 评价概览：均分 + 星级分布条（--gold 填充） ---------- */
+.pdp-review-overview {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 15px 0 16px;
+  border-top: 1px solid var(--line);
+}
+.pdp-review-score { display: flex; align-items: baseline; gap: 3px; flex: none; }
+.pdp-review-avg {
+  color: var(--gold-deep);
+  font-family: var(--serif);
+  font-size: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.pdp-review-avg-unit { color: var(--muted); font-size: 10px; }
+.pdp-dist { display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; min-width: 0; }
+.pdp-dist-row { display: grid; grid-template-columns: 34px 1fr 30px; align-items: center; gap: 10px; }
+.pdp-dist-label { color: var(--muted); font-size: 9.5px; letter-spacing: 0.06em; }
+.pdp-dist-track { height: 4px; overflow: hidden; border-radius: var(--r-pill); background: rgba(26, 26, 26, 0.07); }
+.pdp-dist-fill { display: block; height: 100%; border-radius: inherit; background: var(--gold); transition: width 0.3s var(--ease); }
+.pdp-dist-count { color: var(--muted); font-size: 9.5px; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ---------- 筛选 / 排序：胶囊，选中态 --gold-weak + --gold-deep ---------- */
+.pdp-review-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.pdp-review-filters,
+.pdp-review-sorts { display: flex; flex-wrap: wrap; gap: 6px; }
+.pdp-review-filter,
+.pdp-review-sort {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.pdp-review-filter:hover,
+.pdp-review-sort:hover { border-color: var(--line-strong); color: var(--ink); }
+.pdp-review-filter.is-active,
+.pdp-review-sort.is-active {
+  border-color: var(--gold);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  font-weight: 600;
+}
+.pdp-review-list { display: flex; flex-direction: column; }
+.pdp-review-list .review { border-bottom: 1px solid var(--line); }
+.pdp-review-empty { padding: 22px 0; color: var(--muted); font-size: 11.5px; text-align: center; }
+.pdp-review-more { align-self: center; margin: 14px auto 0; }
+.pdp-review-more[hidden] { display: none; }
+
+/* ---------- 有用投票：细线胶囊，选中态 --gold-weak + --gold-deep ---------- */
+.pdp-vote {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.pdp-vote:hover { border-color: var(--line-strong); color: var(--ink); }
+.pdp-vote.is-active { border-color: var(--gold); background: var(--gold-weak); color: var(--gold-deep); font-weight: 600; }
+.pdp-vote-icon { font-size: 11px; line-height: 1; }
+.pdp-vote-count { font-variant-numeric: tabular-nums; }
+
+/* 评价卡片底栏：左侧已购规格（--muted），右侧有用投票 */
+.rv-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 9px; }
+.rv-spec { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 10px; }
+/* 我的评价：左侧 2px 金色竖线做归属标记，不抢正文视觉 */
+.review.is-mine { padding-left: 12px; border-left: 2px solid var(--gold); }
+.rv-mine-tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- 写评价：入口按钮 + 折叠表单（白底 + 1px --line + --r-card） ---------- */
+.pdp-write-review { flex: none; align-self: center; }
+.pdp-review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  margin: 12px 0 4px;
+  padding: 15px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.pdp-review-form[hidden] { display: none; }
+.pdp-form-row { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.pdp-form-stars { display: flex; align-items: center; gap: 3px; }
+.pdp-form-star {
+  padding: 1px 3px;
+  border: 0;
+  background: transparent;
+  color: var(--line-strong);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.pdp-form-star.is-on { color: var(--gold); }
+/* hover 只做 1px 位移，不缩放元素 */
+.pdp-form-star:hover { transform: translateY(-1px); }
+.pdp-form-hint { color: var(--muted); font-size: 10px; }
+.pdp-form-textarea,
+.pdp-form-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.7;
+  resize: vertical;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.pdp-form-textarea:focus,
+.pdp-form-select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-weak); }
+.pdp-form-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pdp-form-counter { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.pdp-form-submit { flex: none; }
+.pdp-review-total { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+  .pdp-review-head { flex-wrap: wrap; gap: 10px; }
+  .pdp-write-review { width: 100%; align-self: stretch; }
+  .pdp-form-foot { flex-direction: column-reverse; align-items: stretch; }
+  .pdp-form-submit { width: 100%; }
+}
+
+@media (max-width: 560px) {
+  .pdp-review-overview { flex-direction: column; align-items: stretch; gap: 14px; }
+  .pdp-review-toolbar { gap: 8px; }
+  .pdp-ai-rate { font-size: 26px; }
+  .pdp-dist-row { grid-template-columns: 30px 1fr 26px; }
+}
+
 /* 移动端吸底操作区：默认隐藏，≤820px 显示 */
 .pdp-mobile-actions { display: none; }
 
