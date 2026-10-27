@@ -23,8 +23,14 @@ import {
   readReviewVotes,
   toggleReviewVote,
   readUserReviews,
-  saveUserReview,
   mergeReviews,
+  // 评价服务：网关优先，失败自动降级 localStorage（别名避免与本地表单函数同名）
+  fetchProductReviews,
+  submitReview as publishReviewApi,
+  submitFollowUp as publishFollowUpApi,
+  voteReview as voteReviewApi,
+  uploadReviewImage,
+  MAX_REVIEW_IMAGES,
 } from './store/productDetailStore.js';
 
 // 真实开放数据商品（scripts/ingest-real-data.mjs 生成，体量可达数 MB）改为「按需懒加载」：
@@ -1407,11 +1413,12 @@ function buildDetailPage(p, from, presetRelated = []) {
   /* ---- 评价区：写评价 + 有用投票 + 评分概览 + 筛选排序 + 列表分页 ---- */
   const REVIEW_PAGE = 6;
   const listState = { filter: 'all', sort: 'latest', visible: REVIEW_PAGE };
-  // 统一数据源：我写的评价 + 基础评价 + 本地「有用」投票。
-  // 概览、星级分布、筛选计数全部由它派生，保证写入评价后几处数字同步、不打架。
+  // 先渲染本地可见数据（自带评价 + 我写的评价 + 本地票），随后异步拉取服务端列表覆盖。
+  // 这样首屏不空转变成加载态，联网时又能拿到服务端持久化后的真实评价。
   const votes = readReviewVotes();
   const userReviews = readUserReviews(p.id);
-  const allReviews = mergeReviews(reviews, userReviews, votes);
+  let allReviews = mergeReviews(reviews, userReviews, votes);
+  let reviewSource = 'local';
   let reviewSummary = buildReviewSummary(allReviews);
 
   // 分布条保留节点引用：新增评价后只改宽度与数字，避免整块重绘打断用户阅读位置。
@@ -1431,7 +1438,7 @@ function buildDetailPage(p, from, presetRelated = []) {
   const MIN_REVIEW_LEN = 5;
   const MAX_REVIEW_LEN = 500;
   // 写评价草稿：星级必须由用户点选，默认 0 表示未评分，不允许「默认好评」提交。
-  const draft = { rating: 0, content: '', skuSpec: '' };
+  const draft = { rating: 0, content: '', skuSpec: '', images: [], uploading: false };
 
   function selectReviews() {
     let list = allReviews.slice();
@@ -1450,15 +1457,71 @@ function buildDetailPage(p, from, presetRelated = []) {
     onclick: () => { listState.visible += REVIEW_PAGE; paintReviewList(); },
   }, '展开更多');
 
-  /** 有用投票：落 localStorage 且可取消，计数 ±1，已赞 Gracefully 回显。 */
-  function voteReview(r, ref) {
-    const voted = toggleReviewVote(r.id);
-    r.voted = voted;
-    r.helpful = Math.max(0, Number(r.helpful || 0) + (voted ? 1 : -1));
-    ref.btn.classList.toggle('is-active', voted);
-    ref.btn.setAttribute('aria-pressed', voted ? 'true' : 'false');
-    ref.text.textContent = voted ? '已赞同' : '有用';
+  /**
+   * 有用投票：先乐观 ±1 让按钮立刻有反馈，再打服务端。
+   * 在线时以服务端计数为准（天然幂等）；离线则由 localStorage 记账。
+   */
+  async function voteReview(r, ref) {
+    const before = Number(r.helpful || 0);
+    const wasVoted = Boolean(r.voted);
+    const optimistic = !wasVoted;
+    r.voted = optimistic;
+    r.helpful = Math.max(0, before + (optimistic ? 1 : -1));
+    paintVoteButton(ref, r);
+    const res = await voteReviewApi(r.id);
+    r.voted = Boolean(res.voted);
+    // res.helpful 为 null 表示走了离线记账，此时按本地 ±1 修正
+    if (res.online) r.helpful = Number(res.helpful) || 0;
+    else r.helpful = Math.max(0, before + (res.voted ? 1 : -1));
+    paintVoteButton(ref, r);
+  }
+
+  function paintVoteButton(ref, r) {
+    ref.btn.classList.toggle('is-active', Boolean(r.voted));
+    ref.btn.setAttribute('aria-pressed', r.voted ? 'true' : 'false');
+    ref.text.textContent = r.voted ? '已赞同' : '有用';
     ref.count.textContent = String(Number(r.helpful) || 0);
+  }
+
+  /**
+   * 追评发布：成功后把新追评并入主评价的 followUps 并重绘列表。
+   * 主评价来自离线（本地 id ur-*）时由 store 自动落本地，不会静默丢内容。
+   */
+  async function followUpHandler(parent, payload) {
+    const res = await publishFollowUpApi({
+      reviewId: parent.id,
+      productId: p.id,
+      content: payload.content,
+      images: payload.images,
+    });
+    const target = allReviews.find((r) => String(r.id) === String(parent.id));
+    if (target) target.followUps = [...(target.followUps || []), res.review];
+    paintReviewList();
+    toast(res.online ? '追评已发布' : '追评已离线保存', res.online ? 'ok' : 'warn');
+  }
+
+  /**
+   * 拉取服务端评价：成功后替换本地数据源并重绘。
+   * 本地离线写过的评价若未出现在服务端结果里（如发布时断网），仍保留在最前面，
+   * 保证用户看到自己写的内容不丢。
+   */
+  async function loadServerReviews() {
+    const bundle = await fetchProductReviews(p.id, { limit: 100 });
+    reviewSource = bundle.online ? 'server' : 'local';
+    const localOnly = mergeReviews([], userReviews, votes)
+      .filter((ur) => !bundle.reviews.some((r) => String(r.id) === String(ur.id)));
+    allReviews = [...localOnly, ...bundle.reviews];
+    listState.visible = REVIEW_PAGE;
+    refreshOverview();
+    paintReviewList();
+    refreshAiSummary();
+  }
+
+  /** AI 摘要按当前样本重算（缓存以样本数为 key，条数变化即失效重建） */
+  function refreshAiSummary() {
+    requestAiReviewSummary({ ...p, reviews: allReviews })
+      .then(paintAiSummary)
+      .catch(() => paintAiSummary(null));
   }
 
   function paintReviewList() {
@@ -1469,7 +1532,7 @@ function buildDetailPage(p, from, presetRelated = []) {
       reviewList.appendChild(el('div', { class: 'pdp-review-empty' },
         allReviews.length ? '该筛选条件下还没有评价。' : '还没有评价，购买体验后可以回来写下第一条感受。'));
     } else {
-      shown.forEach((r) => reviewList.appendChild(reviewCard(r, voteReview)));
+      shown.forEach((r) => reviewList.appendChild(reviewCard(r, voteReview, followUpHandler)));
     }
     const rest = list.length - shown.length;
     moreBtn.setAttribute('hidden', '');
@@ -1513,6 +1576,57 @@ function buildDetailPage(p, from, presetRelated = []) {
   // 主按钮：香槟金底 + 深色文字（--gold / --ink），与「加入购物袋」保持同一主操作语言。
   const submitBtn = el('button', { type: 'submit', class: 'primary pdp-form-submit' }, '发布评价');
 
+  // 买家秀：先 canvas 压缩再上传，返回服务端 URL 存进草稿；上限与服务端保持一致。
+  const imgPreview = el('div', { class: 'pdp-form-thumbs' });
+  const imgHint = el('span', { class: 'pdp-form-img-hint' }, `可选，最多 ${MAX_REVIEW_IMAGES} 张`);
+  function paintImgPreview() {
+    imgPreview.innerHTML = '';
+    (draft.images || []).forEach((url, i) => {
+      imgPreview.appendChild(el('div', { class: 'pdp-form-thumb' }, [
+        el('img', { src: url, alt: `买家秀 ${i + 1}` }),
+        el('button', {
+          type: 'button',
+          class: 'pdp-thumb-remove',
+          'aria-label': '删除这张图片',
+          onclick: () => { draft.images.splice(i, 1); paintImgPreview(); },
+        }, '×'),
+      ]));
+    });
+    imgHint.textContent = draft.images.length
+      ? `已添加 ${draft.images.length} / ${MAX_REVIEW_IMAGES} 张`
+      : `可选，最多 ${MAX_REVIEW_IMAGES} 张`;
+  }
+
+  async function handlePickImages(files) {
+    const room = MAX_REVIEW_IMAGES - (draft.images || []).length;
+    if (room <= 0) { toast(`最多上传 ${MAX_REVIEW_IMAGES} 张图片`, 'warn'); return; }
+    if (draft.uploading) return;
+    draft.uploading = true;
+    imgHint.textContent = '正在压缩并上传…';
+    submitBtn.disabled = true;
+    try {
+      for (const file of files.slice(0, room)) {
+        const dataUrl = await compressImageFile(file);
+        draft.images.push(await uploadReviewImage(dataUrl));
+      }
+      paintImgPreview();
+    } catch (err) {
+      toast(err.message || '图片上传失败', 'warn');
+      paintImgPreview();
+    } finally {
+      draft.uploading = false;
+      submitBtn.disabled = false;
+    }
+  }
+
+  const fileInput = el('input', {
+    type: 'file',
+    class: 'pdp-file-input',
+    accept: 'image/*',
+    multiple: 'multiple',
+    onchange: () => { handlePickImages(Array.from(fileInput.files || [])); fileInput.value = ''; },
+  });
+
   // 多规格商品可选「已购规格」，单规格时隐藏（也可见但未订 SKU 时不显示该行）
   const specSelect = skus.length > 1
     ? el('select', {
@@ -1538,6 +1652,12 @@ function buildDetailPage(p, from, presetRelated = []) {
       specSelect,
     ]) : null,
     el('div', { class: 'pdp-form-row' }, [
+      el('span', { class: 'pdp-field-label' }, '买家秀'),
+      el('label', { class: 'pdp-file-label' }, [fileInput, '选择图片']),
+      imgHint,
+    ]),
+    imgPreview,
+    el('div', { class: 'pdp-form-row' }, [
       el('span', { class: 'pdp-field-label' }, '评价内容'),
       input,
       el('div', { class: 'pdp-form-foot' }, [counter, submitBtn]),
@@ -1558,37 +1678,53 @@ function buildDetailPage(p, from, presetRelated = []) {
     }
   }
 
-  function submitReview(e) {
+  async function submitReview(e) {
     if (e && e.preventDefault) e.preventDefault();
     if (!draft.rating) { toast('请先选择星级评分', 'warn'); return; }
     const content = String(draft.content || '').trim();
     if (content.length < MIN_REVIEW_LEN) { toast(`评价内容至少 ${MIN_REVIEW_LEN} 个字`, 'warn'); return; }
-    // 落盘后立即并入列表：node<|人|>自己刚写的评价要能马上看到，且排在最新位置。
-    const review = saveUserReview(p.id, { rating: draft.rating, content, skuSpec: draft.skuSpec });
-    review.voted = false;
-    review.mine = true;
-    allReviews.unshift(review);
+    if (draft.uploading) { toast('图片还在上传中，请稍候', 'warn'); return; }
 
-    draft.rating = 0;
-    draft.content = '';
-    input.value = '';
-    paintStars();
-    paintCounter();
-    formBox.setAttribute('hidden', 'hidden');
-    writeBtn.textContent = '写评价';
-    // 重置到「全部 / 最新」，避免新评价被当前筛选条件挡住看不见。
-    listState.filter = 'all';
-    listState.sort = 'latest';
-    listState.visible = REVIEW_PAGE;
-    syncActiveButton(filterBtns, 'filter', listState.filter);
-    syncActiveButton(sortBtns, 'sort', listState.sort);
-    refreshOverview();
-    paintReviewList();
-    toast('评价已发布，感谢你的分享', 'ok');
-    // AI 摘要按新样本重算：缓存以样本数为 key，条数变化即失效重建。
-    requestAiReviewSummary({ ...p, reviews: allReviews })
-      .then(paintAiSummary)
-      .catch(() => paintAiSummary(null));
+    submitBtn.disabled = true;
+    submitBtn.textContent = '发布中…';
+    try {
+      // 网关优先；失败自动落 localStorage（online=false → 提示离线保存）
+      const { review, online } = await publishReviewApi(p.id, {
+        rating: draft.rating,
+        content,
+        skuSpec: draft.skuSpec,
+        images: draft.images || [],
+      });
+      allReviews.unshift(review);
+
+      draft.rating = 0;
+      draft.content = '';
+      draft.images = [];
+      input.value = '';
+      paintStars();
+      paintCounter();
+      paintImgPreview();
+      formBox.setAttribute('hidden', 'hidden');
+      writeBtn.textContent = '写评价';
+      // 重置到「全部 / 最新」，避免新评价被当前筛选条件挡住看不见。
+      listState.filter = 'all';
+      listState.sort = 'latest';
+      listState.visible = REVIEW_PAGE;
+      syncActiveButton(filterBtns, 'filter', listState.filter);
+      syncActiveButton(sortBtns, 'sort', listState.sort);
+      refreshOverview();
+      paintReviewList();
+      toast(online ? '评价已发布，感谢你的分享' : '评价已离线保存，联网后可查看同步状态', online ? 'ok' : 'warn');
+      // AI 摘要按新样本重算：缓存以样本数为 key，条数变化即失效重建。
+      requestAiReviewSummary({ ...p, reviews: allReviews })
+        .then(paintAiSummary)
+        .catch(() => paintAiSummary(null));
+    } catch (err) {
+      toast(err.message || '评价发布失败，请稍后重试', 'warn');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '发布评价';
+    }
   }
 
   const filterMeta = [
@@ -1688,10 +1824,13 @@ function buildDetailPage(p, from, presetRelated = []) {
 
   paintStars();
   paintCounter();
+  paintImgPreview();
   paintReviewList();
   refreshOverview();
   body.appendChild(reviewPanel);
   page.appendChild(body);
+  // 本地数据先落地首屏，再异步换服务端评价（联网即用真实数据，断网静默保持降级）
+  loadServerReviews();
 
   /* ---- 相关推荐（保留原商品列表关联能力） ---- */
   const relatedWrap = el('section', { class: 'related' }, [
@@ -1745,7 +1884,181 @@ function buildDetailPage(p, from, presetRelated = []) {
  * onVote(review, btn)：由详情页注入的有用投票回调，负责落 localStorage 并回写按钮状态；
  * 不传则不渲染投票按钮（便于在其它场景复用本卡片）。
  */
-function reviewCard(r, onVote) {
+/**
+ * 图片压缩：等比缩到最长边 1200px 并转 JPEG（质量 0.82）。
+ * 目的很直接——手机直出照片动辄 4-6MB，上传前压到 ~200KB，省流量也减轻网关压力。
+ * @param {File} file
+ * @returns {Promise<string>} dataURL
+ */
+function compressImageFile(file, maxEdge = 1200, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('未选择图片'));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('读取图片失败'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('图片解析失败'));
+      img.onload = () => {
+        const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('当前浏览器不支持图片压缩'));
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/** 买家秀大图查看：轻量遮罩，点击任意处关闭（Esc 关闭由 CSS 之外的 document 监听兜底） */
+function openImageViewer(src) {
+  const layer = el('div', {
+    class: 'pdp-image-viewer',
+    onclick: () => layer.setAttribute('hidden', 'hidden'),
+  }, [
+    el('img', { src, alt: '买家秀大图' }),
+    el('button', { type: 'button', class: 'pdp-image-viewer-close', 'aria-label': '关闭' }, '×'),
+  ]);
+  (document.body || document.createElement('body')).appendChild(layer);
+}
+
+/** 买家秀九宫格：统一 1:1 裁切（object-fit: cover），点击可看大图 */
+function reviewImages(images = []) {
+  if (!Array.isArray(images) || !images.length) return null;
+  return el('div', { class: 'pdp-review-images' }, images.map((src) => el('button', {
+    type: 'button',
+    class: 'pdp-review-thumb',
+    'aria-label': '查看买家秀大图',
+    onclick: () => openImageViewer(src),
+  }, [el('img', { src, alt: '买家秀', loading: 'lazy' })])));
+}
+
+/** 追评块：比主评价轻一档，用左侧细线表达「挂在下面」的层级关系 */
+function followUpBlock(f, r) {
+  return el('div', { class: 'pdp-followup' }, [
+    el('div', { class: 'pdp-followup-head' }, [
+      el('span', { class: 'pdp-followup-tag' }, '追评'),
+      f.created_at ? el('span', { class: 'pdp-followup-date' }, String(f.created_at).slice(0, 10)) : null,
+    ]),
+    el('div', { class: 'pdp-followup-content' }, f.content),
+    reviewImages(f.images),
+  ]);
+}
+
+/**
+ * 追评表单：默认收起，只有「我的评价」才有入口。
+ * 提交后由外层把新追评塞进 r.followUps 并重绘单张卡片，避免整列表跳动。
+ */
+function followUpForm(r, onSubmit) {
+  const MAX_FU_LEN = 500;
+  const MIN_FU_LEN = 5;
+  const state = { content: '', images: [], open: false, uploading: false, busy: false };
+  const area = el('textarea', {
+    class: 'pdp-followup-textarea',
+    rows: '3',
+    maxlength: String(MAX_FU_LEN),
+    placeholder: '补充使用感受，例如耐用度、售后、与预期的差异…',
+    oninput: () => { state.content = area.value || ''; },
+  });
+  const hint = el('span', { class: 'pdp-followup-hint' }, `至少 ${MIN_FU_LEN} 个字`);
+  const fileInput = el('input', {
+    type: 'file',
+    class: 'pdp-file-input',
+    accept: 'image/*',
+    multiple: 'multiple',
+    onchange: () => { addImages(Array.from(fileInput.files || [])); fileInput.value = ''; },
+  });
+  const preview = el('div', { class: 'pdp-form-thumbs' });
+  function paintPreview() {
+    preview.innerHTML = '';
+    state.images.forEach((url, i) => {
+      preview.appendChild(el('div', { class: 'pdp-form-thumb' }, [
+        el('img', { src: url, alt: `追评配图 ${i + 1}` }),
+        el('button', {
+          type: 'button',
+          class: 'pdp-thumb-remove',
+          'aria-label': '删除这张图片',
+          onclick: () => { state.images.splice(i, 1); paintPreview(); },
+        }, '×'),
+      ]));
+    });
+  }
+  async function addImages(files) {
+    const room = MAX_REVIEW_IMAGES - state.images.length;
+    if (room <= 0) { toast(`最多上传 ${MAX_REVIEW_IMAGES} 张图片`, 'warn'); return; }
+    if (state.uploading) return;
+    state.uploading = true;
+    hint.textContent = '正在压缩并上传图片…';
+    try {
+      for (const file of files.slice(0, room)) {
+        const dataUrl = await compressImageFile(file);
+        const url = await uploadReviewImage(dataUrl);
+        state.images.push(url);
+      }
+      paintPreview();
+      hint.textContent = state.images.length ? `已添加 ${state.images.length} 张图` : `至少 ${MIN_FU_LEN} 个字`;
+    } catch (e) {
+      toast(e.message || '图片上传失败', 'warn');
+      hint.textContent = '图片上传失败，可直接发布文字追评';
+    } finally {
+      state.uploading = false;
+    }
+  }
+  const submitBtn = el('button', { type: 'submit', class: 'ghost pdp-followup-submit' }, '发布追评');
+  const box = el('form', {
+    class: 'pdp-followup-form',
+    hidden: 'hidden',
+    novalidate: 'novalidate',
+    onsubmit: async (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      const content = String(state.content || '').trim();
+      if (content.length < MIN_FU_LEN) { toast(`追评内容至少 ${MIN_FU_LEN} 个字`, 'warn'); return; }
+      if (state.busy) return;
+      state.busy = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = '发布中…';
+      try {
+        await onSubmit(r, { content, images: state.images });
+        state.content = '';
+        state.images = [];
+        area.value = '';
+        paintPreview();
+        box.setAttribute('hidden', 'hidden');
+        toggleBtn.textContent = '追评';
+      } catch (err) {
+        toast(err.message || '追评发布失败，请稍后重试', 'warn');
+      } finally {
+        state.busy = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = '发布追评';
+      }
+    },
+  }, [
+    area,
+    el('div', { class: 'pdp-followup-actions' }, [
+      el('label', { class: 'pdp-file-label' }, [fileInput, '添加图片']),
+      hint,
+      submitBtn,
+    ]),
+    preview,
+  ]);
+  const toggleBtn = el('button', {
+    type: 'button',
+    class: 'pdp-followup-toggle',
+    onclick: () => {
+      state.open = box.getAttribute('hidden') != null;
+      if (state.open) { box.removeAttribute('hidden'); toggleBtn.textContent = '收起'; }
+      else { box.setAttribute('hidden', 'hidden'); toggleBtn.textContent = '追评'; }
+    },
+  }, '追评');
+  return el('div', { class: 'pdp-followup-wrap' }, [toggleBtn, box]);
+}
+
+function reviewCard(r, onVote, onFollowUp) {
   // 直接把节点引用交给回调，避免投票时回溯查询 DOM（也兼容无 querySelector 的环境）。
   const voteText = el('span', { class: 'pdp-vote-text' }, r.voted ? '已赞同' : '有用');
   const voteCount = el('span', { class: 'pdp-vote-count' }, String(Number(r.helpful) || 0));
@@ -1761,7 +2074,13 @@ function reviewCard(r, onVote) {
         voteCount,
       ])
     : null;
-  const hasFoot = Boolean(voteBtn || r.skuSpec);
+  const followUps = Array.isArray(r.followUps) ? r.followUps : [];
+  const foot = voteBtn || r.skuSpec
+    ? el('div', { class: 'rv-foot' }, [
+        r.skuSpec ? el('span', { class: 'rv-spec' }, `已购规格：${r.skuSpec}`) : null,
+        voteBtn,
+      ])
+    : null;
   return el('div', { class: 'review' + (r.mine ? ' is-mine' : '') }, [
     el('div', { class: 'rv-head' }, [
       el('span', { class: 'avatar' }, (r.author || '匿')[0]),
@@ -1775,12 +2094,10 @@ function reviewCard(r, onVote) {
       r.created_at ? el('span', { class: 'rv-date' }, String(r.created_at).slice(0, 10)) : null,
     ]),
     el('div', { class: 'rv-content' }, r.content),
-    hasFoot
-      ? el('div', { class: 'rv-foot' }, [
-          r.skuSpec ? el('span', { class: 'rv-spec' }, `已购规格：${r.skuSpec}`) : null,
-          voteBtn,
-        ])
-      : null,
+    foot,
+    reviewImages(r.images),
+    followUps.length ? el('div', { class: 'pdp-followup-list' }, followUps.map((f) => followUpBlock(f, r))) : null,
+    r.mine && onFollowUp ? followUpForm(r, onFollowUp) : null,
   ]);
 }
 

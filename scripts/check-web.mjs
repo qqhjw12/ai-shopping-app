@@ -250,6 +250,33 @@ if (failed === 0) {
     const totalText = (pdp.querySelectorAll('.pdp-review-total')[0] || {}).textContent || '';
     const persisted = store.readUserReviews('p017').length;
 
+    // 买家秀：写评价表单要有文件选择入口与缩略图容器（真实选文件依赖浏览器，此处只验结构）
+    const fileInputs = pdp.querySelectorAll('.pdp-file-input').length;
+    const thumbBoxes = pdp.querySelectorAll('.pdp-form-thumbs').length;
+
+    // 追评闭环：过短内容应被拦下（不产生追评块），补足字数后应发布成功
+    let followUpGate = false;
+    let followUpDone = false;
+    const fuToggle = pdp.querySelectorAll('.pdp-followup-toggle')[0];
+    if (fuToggle && fuToggle.listeners.click) {
+      fuToggle.listeners.click();
+      const fuForm = pdp.querySelectorAll('.pdp-followup-form')[0];
+      const fuArea = pdp.querySelectorAll('.pdp-followup-textarea')[0];
+      if (fuArea && fuForm) {
+        fuArea.value = '太短';
+        if (fuArea.listeners.input) fuArea.listeners.input();
+        if (fuForm.listeners.submit) fuForm.listeners.submit({ preventDefault() {} });
+        await new Promise((r) => setTimeout(r, 0));
+        followUpGate = pdp.querySelectorAll('.pdp-followup-content').length === 0;
+
+        fuArea.value = '这是追评内容，用于验证追评链路可正常落库并展示。';
+        if (fuArea.listeners.input) fuArea.listeners.input();
+        if (fuForm.listeners.submit) fuForm.listeners.submit({ preventDefault() {} });
+        await new Promise((r) => setTimeout(r, 0));
+        followUpDone = pdp.querySelectorAll('.pdp-followup-content').length >= 1;
+      }
+    }
+
     const cases = [
       ['投票计数 +1', voted === base + 1],
       ['投票选中态与文案', votedState],
@@ -261,6 +288,10 @@ if (failed === 0) {
       ['我的评价置顶且带标记', /我的评价/.test(mine.textContent || '') && /自动化测试/.test(mine.textContent || '')],
       ['概览总数同步更新', /条评价/.test(totalText)],
       ['写入 localStorage 可回读', persisted >= 1],
+      ['买家秀选择入口 + 预览容器', fileInputs >= 1 && thumbBoxes >= 1],
+      ['我的评价带追评入口', Boolean(fuToggle)],
+      ['追评内容过短被拦截', followUpGate],
+      ['追评发布后出现在卡片内', followUpDone],
     ];
     const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 有用投票 / 写评价${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);

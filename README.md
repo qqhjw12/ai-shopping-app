@@ -52,7 +52,7 @@
 | 模块 | 入口 | 说明 |
 |------|------|------|
 | 🔍 智能搜索 | 顶栏搜索 | 向量 + 关键词混合检索，首页 / 列表 / 搜索页通用 |
-| 📦 商品详情 | `#/product/:id` | 真实路由，可深链分享；SKU 规格切换联动价格库存、每款 3 条真实评价、服务承诺、相关推荐、来源渠道色条与埋点 |
+| 📦 商品详情 | `#/product/:id` | 真实路由，可深链分享；SKU 规格切换联动价格库存、服务承诺、相关推荐、来源渠道色条与埋点；评价区支持 **写评价 / 买家秀上传 / 追评 / 有用投票**（走网关 API 持久化，断网自动降级 localStorage） |
 | 🗂️ 分类浏览 | `#/categories` | 16 个一级类目 + 48 个二级类目，每个类目用真实商品封面拼图，点进即按类目筛选 |
 | 🛒 商品列表 | `#/products` | 侧边栏两级类目 / 价格区间 / 品牌筛选 + 6 种排序，筛选条件全走 URL 可分享 |
 | 🛒 购物车 | 顶栏购物车抽屉 | 服务端持久化，换设备/清缓存不丢；数量增减、删除、库存不足提示 |
@@ -83,7 +83,8 @@
 | `product_skus` | 规格变体与库存（150 个 SKU，按阶梯定价） |
 | `users` / `addresses` | 演示用户与收货地址（下单时自动为新用户建档 + 默认地址） |
 | `orders` / `order_items` | 订单与订单项（含物流公司、运单号、状态机、金额拆分） |
-| `reviews` | 商品评价（**768 条，覆盖全部 256 款**，每款 3 条带作者与星级，供问答引用口碑） |
+| `reviews` | 商品评价（**768 条，覆盖全部 256 款**，每款 3 条带作者与星级，供问答引用口碑）。迁移 v6 起支持 `parent_id`（追评）/ `images`（买家秀）/ `sku_spec` / `source` |
+| `review_votes` | 有用投票：主键 `(review_id, user_id)`，天然幂等——同一用户重复请求在「赞 / 取消」间切换 |
 | `cart_items` | 购物车（服务端持久化，按 user+sku 唯一，重复加购累加） |
 | `favorites` | 收藏夹 |
 | `coupons` / `user_coupons` | 优惠券模板与用户卡包（满减 / 折扣，领用核销） |
@@ -331,6 +332,11 @@ bash scripts/setup-https-proxy.sh
 |------|------|------|
 | GET  | `/api/products` | 商品列表（含封面色 / 卖点 / 评分 / 销量）；筛选 `category`/`sub`/`brand`/`minPrice`/`maxPrice`/`sort`(default·sales·price_asc·price_desc·rating·new)/`limit`/`offset`，返回 `{ total, count, products }` |
 | GET  | `/api/products/:id` | 商品详情（含 SKU、评价、相关推荐） |
+| GET  | `/api/products/:id/reviews` | 评价列表：`userId`/`filter`(all·good·mid·bad)/`sort`(latest·helpful)/`limit`/`offset`，返回 `{ reviews, summary, hasMore }`，追评嵌套在主评价的 `followUps` 内 |
+| POST | `/api/reviews` | 发布评价；带 `parentId` 即追评。`{ productId|parentId, userId?, author?, rating?, content, skuSpec?, images? }` |
+| POST | `/api/reviews/:id/helpful` | 有用投票 `{ userId }`，幂等：再请求一次即取消，返回 `{ voted, helpful }` |
+| POST | `/api/reviews/upload` | 买家秀上传 `{ data: base64 }`，≤6MB，返回 `{ url }`；类型为 JPG/PNG/WebP/GIF（文件头校验） |
+| GET  | `/api/uploads/:name` | 读取买家秀（文件名 UUID + 白名单扩展名，长缓存） |
 | GET  | `/api/categories` | 类目列表（带商品数）；加 `?tree=1` 返回两级树与各类目商品数 |
 | GET  | `/api/brands` | 品牌列表（可按 `category` 过滤，带商品数） |
 | GET  | `/api/stats` | 站点规模概览：商品 / SKU / 类目 / 二级类目 / 品牌 / 评价数 |

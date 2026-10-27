@@ -3571,11 +3571,189 @@ textarea { resize: vertical; }
 .pdp-form-submit { flex: none; }
 .pdp-review-total { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 
+/* ---------- 买家秀：选择（细线伪装按钮，隐藏原生 input）+ 缩略图预览 ---------- */
+.pdp-file-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--body);
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.pdp-file-label:hover { border-color: var(--line-strong); color: var(--ink); }
+/* 原生 file input 在视觉上无法完全贴合，直接移出屏幕但保留可聚焦与读屏可达 */
+.pdp-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.pdp-form-img-hint { color: var(--muted); font-size: 10px; }
+.pdp-form-thumbs { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.pdp-form-thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  overflow: hidden;
+  background: var(--canvas);
+}
+.pdp-form-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pdp-thumb-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: rgba(26, 26, 26, 0.62);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s var(--ease);
+}
+.pdp-thumb-remove:hover { background: rgba(26, 26, 26, 0.82); }
+
+/* ---------- 评价里的买家秀九宫格：统一 1:1 裁切，圆角 --r-btn ---------- */
+.pdp-review-images { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.pdp-review-thumb {
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  overflow: hidden;
+  background: var(--canvas);
+  cursor: zoom-in;
+  transition: border-color 0.2s var(--ease);
+}
+.pdp-review-thumb:hover { border-color: var(--line-strong); }
+.pdp-review-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---------- 追评：左侧 1px 细线表达层级，视觉比主评价轻一档 ---------- */
+.pdp-followup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+.pdp-followup-head { display: flex; align-items: center; gap: 8px; }
+.pdp-followup-tag {
+  padding: 1px 6px;
+  border: 1px solid var(--gold);
+  border-radius: var(--r-pill);
+  color: var(--gold-deep);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+.pdp-followup-date { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.pdp-followup-content { margin-top: 5px; color: var(--body); font-size: 11.5px; line-height: 1.75; }
+.pdp-followup-wrap { margin-top: 10px; }
+.pdp-followup-toggle {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.pdp-followup-toggle:hover { border-color: var(--line-strong); color: var(--ink); }
+.pdp-followup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 9px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--canvas);
+}
+.pdp-followup-form[hidden] { display: none; }
+.pdp-followup-textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.7;
+  resize: vertical;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.pdp-followup-textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-weak); }
+.pdp-followup-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pdp-followup-hint { flex: 1; min-width: 0; color: var(--muted); font-size: 10px; }
+.pdp-followup-submit { flex: none; }
+
+/* ---------- 买家秀大图：轻量遮罩，点击任意处隐藏 ---------- */
+.pdp-image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vw;
+  background: rgba(26, 26, 26, 0.72);
+  cursor: zoom-out;
+}
+.pdp-image-viewer[hidden] { display: none; }
+.pdp-image-viewer img {
+  max-width: 100%;
+  max-height: 86vh;
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-float);
+  object-fit: contain;
+}
+.pdp-image-viewer-close {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s var(--ease);
+}
+.pdp-image-viewer-close:hover { background: rgba(255, 255, 255, 0.28); }
+
 @media (max-width: 640px) {
   .pdp-review-head { flex-wrap: wrap; gap: 10px; }
   .pdp-write-review { width: 100%; align-self: stretch; }
   .pdp-form-foot { flex-direction: column-reverse; align-items: stretch; }
   .pdp-form-submit { width: 100%; }
+  .pdp-file-label { width: 100%; }
+  .pdp-followup-submit { width: 100%; }
+  .pdp-followup-actions { flex-direction: column; align-items: stretch; }
 }
 
 @media (max-width: 560px) {

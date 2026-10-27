@@ -3,6 +3,7 @@
 // 关键模型字段：id / name / price / originalPrice / images[] / skus[] / stock /
 //              shippingNote / returnNote / rating / reviewCount。
 import { productArtSvg } from '../art.js';
+import { api } from '../api.js';
 import { PRODUCT_DETAIL_MOCKS } from '../mock/productDetails.js';
 import { getMockReviews } from '../mock/productReviews.js';
 
@@ -14,6 +15,18 @@ const IMAGE_FOCUS = ['50% 50%', '46% 34%', '56% 74%'];
 
 const DEFAULT_SHIPPING = '顺丰包邮 · 付款后 48 小时内发出';
 const DEFAULT_RETURN = '7 天无理由退换 · 支持上门取件';
+
+// 本地匿名身份： persisted 的用户 id，用于服务端区分「谁投了票 / 谁写了评价」。
+// 不能固定用 anonymous，否则所有访客共享同一份投票与评价归属。
+const USER_ID_KEY = 'maison_user_id_v1';
+
+export function getUserId() {
+  const existing = readJSON(USER_ID_KEY, '');
+  if (existing && String(existing).trim()) return String(existing);
+  const uid = `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  writeJSON(USER_ID_KEY, uid);
+  return uid;
+}
 
 function readJSON(key, fallback) {
   try {
@@ -95,16 +108,27 @@ function normalizeSkus(product) {
  */
 function normalizeReviews(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.map((r, index) => ({
-    ...r,
-    id: r.id || `rv-${index}`,
-    author: r.author || '匿名用户',
-    rating: Number(r.rating) || 0,
-    content: r.content || '',
-    created_at: r.created_at || '',
-    helpful: Number(r.helpful) || 0,
-    aspects: Array.isArray(r.aspects) ? r.aspects.filter((a) => a && a.text) : [],
-  }));
+  return raw.map((r, index) => {
+    const merged = {
+      ...r,
+      id: r.id ?? `rv-${index}`,
+      author: r.author || '匿名用户',
+      rating: Number(r.rating) || 0,
+      content: r.content || '',
+      created_at: r.created_at || '',
+      helpful: Number(r.helpful) || 0,
+      aspects: Array.isArray(r.aspects) ? r.aspects.filter((a) => a && a.text) : [],
+      // 买家秀 / 追评 / 规格快照：服务端字段与本地 mock 在此统一，UI 只认这套
+      images: Array.isArray(r.images) ? r.images.filter(Boolean) : [],
+      skuSpec: r.skuSpec || '',
+      parentId: r.parentId ?? null,
+      source: r.source || 'seed',
+      followUps: normalizeReviews(r.followUps || []),
+    };
+    // 归属标记：服务端返回 isMine，本地保存用 mine，统一后 UI 只读 mine
+    merged.mine = Boolean(r.isMine || r.mine);
+    return merged;
+  });
 }
 
 /**
@@ -189,7 +213,11 @@ export function getFavoriteProductIds() {
 
 const REVIEW_VOTES_KEY = 'maison_pdp_review_votes_v1';
 const USER_REVIEWS_KEY = 'maison_pdp_user_reviews_v1';
+// 离线追评：网关不可用时把追评挂在本地，避免「写了但刷新就没了」
+const LOCAL_FOLLOWUPS_KEY = 'maison_pdp_local_followups_v1';
 const REVIEW_MAX_PER_PRODUCT = 20;
+// 买家秀上限（与服务端 reviewRepo.REVIEW_RULES.imageMax 一致）
+export const MAX_REVIEW_IMAGES = 6;
 
 /** 已投票集合：{ [reviewId]: votedAt } —— 用于回显「已赞」状态，避免刷新后被重置。 */
 export function readReviewVotes() {
@@ -230,12 +258,30 @@ export function saveUserReview(productId, payload = {}) {
     content: String(payload.content || '').trim().slice(0, 500),
     created_at: new Date().toISOString().slice(0, 10),
     skuSpec: payload.skuSpec || '',
+    images: Array.isArray(payload.images) ? payload.images.slice(0, MAX_REVIEW_IMAGES) : [],
     helpful: 0,
     aspects: [],
-    mine: true, // 标记「我的评价」，UI 据此高亮；后续换真实接口时由服务端标记取代
+    followUps: [],
+    mine: true, // 标记「我的评价」，UI 据此高亮；在线模式由服务端 isMine 取代
   };
   all[id] = [review, ...list].slice(0, REVIEW_MAX_PER_PRODUCT);
   writeJSON(USER_REVIEWS_KEY, all);
+  return review;
+}
+
+/** 本地追评：{ [productId]: [{ parentId, ...review }] } */
+export function readLocalFollowUps(productId) {
+  const all = readJSON(LOCAL_FOLLOWUPS_KEY, {});
+  const list = all && all[String(productId)];
+  return Array.isArray(list) ? list : [];
+}
+
+export function saveLocalFollowUp(productId, review) {
+  const id = String(productId);
+  const all = readJSON(LOCAL_FOLLOWUPS_KEY, {});
+  const list = Array.isArray(all[id]) ? all[id] : [];
+  all[id] = [...list, review].slice(-REVIEW_MAX_PER_PRODUCT);
+  writeJSON(LOCAL_FOLLOWUPS_KEY, all);
   return review;
 }
 
@@ -251,9 +297,137 @@ export function mergeReviews(baseReviews = [], userReviews = [], votes = {}) {
       ...r,
       helpful: Number(r.helpful || 0) + (voted ? 1 : 0),
       voted,
-      mine: Boolean(r.mine),
+      mine: Boolean(r.mine || r.isMine),
+      images: Array.isArray(r.images) ? r.images : [],
+      followUps: normalizeReviews(r.followUps || []),
     };
   });
+}
+
+/**
+ * 本地合成包：内置 mock + 我写的评价 + 本地追评 + 本地票。
+ * 用于网关不可达时的降级（保证 UI 永不空白）。
+ */
+function readLocalReviewsBundle(productId) {
+  const id = String(productId);
+  const mine = readUserReviews(id);
+  const follows = readLocalFollowUps(id);
+  const votes = readReviewVotes();
+  const base = getMockReviews(id);
+  const reviews = mergeReviews(base, mine, votes).map((r) => {
+    const mineFollows = follows.filter((f) => String(f.parentId) === String(r.id));
+    return mineFollows.length
+      ? { ...r, followUps: [...r.followUps, ...normalizeReviews(mineFollows)] }
+      : r;
+  });
+  return { reviews, summary: buildReviewSummary(reviews) };
+}
+
+/* ---------------- 评价 API service（网关优先，失败降级本地） ---------------- */
+// 所有写操作都先打网关；网关不可达才落 localStorage，并在返回值里标注 online=false，
+// 由 UI 决定要不要提示「已离线保存」。
+
+/** 评价列表：服务端返回已嵌套追评的评价 + 概览；失败则用本地合成包。 */
+export async function fetchProductReviews(productId, opts = {}) {
+  const id = String(productId);
+  try {
+    const q = new URLSearchParams({
+      userId: getUserId(),
+      filter: opts.filter || 'all',
+      sort: opts.sort || 'latest',
+      limit: String(opts.limit ?? 50),
+      offset: String(opts.offset ?? 0),
+    });
+    const data = await api(`/api/products/${encodeURIComponent(id)}/reviews?${q}`, { retries: 1 });
+    const reviews = normalizeReviews(data.reviews || []);
+    return {
+      reviews,
+      summary: data.summary || buildReviewSummary(reviews),
+      hasMore: Boolean(data.hasMore),
+      online: true,
+    };
+  } catch {
+    const local = readLocalReviewsBundle(id);
+    return { ...local, hasMore: false, online: false };
+  }
+}
+
+/** 发布评价。在线返回服务端记录；离线落本地并由 UI 提示。 */
+export async function submitReview(productId, payload = {}) {
+  try {
+    const data = await api('/api/reviews', {
+      body: {
+        productId: String(productId),
+        userId: getUserId(),
+        author: payload.author || '我',
+        rating: Number(payload.rating) || 0,
+        content: String(payload.content || '').trim(),
+        skuSpec: payload.skuSpec || '',
+        images: payload.images || [],
+      },
+      retries: 1,
+    });
+    return { review: normalizeReviews([data])[0], online: true };
+  } catch (e) {
+    const saved = saveUserReview(productId, payload);
+    return { review: normalizeReviews([saved])[0], online: false, reason: e.message };
+  }
+}
+
+/** 追评：必须挂在已有主评价上。主评价本身是本地数据时，离线追加到本地。 */
+export async function submitFollowUp({ reviewId, productId, content, images, online: parentOnline = true }) {
+  const payload = {
+    author: '我',
+    content: String(content || '').trim(),
+    images: images || [],
+  };
+  if (typeof reviewId === 'string' && reviewId.startsWith('ur-')) parentOnline = false;
+  try {
+    if (!parentOnline) throw new Error('offline-parent');
+    const data = await api('/api/reviews', {
+      body: { parentId: reviewId, userId: getUserId(), ...payload },
+      retries: 1,
+    });
+    return { review: normalizeReviews([data])[0], online: true };
+  } catch (e) {
+    if (parentOnline) {
+      // 主评价在服务端（有数字 id），离线时告知 UI 重试，不静默丢弃用户输入
+      throw e;
+    }
+    const saved = saveLocalFollowUp(productId, {
+      id: `lf-${Date.now()}`,
+      parentId: reviewId,
+      ...payload,
+      created_at: new Date().toISOString().slice(0, 10),
+      helpful: 0,
+      mine: true,
+    });
+    return { review: normalizeReviews([saved])[0], online: false, reason: e.message };
+  }
+}
+
+/**
+ * 有用投票：在线时以服务端计数为准（幂等切换）；离线则本地 toggle。
+ * @returns {{voted:boolean, helpful:number|null, online:boolean}} helpful 为 null 表示需 UI 本地 ±1
+ */
+export async function voteReview(reviewId) {
+  try {
+    const data = await api(`/api/reviews/${encodeURIComponent(reviewId)}/helpful`, {
+      body: { userId: getUserId() },
+      retries: 1,
+    });
+    return { voted: Boolean(data.voted), helpful: Number(data.helpful) || 0, online: true };
+  } catch {
+    const voted = toggleReviewVote(reviewId);
+    return { voted, helpful: null, online: false };
+  }
+}
+
+/** 买家秀上传：dataURL → 网关落盘 → 返回可访问 URL（相对 /api/uploads/...） */
+export async function uploadReviewImage(dataUrl) {
+  const data = await api('/api/reviews/upload', { body: { data: dataUrl }, retries: 1 });
+  if (!data || !data.url) throw new Error('上传失败：未返回图片地址');
+  return data.url;
 }
 
 /* ---------------- 评价概览 & AI 摘要 service ---------------- */

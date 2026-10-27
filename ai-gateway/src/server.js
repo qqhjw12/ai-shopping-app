@@ -1,5 +1,9 @@
 import './quiet.js';
 import http from 'node:http';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { extname, join, resolve, sep } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { config, useReal, startupWarnings } from './config.js';
 import { log } from './logger.js';
 import {
@@ -20,6 +24,7 @@ import * as productRepo from './repositories/productRepo.js';
 import * as cartRepo from './repositories/cartRepo.js';
 import * as userRepo from './repositories/userRepo.js';
 import * as orderService from './services/orderService.js';
+import * as reviewRepo from './repositories/reviewRepo.js';
 
 /** 卡片/列表用商品视图（统一字段，避免各处各写一份 mapper 导致缺字段） */
 function toSummary(p) {
@@ -56,6 +61,21 @@ async function readJson(req) {
   }
 }
 
+/** 读取原始 body（带字节上限），超过返回 null —— 防止超大上传打爆内存 */
+async function readRawBody(req, maxBytes) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > maxBytes) {
+      req.destroy();
+      return null;
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
 function send(res, status, body) {
   const payload = JSON.stringify(body);
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -64,6 +84,28 @@ function send(res, status, body) {
 
 function sendError(res, status, message, reqId) {
   send(res, status, { error: message, reqId });
+}
+
+// ===== 买家秀上传 =====
+const UPLOAD_DIR = resolve(process.cwd(), 'data/uploads');
+const UPLOAD_LIMIT = 6 * 1024 * 1024; // 单张原始上限（前端已压缩到 ~200KB，留出余量）
+// 文件名白名单：UUID/字母数字 + 白名单扩展名，禁止斜杠与点点 → 路径穿越无从谈起
+const UPLOAD_NAME_RE = /^[A-Za-z0-9_-]{1,64}\.(jpg|jpeg|png|webp|gif)$/;
+const IMAGE_MIME = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+};
+
+/** 按文件头判断真实类型（不信任客户端传来的扩展名，避免「图片马」入库） */
+function sniffImage(buf) {
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return '.jpg';
+  if (buf.length >= 8 && buf.toString('latin1', 0, 8) === '\x89PNG\r\n\x1a\n') return '.png';
+  if (buf.length >= 6 && /^GIF8[79]a$/.test(buf.toString('latin1', 0, 6))) return '.gif';
+  if (buf.length >= 12 && buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return '.webp';
+  return null;
 }
 
 // ===== SSE（流式）辅助 =====
@@ -169,6 +211,34 @@ async function route(req, res, url) {
     return send(res, 200, { stats: productRepo.stats() });
   }
 
+  // 统一错误出口：业务异常自带 status（如库存不足 409），其余按 400 处理
+  // 定义在商品详情之前，是因为评价列表路由要抢在 /api/products/:id 的 startsWith 匹配之前注册
+  const guarded = (fn, status = 200) => {
+    try {
+      const data = fn();
+      if (data === null || data === undefined) return sendError(res, 404, 'not found', req.reqId);
+      return send(res, status, data);
+    } catch (e) {
+      return sendError(res, e.status || 400, e.message, req.reqId);
+    }
+  };
+
+  // 评价列表：主评价 + 嵌套追评 + 概览（分布/好评率），支持筛选、排序与分页
+  // 必须放在 /api/products/:id 之前注册（后者是 startsWith 前缀匹配）
+  const reviewListMatch = url.pathname.match(/^\/api\/products\/([^/]+)\/reviews$/);
+  if (reviewListMatch && req.method === 'GET') {
+    const productId = decodeURIComponent(reviewListMatch[1]);
+    if (!productRepo.getProductById(productId)) return sendError(res, 404, 'product not found', req.reqId);
+    const q = url.searchParams;
+    return guarded(() => reviewRepo.listReviews(productId, {
+      userId: q.get('userId') || 'anonymous',
+      filter: q.get('filter') || 'all',
+      sort: q.get('sort') || 'latest',
+      limit: Number(q.get('limit')) || 20,
+      offset: Number(q.get('offset')) || 0,
+    }));
+  }
+
   if (req.method === 'GET' && url.pathname.startsWith('/api/products/')) {
     const id = decodeURIComponent(url.pathname.slice('/api/products/'.length));
     const p = productRepo.getProductDetail(id);
@@ -185,17 +255,6 @@ async function route(req, res, url) {
   }
 
   // ===== 交易链路：购物车 / 订单 / 收藏 / 优惠券 =====
-  // 统一错误出口：业务异常自带 status（如库存不足 409），其余按 400 处理
-  const guarded = (fn, status = 200) => {
-    try {
-      const data = fn();
-      if (data === null || data === undefined) return sendError(res, 404, 'not found', req.reqId);
-      return send(res, status, data);
-    } catch (e) {
-      return sendError(res, e.status || 400, e.message, req.reqId);
-    }
-  };
-
   if (url.pathname === '/api/cart') {
     if (req.method === 'GET') {
       const userId = url.searchParams.get('userId') || 'anonymous';
@@ -319,6 +378,83 @@ async function route(req, res, url) {
       if (!parsed.couponId) return sendError(res, 400, 'couponId required', req.reqId);
       const userId = parsed.userId || 'anonymous';
       return guarded(() => ({ ...userRepo.takeCoupon(userId, parsed.couponId), coupons: userRepo.listCoupons(userId) }), 201);
+    }
+  }
+
+  // ===== 评价静态资源 / 发布 / 追评 / 有用投票 / 买家秀上传 =====
+  // 买家秀读取：文件名受白名单约束，且二次确认解析后路径仍在上传目录内（纵深防御）
+  if (req.method === 'GET' && url.pathname.startsWith('/api/uploads/')) {
+    const name = decodeURIComponent(url.pathname.slice('/api/uploads/'.length));
+    if (!UPLOAD_NAME_RE.test(name)) return sendError(res, 400, 'invalid file name', req.reqId);
+    const file = resolve(join(UPLOAD_DIR, name));
+    if (!file.startsWith(UPLOAD_DIR + sep) || !existsSync(file)) return sendError(res, 404, 'file not found', req.reqId);
+    const buf = await readFile(file);
+    res.writeHead(200, {
+      'Content-Type': IMAGE_MIME[extname(name).toLowerCase()] || 'application/octet-stream',
+      'Content-Length': buf.length,
+      // 文件名含 UUID 且内容不可变，可安全长缓存
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    return res.end(buf);
+  }
+
+  // POST /api/reviews：带 parentId 即追评，否则为新评价（校验规则集中在 reviewRepo.REVIEW_RULES）
+  if (url.pathname === '/api/reviews' && req.method === 'POST') {
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    if (!parsed.parentId && !parsed.productId) return sendError(res, 400, 'productId required', req.reqId);
+    const userId = parsed.userId || 'anonymous';
+    return guarded(() => (parsed.parentId
+      ? reviewRepo.createFollowUp({
+        reviewId: parsed.parentId, userId, author: parsed.author, content: parsed.content, images: parsed.images,
+      })
+      : reviewRepo.createReview({
+        productId: parsed.productId, userId, author: parsed.author,
+        rating: parsed.rating, content: parsed.content, skuSpec: parsed.skuSpec, images: parsed.images,
+      })), 201);
+  }
+
+  const helpfulMatch = url.pathname.match(/^\/api\/reviews\/(\d+)\/helpful$/);
+  if (helpfulMatch && req.method === 'POST') {
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    // 幂等：同一用户重复请求会在「有/无」之间切换，返回切换后的状态
+    return guarded(() => reviewRepo.toggleHelpful(Number(helpfulMatch[1]), parsed.userId || 'anonymous'));
+  }
+
+  // 买家秀上传：前端 canvas 压缩后以 base64 提交（免去手写 multipart 解析）
+  // 三重校验：字节上限 → 文件头嗅探 → 扩展名白名单；文件名由服务端 UUID 生成
+  if (url.pathname === '/api/reviews/upload' && req.method === 'POST') {
+    const raw = await readRawBody(req, UPLOAD_LIMIT);
+    if (raw === null) return sendError(res, 413, 'image too large (max 6MB)', req.reqId);
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw.toString('utf8') || '{}');
+    } catch {
+      return sendError(res, 400, 'invalid json', req.reqId);
+    }
+    const dataUrl = String(parsed.data || '');
+    const base64 = dataUrl.includes(',') ? dataUrl.slice(dataUrl.indexOf(',') + 1) : dataUrl;
+    if (!base64) return sendError(res, 400, 'image data required', req.reqId);
+    let buf;
+    try {
+      buf = Buffer.from(base64, 'base64');
+    } catch {
+      return sendError(res, 400, 'invalid image encoding', req.reqId);
+    }
+    // 拒绝浏览器被绕过时传来的空壳（base64 非法字符会让还原长度远小于预期）
+    if (!buf.length) return sendError(res, 400, 'invalid image data', req.reqId);
+    const ext = sniffImage(buf);
+    if (!ext) return sendError(res, 415, '仅支持 JPG / PNG / WebP / GIF 图片', req.reqId);
+    try {
+      await mkdir(UPLOAD_DIR, { recursive: true });
+      const name = `${randomUUID()}${ext}`;
+      await writeFile(join(UPLOAD_DIR, name), buf);
+      return send(res, 201, { url: `/api/uploads/${name}`, size: buf.length, contentType: IMAGE_MIME[ext] });
+    } catch (e) {
+      log.error({ reqId: req.reqId, err: e.message, event: 'review.upload_failed' });
+      return sendError(res, 500, '图片保存失败，请稍后重试', req.reqId);
     }
   }
 
@@ -574,6 +710,10 @@ async function route(req, res, url) {
         'POST /api/search {query, topK}',
         'GET /api/products (筛选: category/sub/brand/minPrice/maxPrice/sort/limit/offset)',
         'GET /api/products/:id (含 SKU / 评价 / 相关推荐)',
+        'GET /api/products/:id/reviews?userId=&filter=&sort=&limit=&offset= (评价列表 + 追评 + 星级分布)',
+        'POST /api/reviews {productId|parentId, userId?, author?, rating?, content, skuSpec?, images?} (parentId 为追评)',
+        'POST /api/reviews/:id/helpful {userId?} (有用投票，幂等可取消)',
+        'POST /api/reviews/upload {data: base64} (买家秀，≤6MB，落 data/uploads 返回 /api/uploads/:name)',
         'GET /api/categories (tree=1 两级树 + 商品数)',
         'GET /api/brands (可按 category 过滤)',
         'GET /api/stats (商品/SKU/类目/品牌规模)',

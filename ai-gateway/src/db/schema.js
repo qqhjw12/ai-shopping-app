@@ -247,6 +247,30 @@ const MIGRATIONS = [
       ALTER TABLE products ADD COLUMN image_url TEXT NOT NULL DEFAULT '';
     `,
   },
+  {
+    version: 6,
+    name: 'review-image-followup-vote',
+    sql: `
+      -- 追评：parent_id 指向被追评的主评价（NULL 表示主评价本身），级联删除避免孤儿追评
+      ALTER TABLE reviews ADD COLUMN parent_id INTEGER REFERENCES reviews(id) ON DELETE CASCADE;
+      -- 买家秀：JSON 数组，元素为网关可访问的图片 URL（如 /api/uploads/xxx.webp）
+      ALTER TABLE reviews ADD COLUMN images    TEXT NOT NULL DEFAULT '[]';
+      -- 购买规格快照：写评价时选定的 SKU 文案，避免后续 SKU 改名失真
+      ALTER TABLE reviews ADD COLUMN sku_spec  TEXT NOT NULL DEFAULT '';
+      -- 来源：seed（导入数据）/ user（用户真实发布）
+      ALTER TABLE reviews ADD COLUMN source    TEXT NOT NULL DEFAULT 'seed';
+      CREATE INDEX IF NOT EXISTS idx_reviews_parent ON reviews(parent_id);
+
+      -- 有用投票：主键为 (评价, 用户)，天然幂等——重复点击由「插入/删除」表达，无需额外计数纠偏
+      CREATE TABLE IF NOT EXISTS review_votes (
+        review_id  INTEGER NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+        user_id    TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (review_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_rv_review ON review_votes(review_id);
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */
