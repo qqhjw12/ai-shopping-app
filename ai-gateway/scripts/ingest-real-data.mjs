@@ -30,9 +30,13 @@ const ARGS = new Set(process.argv.slice(2));
 const FETCH = ARGS.has('--fetch');
 const RESET = ARGS.has('--reset');
 const NO_DEMO = ARGS.has('--no-demo');
-// 抓取数量上限：--limit N 优先，其次环境变量 OFF_CAP，默认尽量把库做大
-const LIMIT = [...ARGS].find((a) => a.startsWith('--limit='));
+// 抓取数量上限：--limit N / --limit=N 均可，其次环境变量 OFF_CAP，默认尽量把库做大
+const argv = process.argv.slice(2);
+const liIdx = argv.indexOf('--limit');
+const LIMIT = argv.find((a) => a.startsWith('--limit=')) || (liIdx !== -1 && argv[liIdx + 1] ? `--limit=${argv[liIdx + 1]}` : null);
 const OFF_CAP = LIMIT ? Number(LIMIT.split('=')[1]) || 20000 : Number(process.env.OFF_CAP || 20000);
+// 静态演示包上限：库可以无限大，但 web/js/demo-real-data.js 只保留代表性子集，保证 Pages 首屏速度
+const DEMO_CAP = Number(process.env.DEMO_CAP || 3000);
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 // 演示汇率（仅用于价格展示统一为人民币）
@@ -233,11 +237,33 @@ async function fetchOFF() {
   // Open Food Facts v2 搜索 API（ODbL 开放库，CC-BY 图）：每页 1000 条，分页抓取，尽量把库做大。
   // 只保留「有商品名 + 有封面图」的真实条目；限流/错误自动重试并退避；断网直接抛出由上層回退缓存。
   const cats = [
-    'biscuits', 'chocolates', 'breakfast-cereals', 'teas', 'coffees', 'yogurts', 'snacks',
-    'canned-foods', 'pizzas', 'soft-drinks', 'juices', 'cheeses', 'breads', 'pastas', 'rice',
-    'fruits', 'vegetables', 'meats', 'fish', 'eggs', 'oils', 'sauces', 'soups', 'frozen-foods',
-    'beverages', 'dairy-drinks', 'plant-based-foods', 'baby-foods', 'condiments', 'spreads',
-    'cocoa-and-chocolate', 'instant-beverages', 'ice-creams', 'prepared-salads', 'seafood',
+    // 烘焙零食
+    'biscuits', 'chocolates', 'cookies', 'cakes', 'pastries', 'crackers', 'cereal-bars', 'snacks',
+    'chips', 'pretzels', 'popcorn', 'candy', 'chocolate-bars', 'ice-creams', 'desserts', 'puddings',
+    // 早餐谷物
+    'breakfast-cereals', 'oatmeal', 'muesli', 'granola',
+    // 饮品
+    'teas', 'coffees', 'soft-drinks', 'juices', 'beverages', 'dairy-drinks', 'instant-beverages',
+    'energy-drinks', 'sport-drinks', 'kombucha',
+    // 乳制品
+    'yogurts', 'cheeses', 'milk', 'butter', 'cream', 'kefir',
+    // 主食粮油
+    'breads', 'pastas', 'rice', 'noodles', 'instant-noodles', 'couscous', 'quinoa', 'lentils', 'beans', 'chickpeas',
+    // 果蔬
+    'fruits', 'vegetables', 'mushrooms', 'olives', 'pickles', 'fermented-foods',
+    // 肉蛋海鲜
+    'meats', 'fish', 'seafood', 'eggs',
+    // 罐头冷冻即食
+    'canned-foods', 'canned-vegetables', 'canned-fish', 'frozen-foods', 'prepared-salads', 'soups', 'instant-soups',
+    // 调味
+    'oils', 'sauces', 'condiments', 'spices', 'vinegars', 'mustards', 'ketchup', 'mayonnaise',
+    'salad-dressings', 'soy-sauce', 'hot-sauce', 'pesto', 'hummus', 'stock-cubes', 'herbs',
+    // 甜味剂与涂抹酱
+    'spreads', 'honey', 'jams', 'syrups', 'nut-butters', 'tahini', 'cocoa-and-chocolate',
+    // 植物基与母婴
+    'plant-based-foods', 'baby-foods', 'tofu', 'soy-milks', 'almond-milks', 'oat-milks', 'coconut-milks',
+    // 干货
+    'dried-products', 'nuts', 'seeds',
   ];
   const fields = 'code,product_name,brands,categories_tags,image_front_url,price,generic_name';
   const seen = new Set();
@@ -245,7 +271,7 @@ async function fetchOFF() {
   for (const c of cats) {
     if (out.length >= OFF_CAP) break;
     let page = 1;
-    while (page <= 4 && out.length < OFF_CAP) {
+    while (page <= 12 && out.length < OFF_CAP) {
       const url = `https://world.openfoodfacts.org/api/v2/search?categories_tags=${encodeURIComponent(c)}&page_size=1000&page=${page}&fields=${fields}&json=1`;
       let j = null;
       for (let attempt = 0; attempt <= 3; attempt++) {
@@ -319,7 +345,13 @@ function insertProducts(db, items) {
 // ---------- 演示数据输出（供 GitHub Pages 纯静态站使用） ----------
 function emitDemo(items) {
   if (NO_DEMO) return 0;
-  const rows = items.map((p) => ({
+  // 超过 DEMO_CAP 时按固定步长均匀抽样（保持类目覆盖均匀），控制静态演示包体积
+  let list = items;
+  if (items.length > DEMO_CAP) {
+    const step = Math.ceil(items.length / DEMO_CAP);
+    list = items.filter((_, i) => i % step === 0).slice(0, DEMO_CAP);
+  }
+  const rows = list.map((p) => ({
     id: p.id,
     name: p.name,
     brand: p.brand,
@@ -390,6 +422,15 @@ async function main() {
     console.warn('[!] 没有可导入的真实商品数据（请先 --fetch 或放置 .cache 快照）');
     return;
   }
+
+  // 全量同步真实商品：先清掉旧的 fe_/off_ 数据（含购物车/收藏引用）再插入，
+  // 保证重复运行幂等、且不会因 reviews 为纯 INSERT 而产生重复评价
+  db.exec("DELETE FROM reviews WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
+  db.exec("DELETE FROM product_skus WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
+  db.exec("DELETE FROM cart_items WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
+  db.exec("DELETE FROM favorites WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
+  db.exec("DELETE FROM products WHERE id LIKE 'fe_%' OR id LIKE 'off_%'");
+  db.exec("DELETE FROM brands WHERE id LIKE 'br_off_%'");
 
   const n = insertProducts(db, items);
   const dN = emitDemo(items);
