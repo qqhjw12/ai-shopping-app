@@ -13,7 +13,8 @@
 //   npm run db:ingest -- --reset      # 清空已导入的真实商品后重灌
 //   npm run db:ingest -- --no-demo    # 不生成 web 演示数据
 //   npm run db:ingest -- --fetch --limit 5000   # 仅抓 5000 条做快速验证
-//   OFF_CAP=50000 npm run db:ingest -- --fetch  # 环境变量控制 Open Food Facts 抓取上限（默认 20000）
+//   OFF_CAP=60000 npm run db:ingest -- --fetch  # 环境变量控制 Open Food Facts 抓取上限（默认 40000）
+//   INGEST_FAMILIES=obf,opf npm run db:ingest -- --fetch  # 只实时抓取指定家族（美妆/宠物），其余从缓存载入（避开不可达库）
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -34,9 +35,12 @@ const NO_DEMO = ARGS.has('--no-demo');
 const argv = process.argv.slice(2);
 const liIdx = argv.indexOf('--limit');
 const LIMIT = argv.find((a) => a.startsWith('--limit=')) || (liIdx !== -1 && argv[liIdx + 1] ? `--limit=${argv[liIdx + 1]}` : null);
-const OFF_CAP = LIMIT ? Number(LIMIT.split('=')[1]) || 20000 : Number(process.env.OFF_CAP || 20000);
+const OFF_CAP = LIMIT ? Number(LIMIT.split('=')[1]) || 40000 : Number(process.env.OFF_CAP || 40000);
 // 静态演示包上限：库可以无限大，但 web/js/demo-real-data.js 只保留代表性子集，保证 Pages 首屏速度
 const DEMO_CAP = Number(process.env.DEMO_CAP || 3000);
+// 真实商品 ID 前缀集合（fe_/off_/obf_/opf_/oprf_），用于全量同步时统一清理
+const REAL_PAT = "'fe_%' OR id LIKE 'off_%' OR id LIKE 'obf_%' OR id LIKE 'opf_%' OR id LIKE 'oprf_%'";
+const BRAND_PAT = "'br_fe_%' OR id LIKE 'br_off_%' OR id LIKE 'br_obf_%' OR id LIKE 'br_opf_%' OR id LIKE 'br_oprf_%'";
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 // 演示汇率（仅用于价格展示统一为人民币）
@@ -96,11 +100,41 @@ function feSub(catId, sub) {
   return FE_SUB_FALLBACK[catId] || catId;
 }
 
-// 食品生鲜（Open Food Facts）二级类目推断
-function offSub(tags) {
+// Open Food Facts 商品的一级类目推断：默认食品生鲜，命中非食品标签时分流到对应一级类目
+function offTopCategory(tags) {
   const t = (tags || []).join(' ').toLowerCase();
+  if (/cosmetic|makeup|make-up|lipstick|foundation|mascara|eyeshadow|perfume|fragrance|deodorant|shampoo|conditioner|soap|toothpaste|sunscreen|skin-care|skincare|moisturizer|cleanser/i.test(t)) return 'beauty';
+  if (/pet.?food|cat.?food|dog.?food|feline|canine/i.test(t)) return 'pet';
+  if (/baby|infant|toddler/i.test(t)) return 'baby';
+  if (/dietary.?supplement|vitamin|sport.?nutrition|protein|nutri/i.test(t)) return 'health';
+  return 'food';
+}
+// Open Food Facts 二级类目推断（按一级类目分别匹配）
+function offSub(catId, tags) {
+  const t = (tags || []).join(' ').toLowerCase();
+  if (catId === 'beauty') {
+    if (/makeup|make-up|foundation|lipstick|mascara|eyeshadow|perfume|fragrance/i.test(t)) return 'beauty_makeup';
+    if (/skin|moistur|serum|cream|lotion|cleanser|sunscreen|care/i.test(t)) return 'beauty_skincare';
+    return 'beauty_personal';
+  }
+  if (catId === 'pet') {
+    if (/cat|feline/i.test(t)) return 'pet_cat';
+    if (/dog|canine/i.test(t)) return 'pet_dog';
+    return 'pet_accessory';
+  }
+  if (catId === 'baby') {
+    if (/milk|formula|infant/i.test(t)) return 'baby_milk';
+    if (/toy|game|play/i.test(t)) return 'baby_toy';
+    return 'baby_care';
+  }
+  if (catId === 'health') {
+    if (/vitamin|supplement|protein|nutri/i.test(t)) return 'health_supplement';
+    if (/care|medical|device|monitor|thermometer|pressure/i.test(t)) return 'health_care';
+    return 'health_monitor';
+  }
+  // 默认（food）
   if (/beverage|drink|soda|juice|tea|coffee|water|dairy.?drink|yogurt/i.test(t)) return 'food_drink';
-  if (/snack|biscuit|chocolat|cookie|confection|candy|sweet|chip|crisp/i.test(t)) return 'food_snack';
+  if (/snack|biscuit|chocolat|cookie|confection|candy|sweet|chip|crisp|cake|pastry|ice/i.test(t)) return 'food_snack';
   return 'food_grain';
 }
 
@@ -185,15 +219,16 @@ function mapFreeEcom(p) {
   };
 }
 
-function mapOFF(p) {
-  const catId = 'food';
-  const sub = offSub(p.categories_tags);
-  const id = `off_${p.code}`;
+function mapOFF(p, prefix = 'off') {
+  const forceCat = { obf: 'beauty', opf: 'pet', oprf: 'health' }[prefix] || null;
+  const catId = forceCat || offTopCategory(p.categories_tags);
+  const sub = offSub(catId, p.categories_tags);
+  const id = `${prefix}_${p.code}`;
   let price = parseFloat((p.price || '').replace(/[^0-9.]/g, ''));
   const cur = (p.price || '').trim();
   if (price > 0 && /€|eur|euro/i.test(cur)) price = Math.round(price * EUR_TO_CNY);
   else if (price > 0 && /\$|usd/i.test(cur)) price = Math.round(price * USD_TO_CNY);
-  else price = rand(id, 5, 90); // OFF 价格稀疏时按食品合理区间生成（演示用）
+  else price = rand(id, 5, 90); // OFF 价格稀疏时按合理区间生成（演示用）
   const original = Math.round(price * 1.12);
   const rating = 4.6;
   const reviewsCount = rand(id, 5, 120);
@@ -202,6 +237,11 @@ function mapOFF(p) {
   const tags = [...(p.categories_tags || []).slice(0, 3).map((t) => t.replace(/-/g, ' ')), SNAME.get(sub) || ''].filter(Boolean);
   const name = p.product_name || id;
   const stock1 = rand(id, 40, 200);
+  const isFood = catId === 'food';
+  const highlights = isFood
+    ? ['产地直发', '冷链保鲜', '正品溯源', '七天无理由']
+    : ['正品保障', '顺丰包邮', '七天无理由', '支持退换'];
+  const highlight = SNAME.get(sub) || (isFood ? '食品生鲜' : '真实好物');
   return {
     id,
     name,
@@ -216,12 +256,12 @@ function mapOFF(p) {
     reviewsCount,
     sales,
     coverColor: gradient(catId, id),
-    highlight: SNAME.get(sub) || '食品生鲜',
-    highlights: ['产地直发', '冷链保鲜', '正品溯源', '七天无理由'],
+    highlight,
+    highlights,
     imageUrl: p.image_front_url || '',
     skus: [{ id: `${id}-s1`, spec: '标准装', price, stock: stock1, status: 'on_sale' }],
     reviews: makeReviews(id, rating),
-    brandId: brand ? `br_off_${Buffer.from(brand).toString('hex').slice(0, 16)}` : null,
+    brandId: brand ? `br_${prefix}_${Buffer.from(brand).toString('hex').slice(0, 16)}` : null,
   };
 }
 
@@ -233,76 +273,154 @@ async function fetchFreeEcom() {
   if (!res.ok) throw new Error('freeEcom http ' + res.status);
   return res.json();
 }
-async function fetchOFF() {
-  // Open Food Facts v2 搜索 API（ODbL 开放库，CC-BY 图）：每页 1000 条，分页抓取，尽量把库做大。
-  // 只保留「有商品名 + 有封面图」的真实条目；限流/错误自动重试并退避；断网直接抛出由上層回退缓存。
-  const cats = [
-    // 烘焙零食
-    'biscuits', 'chocolates', 'cookies', 'cakes', 'pastries', 'crackers', 'cereal-bars', 'snacks',
-    'chips', 'pretzels', 'popcorn', 'candy', 'chocolate-bars', 'ice-creams', 'desserts', 'puddings',
-    // 早餐谷物
-    'breakfast-cereals', 'oatmeal', 'muesli', 'granola',
-    // 饮品
-    'teas', 'coffees', 'soft-drinks', 'juices', 'beverages', 'dairy-drinks', 'instant-beverages',
-    'energy-drinks', 'sport-drinks', 'kombucha',
-    // 乳制品
-    'yogurts', 'cheeses', 'milk', 'butter', 'cream', 'kefir',
-    // 主食粮油
-    'breads', 'pastas', 'rice', 'noodles', 'instant-noodles', 'couscous', 'quinoa', 'lentils', 'beans', 'chickpeas',
-    // 果蔬
-    'fruits', 'vegetables', 'mushrooms', 'olives', 'pickles', 'fermented-foods',
-    // 肉蛋海鲜
-    'meats', 'fish', 'seafood', 'eggs',
-    // 罐头冷冻即食
-    'canned-foods', 'canned-vegetables', 'canned-fish', 'frozen-foods', 'prepared-salads', 'soups', 'instant-soups',
-    // 调味
-    'oils', 'sauces', 'condiments', 'spices', 'vinegars', 'mustards', 'ketchup', 'mayonnaise',
-    'salad-dressings', 'soy-sauce', 'hot-sauce', 'pesto', 'hummus', 'stock-cubes', 'herbs',
-    // 甜味剂与涂抹酱
-    'spreads', 'honey', 'jams', 'syrups', 'nut-butters', 'tahini', 'cocoa-and-chocolate',
-    // 植物基与母婴
-    'plant-based-foods', 'baby-foods', 'tofu', 'soy-milks', 'almond-milks', 'oat-milks', 'coconut-milks',
-    // 干货
-    'dried-products', 'nuts', 'seeds',
-  ];
+
+const MAX_PAGE_RETRY = 5;
+// 单页抓取 + 韧性重试：429/5xx 指数退避 + 抖动；其他 4xx 返回 null（该类目结束）；重试耗尽返回 undefined
+async function fetchPage(url) {
+  for (let attempt = 0; attempt < MAX_PAGE_RETRY; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'ai-shopping-app-ingest/1.0 (educational demo)' } });
+      if (res.status === 429 || res.status >= 500) {
+        const wait = Math.min(20000, 1000 * 2 ** attempt) + Math.floor(Math.random() * 500); // 指数退避 + 抖动
+        await sleep(wait);
+        continue;
+      }
+      if (!res.ok) return null; // 其他 4xx：该类目无更多数据
+      return await res.json();
+    } catch (e) {
+      if (attempt === MAX_PAGE_RETRY - 1) throw e; // 断网等致命错误上浮由上层回退
+      await sleep(Math.min(20000, 1000 * 2 ** attempt));
+    }
+  }
+  return undefined; // 重试耗尽仍失败
+}
+
+// ---------- Open Food Facts 家族数据源（均 ODbL 开放，CC-BY 图）----------
+// 主食品库 + 美妆库 + 宠物粮库 + 商品事实库，覆盖食品生鲜与合规非食品类目
+const BEAUTY_CATS = [
+  'shampoos', 'make-up', 'makeup', 'foundations', 'lipsticks', 'mascara', 'eyeshadows',
+  'perfumes', 'fragrances', 'deodorants', 'soaps', 'toothpastes', 'sunscreens',
+  'skincare', 'creams', 'moisturizers', 'cleansers', 'lip-balms', 'cosmetics',
+  // 扩展标签（探针实测首页即有带图商品）：护发/美甲/身体/面部/彩妆/男士护理
+  'serum', 'serums', 'toner', 'nail-polish', 'nail-polishes', 'nail-care',
+  'hair-dye', 'hair-color', 'hair-gel', 'hair-spray', 'hair-mask',
+  'conditioner', 'conditioners', 'body-care', 'body-wash', 'body-lotion', 'body-oil',
+  'face-wash', 'facial-cleanser', 'face-care', 'concealer', 'powder', 'blush',
+  'eyeliner', 'make-up-remover', 'after-sun-care', 'shaving', 'shaving-foam', 'shaving-cream',
+  'beard-oil', 'oral-care', 'mouthwash', 'wipes',
+];
+const PET_CATS = ['dog-foods', 'cat-foods', 'pet-foods', 'pet-care', 'bird-foods', 'fish-foods', 'dog-treats', 'cat-treats', 'rodent-food', 'reptile-food', 'bird-food', 'fish-food'];
+const PRODUCT_CATS = ['dietary-supplements', 'vitamins', 'sports-nutrition', 'proteins', 'minerals'];
+const FOOD_CATS = [
+  // ===== 烘焙 / 零食 / 甜点 =====
+  'biscuits', 'chocolates', 'cookies', 'cakes', 'pastries', 'crackers', 'cereal-bars', 'snacks',
+  'chips', 'pretzels', 'popcorn', 'candy', 'chocolate-bars', 'ice-creams', 'desserts', 'puddings',
+  'waffles', 'pancakes', 'rice-cakes', 'bread-spreads', 'chocolate-spreads', 'fine-pastries',
+  // ===== 早餐 / 谷物 =====
+  'breakfast-cereals', 'oatmeal', 'muesli', 'granola', 'flours', 'baking', 'sugars',
+  // ===== 饮品 =====
+  'teas', 'coffees', 'soft-drinks', 'juices', 'beverages', 'dairy-drinks', 'instant-beverages',
+  'energy-drinks', 'sport-drinks', 'kombucha', 'waters', 'cocoa', 'milks',
+  // ===== 乳制品 =====
+  'yogurts', 'cheeses', 'milk', 'butter', 'cream', 'kefir', 'fromages',
+  // ===== 主食 / 粮油 =====
+  'breads', 'pastas', 'rice', 'noodles', 'instant-noodles', 'couscous', 'quinoa', 'lentils', 'beans', 'chickpeas',
+  'polenta', 'semolina', 'cereals', 'breakfast',
+  // ===== 果蔬 / 菌菇 =====
+  'fruits', 'vegetables', 'mushrooms', 'olives', 'pickles', 'fermented-foods', 'potatoes', 'tomatoes',
+  // ===== 肉 / 蛋 / 海鲜 =====
+  'meats', 'fish', 'seafood', 'eggs', 'poultry', 'pork', 'beef',
+  // ===== 罐头 / 冷冻 / 即食 =====
+  'canned-foods', 'canned-vegetables', 'canned-fish', 'frozen-foods', 'prepared-salads', 'soups', 'instant-soups',
+  'prepared-meals', 'sandwiches', 'pizzas', 'sushi', 'ready-to-eat', 'frozen-desserts',
+  // ===== 调味 / 酱料 =====
+  'oils', 'sauces', 'condiments', 'spices', 'vinegars', 'mustards', 'ketchup', 'mayonnaise',
+  'salad-dressings', 'soy-sauce', 'hot-sauce', 'pesto', 'hummus', 'stock-cubes', 'herbs', 'gravies',
+  // ===== 涂抹酱 / 甜味剂 =====
+  'spreads', 'honey', 'jams', 'syrups', 'nut-butters', 'tahini', 'cocoa-and-chocolate', 'caramels',
+  // ===== 植物基 / 乳制品替代 =====
+  'plant-based-foods', 'tofu', 'soy-milks', 'almond-milks', 'oat-milks', 'coconut-milks', 'vegan',
+  // ===== 干货 / 坚果 =====
+  'dried-products', 'nuts', 'seeds', 'dry-pasta',
+  // ===== 标签维度（用于扩量，OFF 这些标签下商品极多）=====
+  'vegetarian', 'organic', 'bio', 'gluten-free', 'halal', 'low-fat', 'no-added-sugar', 'fair-trade',
+];
+// 各家族：抓取主机、类目、缓存 key、默认一级类目（非食品家族用默认类目，避免被 tags 误分流）
+// 注意：OFF 对未认证「深层整库分页」会返回 401（第 11 页起拦截），故一律走 categories_tags 浅分页，
+// 命中率远高于整库分页（整库仅 ~5% 带图且被 401 截断）。顺序：美妆/宠物粮排前，食品库（较抖）排最后。
+const FAMILY_SOURCES = [
+  { key: 'obf', host: 'https://world.openbeautyfacts.org', cats: BEAUTY_CATS, cat: 'beauty' },
+  { key: 'opf', host: 'https://world.openpetfoodfacts.org', cats: PET_CATS, cat: 'pet' },
+  { key: 'oprf', host: 'https://world.openproductfacts.org', cats: PRODUCT_CATS, cat: 'health' },
+  { key: 'off', host: 'https://world.openfoodfacts.org', cats: FOOD_CATS, cat: null },
+];
+
+// 通用家族抓取：按 categories_tags 逐类目走 v2 搜索 API，每页 1000，分页 + 韧性重试；只保留有图有名字的真实条目
+async function fetchOFFFamily(host, cats, key) {
   const fields = 'code,product_name,brands,categories_tags,image_front_url,price,generic_name';
   const seen = new Set();
   const out = [];
   for (const c of cats) {
     if (out.length >= OFF_CAP) break;
     let page = 1;
-    while (page <= 12 && out.length < OFF_CAP) {
-      const url = `https://world.openfoodfacts.org/api/v2/search?categories_tags=${encodeURIComponent(c)}&page_size=1000&page=${page}&fields=${fields}&json=1`;
-      let j = null;
-      for (let attempt = 0; attempt <= 3; attempt++) {
-        try {
-          const res = await fetch(url, { headers: { 'User-Agent': 'ai-shopping-app-ingest/1.0 (educational demo)' } });
-          if (res.status === 429 || res.status >= 500) { await sleep(800 * (attempt + 1)); continue; }
-          if (!res.ok) break;
-          j = await res.json();
-          break;
-        } catch (e) {
-          if (attempt === 3) throw e; // 断网等致命错误上浮，由上层回退到本地快照
-          await sleep(600 * (attempt + 1));
-        }
+    while (page <= 40 && out.length < OFF_CAP) {
+      const url = `${host}/api/v2/search?categories_tags=${encodeURIComponent(c)}&page_size=1000&page=${page}&fields=${fields}&json=1`;
+      let j;
+      try {
+        j = await fetchPage(url);
+      } catch (e) {
+        console.warn(`    · ${key}:${c}: 网络异常，跳过该类目（${e.message}）`);
+        break;
       }
-      if (!j || !j.products || !j.products.length) break;
+      if (j === null) break; // 4xx → 该类目结束
+      if (j === undefined) { console.warn(`    · ${key}:${c}: 重试耗尽，跳过该类目`); break; }
+      if (!j.products || !j.products.length) break;
       for (const p of j.products) {
         if (out.length >= OFF_CAP) break;
         const code = String(p.code || p._id || '');
         if (!code || seen.has(code)) continue;
         if (!p.product_name || !p.image_front_url) continue; // 只留有图有名字的真实商品
         seen.add(code);
-        out.push(p);
+        out.push({ ...p, _srcPrefix: key });
       }
       page++;
       await sleep(250); // 礼貌限速
     }
-    console.log(`    · ${c}: 累计 ${out.length}`);
-    saveCache('openfoodfacts-products.json', out); // 每类目增量落盘，超时可续跑不丢进度
+    console.log(`    · ${key}:${c}: 累计 ${out.length}`);
+    if (out.length) saveCache(`${key}-products.json`, out); // 增量落盘；空则不覆盖已有缓存
   }
   return out;
 }
+
+// 单家族整轮重试：开轮健康探测失败（限流/抖动）则等待后重跑整轮；多次仍 0 上浮由上层回退缓存
+async function fetchFamilyWithRetry(src) {
+  const MAX_SWEEP = 3;
+  for (let s = 0; s < MAX_SWEEP; s++) {
+    const probe = await fetchPage(`${src.host}/api/v2/search?categories_tags=${encodeURIComponent(src.cats[0])}&page_size=10&page=1&fields=code,product_name,image_front_url&json=1`);
+    if (probe === undefined) {
+      if (s < MAX_SWEEP - 1) {
+        const w = 60000 + s * 60000;
+        console.warn(`[!] ${src.key} 开轮探测失败（可能限流/抖动），${Math.round(w / 1000)}s 后重试整轮（${s + 1}/${MAX_SWEEP}）`);
+        await sleep(w);
+        continue;
+      }
+      throw new Error('持续不可用');
+    }
+    const r = await fetchOFFFamily(src.host, src.cats, src.key);
+    if (r.length > 0) return r;
+    if (s < MAX_SWEEP - 1) {
+      const w = 45000 + s * 30000;
+      console.warn(`[!] ${src.key} 本轮抓取为 0，重试（${Math.round(w / 1000)}s）`);
+      await sleep(w);
+    }
+  }
+  throw new Error('持续不可用');
+}
+
+async function fetchOFF() {
+  return fetchOFFFamily(FAMILY_SOURCES[0].host, FAMILY_SOURCES[0].cats, FAMILY_SOURCES[0].key);
+}
+
 function loadCache(name, fallback) {
   const f = resolve(CACHE_DIR, name);
   if (existsSync(f)) return JSON.parse(readFileSync(f, 'utf8'));
@@ -311,6 +429,15 @@ function loadCache(name, fallback) {
 function saveCache(name, data) {
   mkdirSync(CACHE_DIR, { recursive: true });
   writeFileSync(resolve(CACHE_DIR, name), JSON.stringify(data, null, 2));
+}
+// 加载某家族缓存；off 家族兼容旧缓存文件名 openfoodfacts-products.json
+function loadFamilyCache(key) {
+  if (key === 'off') {
+    const f = loadCache('off-products.json', null);
+    if (f && f.length) return f;
+    return loadCache('openfoodfacts-products.json', []);
+  }
+  return loadCache(`${key}-products.json`, []);
 }
 
 // ---------- 写入 ----------
@@ -386,56 +513,69 @@ async function main() {
   const db = getDb();
 
   if (RESET) {
-    db.exec("DELETE FROM products WHERE id LIKE 'fe_%' OR id LIKE 'off_%'");
-    db.exec("DELETE FROM reviews WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
-    db.exec("DELETE FROM product_skus WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
-    db.exec("DELETE FROM brands WHERE id LIKE 'br_off_%'");
+    db.exec(`DELETE FROM products WHERE id LIKE ${REAL_PAT}`);
+    db.exec(`DELETE FROM reviews WHERE product_id LIKE ${REAL_PAT}`);
+    db.exec(`DELETE FROM product_skus WHERE product_id LIKE ${REAL_PAT}`);
+    db.exec(`DELETE FROM brands WHERE id LIKE ${BRAND_PAT}`);
   }
 
-  let feRaw = [];
-  let offRaw = [];
+  const feRaw = [];
+  const offRaw = [];
   if (FETCH) {
     console.log('[*] 实时抓取 Free-Ecommerce-Products-Api ...');
     try {
-      feRaw = await fetchFreeEcom();
-      saveCache('freeecom-products.json', feRaw);
-      console.log(`[*] 已缓存 ${feRaw.length} 条`);
+      const fe = await fetchFreeEcom();
+      saveCache('freeecom-products.json', fe);
+      feRaw.push(...fe);
+      console.log(`[*] 已缓存 ${fe.length} 条`);
     } catch (e) {
       console.warn('[!] Free-Ecommerce 抓取失败，回退本地快照：', e.message);
-      feRaw = loadCache('freeecom-products.json', []);
+      feRaw.push(...loadCache('freeecom-products.json', []));
     }
-    console.log('[*] 实时抓取 Open Food Facts（食品生鲜，ODbL 开放库）...');
-    try {
-      offRaw = await fetchOFF();
-      saveCache('openfoodfacts-products.json', offRaw);
-      console.log(`[*] 已缓存 ${offRaw.length} 条`);
-    } catch (e) {
-      console.warn('[!] OFF 抓取失败（断网/限流），本次跳过，可使用已缓存快照或稍后重试：', e.message);
+    // INGEST_FAMILIES=obf,opf 时只实时抓取指定家族，其余直接从缓存载入，避免不可达库（503/超时）拖慢整轮
+    const onlyFam = process.env.INGEST_FAMILIES ? process.env.INGEST_FAMILIES.split(',').map((s) => s.trim()) : null;
+    for (const src of FAMILY_SOURCES) {
+      let r = [];
+      if (onlyFam && !onlyFam.includes(src.key)) {
+        r = loadFamilyCache(src.key);
+        console.log(`[*] ${src.key} 未列入实时抓取，载入缓存 ${r.length} 条`);
+      } else {
+        console.log(`[*] 实时抓取 ${src.host}（${src.key}）...`);
+        try {
+          const live = await fetchFamilyWithRetry(src);
+          if (live.length) { saveCache(`${src.key}-products.json`, live); r = live; }
+        } catch (e) {
+          console.warn(`[!] ${src.key} 抓取失败（断网/限流），回退本地快照：`, e.message);
+        }
+        if (!r.length) r = loadFamilyCache(src.key); // 实时无数据/失败 → 用本地快照（不覆盖已有缓存）
+      }
+      offRaw.push(...r);
+      console.log(`[*] ${src.key} 就绪 ${r.length} 条`);
     }
   } else {
-    feRaw = loadCache('freeecom-products.json', []);
-    offRaw = loadCache('openfoodfacts-products.json', []);
+    feRaw.push(...loadCache('freeecom-products.json', []));
+    for (const src of FAMILY_SOURCES) offRaw.push(...loadFamilyCache(src.key));
   }
 
-  const items = [...feRaw.map(mapFreeEcom), ...offRaw.map(mapOFF).filter(Boolean)];
+  const items = [...feRaw.map(mapFreeEcom), ...offRaw.map((p) => mapOFF(p, p._srcPrefix)).filter(Boolean)];
   if (!items.length) {
     console.warn('[!] 没有可导入的真实商品数据（请先 --fetch 或放置 .cache 快照）');
     return;
   }
 
-  // 全量同步真实商品：先清掉旧的 fe_/off_ 数据（含购物车/收藏引用）再插入，
+  // 全量同步真实商品：先清掉旧的 fe_/off_/obf_/opf_/oprf_ 数据（含购物车/收藏引用）再插入，
   // 保证重复运行幂等、且不会因 reviews 为纯 INSERT 而产生重复评价
-  db.exec("DELETE FROM reviews WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
-  db.exec("DELETE FROM product_skus WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
-  db.exec("DELETE FROM cart_items WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
-  db.exec("DELETE FROM favorites WHERE product_id LIKE 'fe_%' OR product_id LIKE 'off_%'");
-  db.exec("DELETE FROM products WHERE id LIKE 'fe_%' OR id LIKE 'off_%'");
-  db.exec("DELETE FROM brands WHERE id LIKE 'br_off_%'");
+  db.exec(`DELETE FROM reviews WHERE product_id LIKE ${REAL_PAT}`);
+  db.exec(`DELETE FROM product_skus WHERE product_id LIKE ${REAL_PAT}`);
+  db.exec(`DELETE FROM cart_items WHERE product_id LIKE ${REAL_PAT}`);
+  db.exec(`DELETE FROM favorites WHERE product_id LIKE ${REAL_PAT}`);
+  db.exec(`DELETE FROM products WHERE id LIKE ${REAL_PAT}`);
+  db.exec(`DELETE FROM brands WHERE id LIKE ${BRAND_PAT}`);
 
   const n = insertProducts(db, items);
   const dN = emitDemo(items);
   const total = db.prepare('SELECT COUNT(*) AS n FROM products').get().n;
-  console.log(`[✓] 导入真实商品 ${n} 款（Free-Ecommerce ${feRaw.length} + Open Food Facts ${offRaw.length}）`);
+  console.log(`[✓] 导入真实商品 ${n} 款（Free-Ecommerce ${feRaw.length} + OFF 家族 ${offRaw.length}）`);
   if (dN) console.log(`[✓] 已生成 web 演示数据 ${dN} 款 -> web/js/demo-real-data.js`);
   console.log(`[✓] 当前数据库商品总数：${total}（含原有演示数据 ${seeded.products}）`);
 }

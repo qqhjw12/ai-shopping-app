@@ -402,7 +402,7 @@ bash scripts/setup-https-proxy.sh
 为了让数据库「更完整、更真实」，项目内置一条**合规的抓取/导入管线**，从明确可商用的开放数据源拉取真实商品、价格与图片——**绝不爬取受 ToS / 版权保护的商业站点**：
 
 - **Free-Ecommerce-Products-Api**（GitHub 开源，开放使用）：含真实商品图（GitHub Pages 图床）与美元标价，覆盖美妆 / 电子 / 服饰 / 家居 / 健康 5 大类。
-- **Open Food Facts**（ODbL 开放数据库，CC-BY 商品图）：适合做「食品生鲜」真实数据，体量可达数十万款。
+- **Open Food Facts**（ODbL 开放数据库，CC-BY 商品图）：覆盖「食品生鲜」及合规的非食品类目（美妆个护 / 宠物粮 / 母婴 / 营养补剂），按 `categories_tags` 自动分流到对应一级类目，体量可达数十万款。
 
 导入后每张商品图存为 `products.image_url`，前端在「图片不可达（离线 / 图床 404）」时**自动回退**到程序化 SVG 封面，绝不出现破图。
 
@@ -412,7 +412,7 @@ cd ai-gateway
 # 1) 先确保基础库（256 款示例 + 表结构，含 image_url 列 v5）
 npm run db:seed
 
-# 2) 导入真实商品（默认离线：用 .cache 快照；仓库已内置 Free-Ecommerce 50 款 + OFF 12007 款快照）
+# 2) 导入真实商品（默认离线：用 .cache 快照；仓库已内置 Free-Ecommerce 50 款 + OFF 快照）
 npm run db:ingest
 
 # 实时抓取最新数据并写入缓存后再导入（需联网；OFF 可能限流，失败自动回退本地快照）
@@ -421,8 +421,11 @@ npm run db:ingest -- --fetch
 # 快速验证：仅抓 5000 条
 npm run db:ingest -- --fetch --limit 5000
 
-# 把库做大：环境变量控制 Open Food Facts 抓取上限（默认 20000，可上不封顶）
-OFF_CAP=50000 npm run db:ingest -- --fetch
+# 把库做大：环境变量控制 Open Food Facts 抓取上限（默认 40000，可上不封顶）
+OFF_CAP=60000 npm run db:ingest -- --fetch
+
+# 只实时抓取指定家族（避开不可达库，其余从已提交缓存载入，不覆盖既有缓存）
+INGEST_FAMILIES=obf,opf npm run db:ingest -- --fetch
 
 # 清空已导入的真实商品后重灌
 npm run db:ingest -- --reset
@@ -431,9 +434,10 @@ npm run db:ingest -- --reset
 要点：
 
 - **幂等**：真实商品以 `fe_` / `off_` 前缀独立 ID，与示例商品互不覆盖；重复运行安全（`INSERT OR REPLACE` + 事务批量写入）。
-- **高吞吐**：Open Food Facts 走 v2 搜索 API，每页 1000 条、自动分页、按 `code` 去重、只保留「有商品名 + 有封面图」的真实条目；每个类目**增量落盘**，超时中断可续跑不丢进度。
+- **高吞吐 + 多类目**：Open Food Facts 走 v2 搜索 API 分页抓取、按 `code` 去重、只保留「有商品名 + 有封面图」的真实条目；覆盖食品生鲜及合规非食品类目（美妆个护 / 宠物粮 / 母婴 / 营养补剂），按 `categories_tags` 自动分流到对应一级与二级类目；每个类目**增量落盘**，超时中断可续跑不丢进度。
 - **演示包限幅**：数据库可以无限大，但 `web/js/demo-real-data.js` 默认按固定步长抽样至 `DEMO_CAP`（默认 3000）款，保证 GitHub Pages 首屏不被大文件拖慢；且每次导入**全量同步** fe_/off_ 商品（先清后插），重复运行不会产生重复评价。
 - **容错**：限流（429/5xx）自动重试退避；断网时 `--fetch` 回退到本地快照，不会中断整条导入。
+- **避开不可达库**：OFF 未认证搜索每页最多返回约 100 条、深层分页（约第 11 页起）直接 401，故采用「多细分类目 `categories_tags` 浅分页」扩量；若某家族库临时不可达（如主食品库限流 503、商品事实库离线），用 `INGEST_FAMILIES=obf,opf` 只实时抓取在线家族、其余从已提交缓存载入，不拖慢整轮也不覆盖既有缓存。
 - **价格**：Free-Ecommerce 为美元，按演示汇率（USD→CNY 7.1）统一为人民币；Open Food Facts 价格稀疏时按品类合理区间生成（明确为演示用途）。
 - **图片版权**：均来自开放许可源；Open Food Facts 图片为 CC-BY，使用即视为遵循其署名要求。
 - **离线可复现**：导入同时生成 `web/js/demo-real-data.js`，让 GitHub Pages 纯静态演示站也能展示真实商品与图片（网关不可达时回退）。
