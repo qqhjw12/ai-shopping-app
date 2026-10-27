@@ -38,7 +38,8 @@ function mapProduct(row) {
     coverColor: row.cover_color || '',
     highlight: row.highlight || '',
     highlights: safeJson(row.highlights, []),
-    pic: '',
+    // 真实商品图 URL（来自合规开放数据源）；为空时前端回退到程序化 SVG 封面
+    pic: row.image_url || '',
   };
 }
 

@@ -2,7 +2,7 @@
 import { api, ApiError } from './api.js';
 import {
   el, fmtPrice, discountText, starText, fmtSales,
-  loading, banner, productCard, productThumb, openDrawer, closeDrawer, toast, updateCartBadge,
+  loading, banner, productCard, productThumb, openModal, openDrawer, closeDrawer, toast, updateCartBadge, isRealPic,
 } from './ui.js';
 import { addToCart, setQty, removeFromCart, clearCart, getUserId } from './state.js';
 import { askGuide, askProductQA } from './assistant.js';
@@ -10,6 +10,21 @@ import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
 import { setDemoMode, isDemoMode } from './demo.js';
 import { trackEvent, fetchProductStats } from './track.js';
+
+// 真实开放数据商品（scripts/ingest-real-data.mjs 生成，体量可达数 MB）改为「按需懒加载」：
+// 仅当网关不可达、回退演示模式时才动态 import，正常连网关时不会下载这份大文件，保证首屏速度。
+let realDemoCache = null;
+async function loadRealDemo() {
+  if (realDemoCache) return realDemoCache;
+  try {
+    const m = await import('./demo-real-data.js');
+    realDemoCache = Array.isArray(m.demoRealProducts) ? m.demoRealProducts : [];
+  } catch {
+    realDemoCache = [];
+  }
+  return realDemoCache;
+}
+const ALL_DEMO = async () => demoProducts.concat(await loadRealDemo());
 
 // 商品缓存（列表/详情复用，避免重复请求）
 let productsCache = null;
@@ -21,7 +36,7 @@ export async function getProducts() {
     } catch (e) {
       // 网关不可达（如 GitHub Pages 静态站点未连接后端）→ 回退内置演示商品库
       setDemoMode(true);
-      productsCache = demoProducts.slice();
+      productsCache = await ALL_DEMO();
     }
   }
   return productsCache;
@@ -48,14 +63,15 @@ export async function searchProducts(query, topK = 12) {
     return d.results || [];
   } catch (e) {
     setDemoMode(true);
-    return demoSearch(query, topK);
+    return await demoSearch(query, topK);
   }
 }
 
-function demoSearch(query, topK) {
+async function demoSearch(query, topK) {
   const q = (query || '').toLowerCase().trim();
   if (!q) return [];
-  return demoProducts
+  const items = await ALL_DEMO();
+  return items
     .map((p) => {
       const hay = [p.name, p.brand, p.category, (p.tags || []).join(' '), p.description].join(' ').toLowerCase();
       let score = 0;
@@ -573,6 +589,19 @@ export async function renderProductDetail(view, id, from) {
   });
 }
 
+/** 点击商品大图查看放大图（真实图出原图，程序化封面出 SVG） */
+function openLightbox(p) {
+  openModal((modal, close) => {
+    const box = el('div', { class: 'lightbox', onclick: close }, [
+      isRealPic(p)
+        ? el('img', { src: p.pic, alt: p.name || '', class: 'lightbox-img', onclick: (e) => e.stopPropagation() })
+        : productThumb(p),
+      el('div', { class: 'lightbox-cap' }, p.name || ''),
+    ]);
+    modal.appendChild(box);
+  });
+}
+
 function buildDetailPage(p, from, presetRelated = []) {
   const children = [];
   // 来源渠道色条：深链带 ?from= 时回显渠道，颜色按渠道区分（视觉引导 + 分享归因）
@@ -629,9 +658,13 @@ function buildDetailPage(p, from, presetRelated = []) {
 
   children.push(
     el('div', { class: 'detail-head' }, [
-      el('div', { class: 'thumb-lg' }, [
+      el('div', { class: 'thumb-lg', title: '点击查看大图', onclick: (e) => {
+        if (e.target.closest('button')) return;
+        openLightbox(p);
+      } }, [
         productThumb(p),
         discountText(p) ? el('span', { class: 'badge-off lg' }, discountText(p)) : null,
+        isRealPic(p) ? el('span', { class: 'badge-real' }, '实拍') : null,
       ]),
       el('div', { class: 'info' }, [
         el('a', { class: 'crumb', href: `#/products?cat=${encodeURIComponent(p.category || '')}` },

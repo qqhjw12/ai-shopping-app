@@ -1,6 +1,6 @@
 // 通用 UI 助手：DOM 构建、价格格式化、加载/错误态、商品卡片、弹窗、抽屉、toast。
 import { cartCount } from './state.js';
-import { productArt } from './art.js';
+import { productArt, colorPair } from './art.js';
 
 /** 轻量 DOM 构建器 */
 export function el(tag, props = {}, children = []) {
@@ -54,9 +54,37 @@ export function loading(parent, text = '加载中…') {
   parent.appendChild(el('div', { class: 'loading' }, [el('span', { class: 'spinner' }), text]));
 }
 
-/** 商品缩略图：优先真实图片，否则用程序化生成的 SVG 封面 */
-export function productThumb(p) {
-  if (p && p.pic) return el('img', { src: p.pic, alt: p.name || '', loading: 'lazy', style: 'width:100%;height:100%;object-fit:cover' });
+/** 是否为真实图片（外链 http(s) 图床 URL，区别于程序化生成的封面） */
+export function isRealPic(p) {
+  return !!(p && p.pic && /^https?:\/\//.test(p.pic));
+}
+
+/**
+ * 商品缩略图：
+ * - 真实图片：用类目 coverColor 作占位底，加载完成淡入，失败则回退到程序化 SVG（不破图）
+ * - 无图：直接程序化 SVG 封面
+ */
+export function productThumb(p, { fade = true } = {}) {
+  if (isRealPic(p)) {
+    const [c1, c2] = colorPair(p);
+    const img = el('img', {
+      src: p.pic,
+      alt: p.name || '',
+      loading: 'lazy',
+      class: 'real-img',
+      style: `width:100%;height:100%;object-fit:cover;background:linear-gradient(135deg,${c1},${c2})`,
+    });
+    if (fade) {
+      img.style.opacity = '0';
+      img.style.transition = 'opacity .35s ease';
+      img.addEventListener('load', () => { img.style.opacity = '1'; });
+    }
+    // 远程图不可达（离线 / 图床 404）时替换为程序化封面，避免破图
+    img.addEventListener('error', () => {
+      if (img.parentNode) img.replaceWith(productArt(p));
+    });
+    return img;
+  }
   return productArt(p);
 }
 
@@ -72,6 +100,7 @@ export function productCard(p, { onDetail, onAddCart, extra } = {}) {
     el('div', { class: 'thumb', onclick: () => onDetail && onDetail(p) }, [
       productThumb(p),
       off ? el('span', { class: 'badge-off' }, off) : null,
+      isRealPic(p) ? el('span', { class: 'badge-real' }, '实拍') : null,
       Number(p.totalStock) === 0 ? el('span', { class: 'badge-out' }, '暂时缺货') : null,
     ]),
     el('div', { class: 'body' }, [

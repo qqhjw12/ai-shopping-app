@@ -12,6 +12,9 @@ nginx/tls/
 # 本地 SQLite 数据文件（运行时生成，seedDb 可重建，不入库）
 ai-gateway/data/
 
+# 真实数据导入缓存：快照入库，保证全新克隆也能离线 `npm run db:ingest` 复现真实商品
+# （如需精简仓库，可忽略本目录并改用 `npm run db:ingest -- --fetch` 实时抓取）
+
 # 依赖 / 构建产物
 node_modules/
 .mvn/

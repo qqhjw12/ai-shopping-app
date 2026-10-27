@@ -238,6 +238,15 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_brands_cat ON brands(category_id);
     `,
   },
+  {
+    version: 5,
+    name: 'product-image-url',
+    sql: `
+      -- 真实商品图 URL（来自合规开放数据源：Open Food Facts / 开源商品 API 等）。
+      -- 为空时前端回退到程序化 SVG 封面，保证离线或图床不可达时仍有图可显示。
+      ALTER TABLE products ADD COLUMN image_url TEXT NOT NULL DEFAULT '';
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */
