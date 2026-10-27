@@ -157,5 +157,37 @@ if (failed === 0) {
   if (!ok404) failed++;
 }
 
+/* ---------------- 商品详情（PDP）结构断言 ---------------- */
+// 步骤 1 交付物：在 DOM 垫片里真实渲染一次详情页，逐个核对必须存在的信息模块。
+// 垫片不支持后代选择器，故统一用单类名 + 文案断言。
+if (failed === 0) {
+  console.log('\n商品详情 PDP 断言（3 个可点进详情的商品）');
+  try {
+    const { renderProductDetail } = await import(pathToFileURL(join(WEB_DIR, 'views.js')).href);
+    for (const pid of ['p017', 'p033', 'p097']) {
+      const pdp = new El('main');
+      await renderProductDetail(pdp, pid, 'list');
+      const text = pdp.textContent;
+      const n = (cls) => pdp.querySelectorAll(cls).length;
+      const cases = [
+        ['面包屑', n('.pdp-breadcrumb') === 1 && n('.pdp-crumb-current') === 1],
+        ['画廊 主图+缩略图', n('.pdp-main-image') === 1 && n('.pdp-thumb') >= 2],
+        ['价格+原价划线', n('.pdp-price') >= 1 && text.includes('¥') && n('.price-old') >= 1],
+        ['SKU 规格', n('.pdp-sku') >= 2],
+        ['库存/数量/配送退换卡', n('.pdp-stock') >= 1 && n('.pdp-stepper') === 1 && n('.pdp-service-card') === 1],
+        ['AI 摘要+评价区+星级入口', n('.pdp-ai-summary') === 1 && n('.pdp-reviews') === 1 && n('.pdp-rating-link') === 1],
+        ['加购/立即购买/收藏', text.includes('加入购物袋') && text.includes('立即购买') && text.includes('收藏')],
+        ['移动端吸底条', n('.pdp-mobile-actions') === 1],
+      ];
+      const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+      console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} #/product/${pid}${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+      if (bad.length) failed++;
+    }
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL PDP 渲染异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

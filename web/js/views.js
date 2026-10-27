@@ -11,6 +11,14 @@ import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
 import { setDemoMode, isDemoMode } from './demo.js';
 import { trackEvent, fetchProductStats } from './track.js';
+import {
+  normalizeProductDetail,
+  createMockProductDetail,
+  readCachedProductDetail,
+  cacheProductDetail,
+  isFavoriteProduct,
+  toggleFavoriteProduct,
+} from './store/productDetailStore.js';
 
 // 真实开放数据商品（scripts/ingest-real-data.mjs 生成，体量可达数 MB）改为「按需懒加载」：
 // 仅当网关不可达、回退演示模式时才动态 import，正常连网关时不会下载这份大文件，保证首屏速度。
@@ -396,12 +404,12 @@ function bannerCell(message) {
   ]);
 }
 
-function doAdd(p, source, skuId) {
+function doAdd(p, source, skuId, qty = 1) {
   // 加购埋点（含来源渠道归因）
   trackEvent({ event: 'add_to_cart', source: source || 'unknown', productId: p.id });
-  addToCart(p, 1, skuId || null);
+  addToCart(p, qty, skuId || null);
   updateCartBadge();
-  toast(`已加入购物车：${p.name}${p.spec ? `（${p.spec}）` : ''}`, 'ok');
+  toast(`已加入购物袋：${p.name}${p.spec ? `（${p.spec}）` : ''}${qty > 1 ? ` × ${qty}` : ''}`, 'ok');
 }
 
 /* ---------------- 商品列表 ---------------- */
@@ -818,21 +826,51 @@ export const SOURCE_LABELS = Object.fromEntries(
 );
 
 // 商品详情：优先走网关详情端点（一次拿到 SKU / 评价 / 相关推荐）；
-// 演示模式下由本地商品库组装等价结构，保证离线也能完整浏览。
+// 演示模式下依次回落到 localStorage 缓存 → 本地商品库 → 3 个 PDP mock。
+// ProductDetail 模型和 localStorage 细节统一封装在 store/productDetailStore.js。
 export async function fetchProductDetail(id) {
+  // 当前步骤以 mock 数据为主：三个示例 PDP 不依赖网关，直接走 store，后续替换 API 时删除此分支即可。
+  const mock = createMockProductDetail(id);
+  if (mock) {
+    cacheProductDetail(mock);
+    return {
+      product: mock,
+      related: demoProducts.filter((x) => x.category === mock.category && String(x.id) !== String(mock.id)).slice(0, 4),
+      source: 'mock',
+    };
+  }
+
   try {
     const d = await api('/api/products/' + encodeURIComponent(id), { retries: 0 });
-    if (d && d.product) return { product: d.product, related: d.related || [] };
+    if (d && d.product) {
+      const product = normalizeProductDetail(d.product);
+      cacheProductDetail(product);
+      return { product, related: d.related || [], source: 'remote' };
+    }
   } catch {
-    /* 演示模式：回落到本地商品库 */
+    /* 演示模式：继续走本地数据层 */
   }
-  const list = await getProducts();
-  const p = list.find((x) => x.id === id) || null;
-  if (!p) return { product: null, related: [] };
-  return {
-    product: p,
-    related: list.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4),
-  };
+
+  const cached = readCachedProductDetail(id);
+  if (cached) return { product: cached, related: [], source: 'cache' };
+
+  let list = [];
+  try {
+    list = await getProducts();
+  } catch {
+    /* getProducts 本身不可用时，仍可尝试独立 mock。 */
+  }
+  const base = list.find((x) => String(x.id) === String(id)) || null;
+  if (base) {
+    const product = normalizeProductDetail(base);
+    cacheProductDetail(product);
+    return {
+      product,
+      related: list.filter((x) => x.category === base.category && x.id !== base.id).slice(0, 4),
+      source: 'local',
+    };
+  }
+  return { product: null, related: [] };
 }
 
 // 按 ID 取商品：仅返回商品本体（列表缓存优先，给助手推荐卡等轻量场景用）
@@ -846,16 +884,18 @@ export async function getProductById(id) {
 export async function renderProductDetail(view, id, from) {
   view.innerHTML = '';
   view.appendChild(el('a', { class: 'back-link', href: '#/products' }, '← 返回商品列表'));
-  const container = el('div', { class: 'detail-page' });
+  const container = el('div', { class: 'detail-page pdp-page' });
   view.appendChild(container);
   loading(container, '加载商品中…');
 
   let p;
   let related = [];
+  let detailSource = '';
   try {
     const bundle = await fetchProductDetail(id);
     p = bundle.product;
     related = bundle.related || [];
+    detailSource = bundle.source || '';
   } catch (err) {
     banner(container, friendly(err), 'err');
     return;
@@ -868,138 +908,421 @@ export async function renderProductDetail(view, id, from) {
   ensureDemoBanner(view);
   container.innerHTML = '';
   container.appendChild(buildDetailPage(p, from, related));
-  // 上报「查看商品」埋点（含来源渠道），best-effort
-  trackEvent({ event: 'view_product', source: from || 'direct', productId: p.id });
-  // 拉取本商品渠道分析，best-effort 展示（演示站点未连网关时静默）
-  fetchProductStats(p.id).then((stats) => {
-    if (!stats || !stats.total) return;
-    const line = container.querySelector('.source-stats');
-    if (!line) return;
-    const top = Object.entries(stats.bySource).sort((a, b) => b[1] - a[1])[0];
-    const topLabel = top && SOURCE_LABELS[top[0]] ? SOURCE_LABELS[top[0]] : top && top[0];
-    line.textContent = topLabel
-      ? `🔢 共 ${stats.total} 次浏览，最多来自「${topLabel}」`
-      : `🔢 共 ${stats.total} 次浏览`;
-  });
+  // mock PDP 不依赖网关；真实来源仍上报浏览与拉取渠道统计。
+  if (detailSource !== 'mock') {
+    trackEvent({ event: 'view_product', source: from || 'direct', productId: p.id });
+    fetchProductStats(p.id).then((stats) => {
+      if (!stats || !stats.total) return;
+      const line = container.querySelector('.source-stats');
+      if (!line) return;
+      const top = Object.entries(stats.bySource).sort((a, b) => b[1] - a[1])[0];
+      const topLabel = top && SOURCE_LABELS[top[0]] ? SOURCE_LABELS[top[0]] : top && top[0];
+      line.textContent = topLabel
+        ? `共 ${stats.total} 次浏览，最多来自「${topLabel}」`
+        : `共 ${stats.total} 次浏览`;
+    });
+  }
 }
 
-/** 点击商品大图查看放大图（真实图出原图，程序化封面出 SVG） */
-function openLightbox(p) {
+/** 点击商品大图查看放大图；图片失败时回落到程序化封面。 */
+function openLightbox(p, image = null) {
   openModal((modal, close) => {
+    const src = image?.src || p.pic;
+    const fallback = image?.fallbackSrc || p.fallbackImage;
+    let media;
+    if (src && (/^https?:\/\//.test(src) || /^data:image\//.test(src))) {
+      media = el('img', {
+        src,
+        alt: image?.alt || p.name || '',
+        class: 'lightbox-img',
+        onclick: (e) => e.stopPropagation(),
+      });
+      if (fallback) {
+        media.addEventListener('error', () => {
+          if (media.src !== fallback) media.src = fallback;
+        }, { once: true });
+      }
+    } else {
+      media = productThumb(p);
+    }
     const box = el('div', { class: 'lightbox', onclick: close }, [
-      isRealPic(p)
-        ? el('img', { src: p.pic, alt: p.name || '', class: 'lightbox-img', onclick: (e) => e.stopPropagation() })
-        : productThumb(p),
-      el('div', { class: 'lightbox-cap' }, p.name || ''),
+      media,
+      el('div', { class: 'lightbox-cap' }, [p.name || '', image?.label ? ` · ${image.label}` : ''].join('')),
     ]);
     modal.appendChild(box);
   });
 }
 
+function pdpBreadcrumb(p) {
+  return el('nav', { class: 'pdp-breadcrumb', 'aria-label': '面包屑导航' }, [
+    el('a', { href: '#/' }, '首页'),
+    el('span', { class: 'pdp-crumb-sep', 'aria-hidden': 'true' }, '/'),
+    el('a', { href: '#/categories' }, '分类'),
+    el('span', { class: 'pdp-crumb-sep', 'aria-hidden': 'true' }, '/'),
+    el('span', { class: 'pdp-crumb-current', title: p.name || '', 'aria-current': 'page' }, p.name || '商品详情'),
+  ]);
+}
+
+function heartIcon() {
+  const wrap = el('span', { class: 'pdp-heart-icon', 'aria-hidden': 'true' });
+  wrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 20.2 4.6 13a4.8 4.8 0 0 1 6.8-6.8l.6.6.6-.6A4.8 4.8 0 0 1 19.4 13L12 20.2Z"/></svg>';
+  return wrap;
+}
+
 function buildDetailPage(p, from, presetRelated = []) {
-  const children = [];
-  // 来源渠道色条：深链带 ?from= 时回显渠道，颜色按渠道区分（视觉引导 + 分享归因）
+  const page = el('div', { class: 'pdp-shell' });
+
+  // 面包屑：首页 / 分类 / 商品名（hash 路由内保持可回退）。
+  page.appendChild(pdpBreadcrumb(p));
+
   if (from && SOURCE_META[from]) {
     const meta = SOURCE_META[from];
-    children.push(
-      el('div', {
-        class: 'source-bar',
-        style: `--src-color:${meta.color}`,
-      }, [
+    page.appendChild(
+      el('div', { class: 'source-bar', style: `--src-color:${meta.color}` }, [
         el('span', { class: 'dot' }),
         el('span', {}, `来自：${meta.label}`),
       ]),
     );
-    // 渠道分析提示行（异步填充）
-    children.push(el('div', { class: 'source-stats' }, ''));
+    page.appendChild(el('div', { class: 'source-stats' }, ''));
   }
 
-  /* ---- SKU 选择：切换规格时联动价格与库存 ---- */
-  const skus = p.skus || [];
-  let selected = skus[0] || null;
+  const galleryImages = Array.isArray(p.images) && p.images.length
+    ? p.images.slice(0, 6)
+    : [{
+        src: p.pic,
+        alt: p.name || '商品',
+        label: '正面',
+        focus: '50% 50%',
+        fallbackSrc: p.fallbackImage || p.pic || '',
+      }];
+  const skus = Array.isArray(p.skus) ? p.skus : [];
+  const reviewCount = Number(p.reviewCount ?? p.reviewsCount ?? 0) || 0;
+  const rating = Number(p.rating) || 0;
 
-  const priceLine = el('div', { class: 'detail-price' });
-  const stockLine = el('div', { class: 'detail-stock' });
+  let selected = skus.find((sku) => Number(sku.stock) > 0) || skus[0] || null;
+  let quantity = 1;
+  let galleryIndex = 0;
+  let favorited = isFavoriteProduct(p.id);
 
-  function syncPrice() {
-    const unit = selected ? selected.price : p.price;
+  const priceLine = el('div', { class: 'detail-price pdp-price' });
+  const stockLine = el('div', { class: 'detail-stock pdp-stock' });
+  const qtyValue = el('span', { class: 'pdp-qty-value', 'aria-live': 'polite' }, '1');
+  const selectedSpec = el('span', { class: 'pdp-selected-spec' }, selected ? selected.spec : '标准款');
+  const skuButtons = [];
+
+  const addLabel = el('span', { class: 'pdp-add-label' }, '加入购物袋');
+  const mobileAddLabel = el('span', { class: 'pdp-add-label' }, '加入购物袋');
+  const addBtn = el('button', { type: 'button', class: 'buy pdp-add-btn', onclick: addCurrent }, [addLabel]);
+  const buyBtn = el('button', { type: 'button', class: 'btn-ink pdp-buy-btn', onclick: buyCurrent }, '立即购买');
+  const favoriteBtn = el('button', {
+    type: 'button',
+    class: 'ghost pdp-fav',
+    'aria-pressed': String(favorited),
+    onclick: handleFavorite,
+  }, [heartIcon(), el('span', { class: 'pdp-fav-label' }, favorited ? '已收藏' : '收藏')]);
+
+  const mobileFav = el('button', {
+    type: 'button',
+    class: 'ghost pdp-mobile-fav',
+    'aria-pressed': String(favorited),
+    onclick: handleFavorite,
+  }, [heartIcon(), el('span', { class: 'pdp-fav-label' }, favorited ? '已收藏' : '收藏')]);
+  const mobileAdd = el('button', { type: 'button', class: 'buy pdp-mobile-add', onclick: addCurrent }, [mobileAddLabel]);
+  const mobileBuy = el('button', { type: 'button', class: 'btn-ink pdp-mobile-buy', onclick: buyCurrent }, '立即购买');
+
+  const qtyMinus = el('button', {
+    type: 'button',
+    class: 'pdp-qty-btn',
+    'aria-label': '减少数量',
+    onclick: () => setQuantity(quantity - 1),
+  }, '−');
+  const qtyPlus = el('button', {
+    type: 'button',
+    class: 'pdp-qty-btn',
+    'aria-label': '增加数量',
+    onclick: () => setQuantity(quantity + 1),
+  }, '+');
+
+  function currentStock() {
+    return Math.max(0, Number(selected ? selected.stock : p.stock) || 0);
+  }
+
+  function unitPrice() {
+    return Number(selected ? selected.price : p.price) || 0;
+  }
+
+  // 价格：--serif + --gold-deep，数字使用 tabular-nums（见 .pdp-price .price）。
+  function renderPrice() {
+    const unit = unitPrice();
     priceLine.innerHTML = '';
     priceLine.appendChild(el('span', { class: 'price' }, fmtPrice(unit)));
-    const off = discountText({ price: unit, originalPrice: p.originalPrice });
-    if (p.originalPrice && p.originalPrice > unit) {
-      priceLine.appendChild(el('del', { class: 'price-old' }, fmtPrice(p.originalPrice)));
+    const original = Number(p.originalPrice) || 0;
+    if (original > unit) {
+      priceLine.appendChild(el('del', { class: 'price-old' }, fmtPrice(original)));
+      const off = discountText({ price: unit, originalPrice: original });
+      if (off) priceLine.appendChild(el('span', { class: 'badge-off' }, off));
+    } else {
+      priceLine.appendChild(el('span', { class: 'pdp-price-note' }, '当前规格暂无折扣'));
     }
-    if (off) priceLine.appendChild(el('span', { class: 'badge-off' }, off));
-    const st = selected ? selected.stock : (p.totalStock ?? null);
-    stockLine.className = `detail-stock${st != null && st > 0 ? '' : ' out'}`;
-    stockLine.textContent =
-      st == null ? '' : st > 0 ? `现货 ${st} 件 · 付款后 48 小时内发出` : '该规格暂时缺货，可看看其它规格';
   }
-  syncPrice();
 
-  const skuRow = el('div', { class: 'sku-row' }, [el('span', { class: 'sku-label' }, '选择规格')]);
-  skus.forEach((s) => {
-    skuRow.appendChild(el('button', {
-      class: 'sku' + (selected && s.id === selected.id ? ' active' : ''),
-      onclick: (e) => {
-        selected = s;
-        [...skuRow.querySelectorAll('.sku')].forEach((b) => b.classList.remove('active'));
-        e.currentTarget.classList.add('active');
-        syncPrice();
-      },
-    }, `${s.spec} · ${fmtPrice(s.price)}`));
+  function updateQtyUI() {
+    const available = currentStock();
+    if (available <= 0) {
+      qtyValue.textContent = '0';
+      qtyMinus.disabled = true;
+      qtyPlus.disabled = true;
+      return;
+    }
+    quantity = Math.max(1, Math.min(quantity, available));
+    qtyValue.textContent = String(quantity);
+    qtyMinus.disabled = quantity <= 1;
+    qtyPlus.disabled = quantity >= available;
+  }
+
+  function updateActions() {
+    const unavailable = currentStock() <= 0;
+    [addBtn, buyBtn, mobileAdd, mobileBuy].forEach((btn) => { btn.disabled = unavailable; });
+    addLabel.textContent = unavailable ? '暂时缺货' : '加入购物袋';
+    mobileAddLabel.textContent = unavailable ? '暂时缺货' : '加入购物袋';
+  }
+
+  function syncSelection() {
+    renderPrice();
+    const available = currentStock();
+    stockLine.className = `detail-stock pdp-stock${available > 0 ? '' : ' out'}`;
+    stockLine.innerHTML = '';
+    stockLine.appendChild(el('span', { class: 'pdp-stock-dot', 'aria-hidden': 'true' }));
+    stockLine.appendChild(document.createTextNode(
+      available > 0
+        ? available <= 8 ? `仅余 ${available} 件 · 售完即止` : `现货 ${available} 件 · 48 小时内发出`
+        : '该规格暂时缺货，可切换其它规格',
+    ));
+    selectedSpec.textContent = selected ? selected.spec : '标准款';
+    skuButtons.forEach((btn, index) => {
+      const active = selected && skus[index] && skus[index].id === selected.id;
+      btn.classList.toggle('is-active', Boolean(active));
+      btn.setAttribute('aria-pressed', String(Boolean(active)));
+    });
+    updateQtyUI();
+    updateActions();
+  }
+
+  function setQuantity(next) {
+    if (currentStock() <= 0) return;
+    quantity = Math.max(1, Math.min(next, currentStock()));
+    updateQtyUI();
+  }
+
+  function syncFavorite() {
+    [favoriteBtn, mobileFav].forEach((btn) => {
+      btn.classList.toggle('is-active', favorited);
+      btn.setAttribute('aria-pressed', String(favorited));
+      const label = btn.querySelector('.pdp-fav-label');
+      if (label) label.textContent = favorited ? '已收藏' : '收藏';
+    });
+  }
+
+  async function handleFavorite() {
+    favorited = toggleFavoriteProduct(p.id);
+    syncFavorite();
+    trackEvent({ event: 'favorite', source: 'detail', productId: p.id });
+    toast(favorited ? '已加入收藏' : '已取消收藏', 'ok');
+    // localStorage 是当前阶段的收藏真相源；有网关时再 best-effort 同步服务端。
+    try {
+      await api('/api/favorites', {
+        method: 'POST',
+        body: { userId: getUserId(), productId: p.id },
+        retries: 0,
+      });
+    } catch {
+      /* 本地收藏已生效，不阻塞交互 */
+    }
+  }
+
+  function addCurrent() {
+    if (currentStock() <= 0) return;
+    doAdd({
+      ...p,
+      price: unitPrice(),
+      spec: selected ? selected.spec : '',
+    }, from || 'detail', selected ? selected.id : null, quantity);
+  }
+
+  function buyCurrent() {
+    if (currentStock() <= 0) return;
+    buyNow(p, selected, from, quantity);
+  }
+
+  function scrollToReviews() {
+    const target = document.getElementById('pdp-reviews');
+    if (!target) return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+    window.setTimeout(() => target.focus({ preventScroll: true }), reduced ? 0 : 360);
+  }
+
+  /* ---- 画廊：主图 + 缩略图，统一 4/5 比例、object-fit: cover ---- */
+  const mainImage = el('img', {
+    class: 'pdp-main-img',
+    src: galleryImages[0].src || '',
+    alt: galleryImages[0].alt || p.name || '',
+    loading: 'eager',
+  });
+  mainImage.style.objectPosition = galleryImages[0].focus || '50% 50%';
+  mainImage.addEventListener('error', () => {
+    const fallback = galleryImages[galleryIndex]?.fallbackSrc;
+    if (fallback && mainImage.getAttribute('src') !== fallback) mainImage.src = fallback;
   });
 
-  children.push(
-    el('div', { class: 'detail-head' }, [
-      el('div', { class: 'thumb-lg', title: '点击查看大图', onclick: (e) => {
-        if (e.target.closest('button')) return;
-        openLightbox(p);
-      } }, [
-        productThumb(p),
-        discountText(p) ? el('span', { class: 'badge-off lg' }, discountText(p)) : null,
-        isRealPic(p) ? el('span', { class: 'badge-real' }, '实拍') : null,
-      ]),
-      el('div', { class: 'info' }, [
-        el('span', { class: 'eyebrow' }, 'THE OBJECT · MAISON AI'),
-        el('a', { class: 'crumb', href: `#/products?cat=${encodeURIComponent(p.category || '')}` },
-          `${p.brand || '编辑精选'} · ${p.category || '全部商品'}`),
-        el('h1', { class: 'name' }, p.name),
-        p.highlight ? el('div', { class: 'hl-lg' }, p.highlight) : null,
-        el('div', { class: 'rating-line' }, [
-          el('span', { class: 'stars' }, [el('b', {}, starText(p.rating)), el('span', {}, ` ${Number(p.rating || 0).toFixed(1)}`)]),
-          p.reviewsCount ? el('span', { class: 'cnt' }, `${fmtSales(p.reviewsCount)} 条评价`) : null,
-          p.sales ? el('span', { class: 'cnt' }, `已售 ${fmtSales(p.sales)}`) : null,
+  const galleryCounter = el('span', { class: 'pdp-gallery-counter', 'aria-live': 'polite' }, `01 / ${String(galleryImages.length).padStart(2, '0')} · ${galleryImages[0].label || '正面'}`);
+  const mainButton = el('button', {
+    type: 'button',
+    class: 'pdp-main-image',
+    'aria-label': '查看商品大图',
+    onclick: () => openLightbox(p, galleryImages[galleryIndex]),
+  }, [
+    mainImage,
+    el('span', { class: 'pdp-gallery-zoom', 'aria-hidden': 'true' }, 'VIEW'),
+    el('span', { class: 'pdp-gallery-shade', 'aria-hidden': 'true' }),
+    galleryCounter,
+  ]);
+
+  const thumbs = el('div', { class: 'pdp-thumbs', role: 'group', 'aria-label': '商品图片缩略图' });
+  const thumbButtons = galleryImages.map((image, index) => {
+    const thumbImg = el('img', {
+      src: image.src || '',
+      alt: '',
+      loading: 'lazy',
+      class: 'pdp-thumb-img',
+    });
+    thumbImg.style.objectPosition = image.focus || '50% 50%';
+    thumbImg.addEventListener('error', () => {
+      if (image.fallbackSrc && thumbImg.getAttribute('src') !== image.fallbackSrc) thumbImg.src = image.fallbackSrc;
+    }, { once: true });
+    const button = el('button', {
+      type: 'button',
+      class: 'pdp-thumb' + (index === 0 ? ' is-active' : ''),
+      'aria-label': `查看图片 ${index + 1}：${image.label || image.alt || ''}`,
+      'aria-pressed': String(index === 0),
+      onclick: () => setGalleryIndex(index),
+    }, [
+      thumbImg,
+      el('span', { class: 'pdp-thumb-label' }, image.label || `0${index + 1}`),
+    ]);
+    thumbs.appendChild(button);
+    return button;
+  });
+
+  function setGalleryIndex(index) {
+    galleryIndex = index;
+    const image = galleryImages[index];
+    if (!image) return;
+    mainImage.src = image.src || '';
+    mainImage.alt = image.alt || p.name || '';
+    mainImage.style.objectPosition = image.focus || '50% 50%';
+    galleryCounter.textContent = `${String(index + 1).padStart(2, '0')} / ${String(galleryImages.length).padStart(2, '0')} · ${image.label || '正面'}`;
+    thumbButtons.forEach((btn, i) => {
+      btn.classList.toggle('is-active', i === index);
+      btn.setAttribute('aria-pressed', String(i === index));
+    });
+  }
+
+  // 规格按钮：切换即联动价格、库存、数量上限。
+  skus.forEach((sku) => {
+    const btn = el('button', {
+      type: 'button',
+      class: 'sku pdp-sku',
+      'aria-pressed': 'false',
+      onclick: () => {
+        selected = sku;
+        quantity = 1;
+        syncSelection();
+      },
+    }, sku.spec);
+    skuButtons.push(btn);
+  });
+
+  const ratingButton = el('button', {
+    type: 'button',
+    class: 'pdp-rating-link',
+    onclick: scrollToReviews,
+  }, [
+    el('span', { class: 'stars pdp-stars' }, starText(rating)),
+    el('b', {}, rating ? rating.toFixed(1) : '—'),
+    el('span', { class: 'pdp-review-count' }, reviewCount ? `${fmtSales(reviewCount)} 条评价` : '暂无评价'),
+    el('span', { class: 'pdp-rating-arrow', 'aria-hidden': 'true' }, '↓'),
+  ]);
+
+  const skuBlock = skus.length
+    ? el('div', { class: 'pdp-option-group' }, [
+        el('div', { class: 'pdp-option-head' }, [
+          el('span', { class: 'pdp-field-label' }, p.skuGroupLabel || '选择规格'),
+          selectedSpec,
         ]),
-        priceLine,
-        stockLine,
-        skus.length > 1 ? skuRow : null,
-        p.highlights && p.highlights.length
-          ? el('div', { class: 'promises' }, p.highlights.map((t) => el('span', { class: 'promise' }, `✓ ${t}`)))
-          : null,
-        p.tags && p.tags.filter((t) => !String(t).includes(':')).length
-          ? el('div', { class: 'tags' }, p.tags.filter((t) => !String(t).includes(':')).slice(0, 4).map((t) => el('span', { class: 'tag' }, t)))
-          : null,
-        el('div', { class: 'actions' }, [
-          el('button', {
-            class: 'buy',
-            onclick: () => doAdd({ ...p, price: selected ? selected.price : p.price, spec: selected ? selected.spec : '' }, from || 'detail', selected && selected.id),
-          }, '加入购物袋'),
-          el('button', { class: 'btn-ink', onclick: () => buyNow(p, selected, from) }, '立即购买'),
-          el('button', { class: 'ghost', onclick: () => toggleFavorite(p) }, '收藏'),
-          el('button', { class: 'ghost', onclick: () => askProductQA(p) }, '问我这件商品'),
-          el('button', { class: 'ghost', onclick: () => askGuide(`介绍一下「${p.name}」，适合什么人群和场景？`) }, 'AI 导购推荐'),
-          el('button', { class: 'ghost', onclick: () => copyShareLink(p, from) }, '复制分享'),
-        ]),
+        el('div', { class: 'pdp-sku-row' }, skuButtons),
+      ])
+    : null;
+
+  const qtyRow = el('div', { class: 'pdp-quantity-row' }, [
+    el('span', { class: 'pdp-field-label' }, '数量'),
+    el('div', { class: 'pdp-stepper' }, [qtyMinus, qtyValue, qtyPlus]),
+  ]);
+
+  const serviceCard = el('section', { class: 'pdp-service-card', 'aria-label': '配送与退换说明' }, [
+    el('div', { class: 'pdp-service-row' }, [
+      el('span', { class: 'pdp-service-label' }, '配送'),
+      el('p', { class: 'pdp-service-copy' }, p.shippingNote || '顺丰包邮 · 48 小时内发出'),
+    ]),
+    el('div', { class: 'pdp-service-row' }, [
+      el('span', { class: 'pdp-service-label' }, '退换'),
+      el('p', { class: 'pdp-service-copy' }, p.returnNote || '7 天无理由退换 · 支持上门取件'),
+    ]),
+  ]);
+
+  const aiSummary = el('aside', { class: 'pdp-ai-summary', 'aria-label': 'AI 评价摘要占位' }, [
+    el('div', { class: 'pdp-ai-head' }, [
+      el('span', { class: 'pdp-ai-mark', 'aria-hidden': 'true' }, 'AI'),
+      el('div', {}, [
+        el('span', { class: 'eyebrow' }, 'REVIEW INTELLIGENCE'),
+        el('h3', {}, 'AI 评价摘要'),
       ]),
     ]),
-  );
+    el('p', {}, `AI 正在阅读 ${fmtSales(reviewCount)} 条评价，摘要能力将在后续步骤接入。`),
+    el('div', { class: 'pdp-ai-skeleton', 'aria-hidden': 'true' }, [el('span'), el('span'), el('span')]),
+  ]);
 
-  const page = el('div', {}, children);
+  const info = el('div', { class: 'info pdp-info' }, [
+    el('span', { class: 'eyebrow' }, 'THE OBJECT · MAISON AI'),
+    el('div', { class: 'pdp-origin' }, [
+      el('span', {}, p.brand || 'MAISON AI'),
+      el('span', { class: 'pdp-origin-dot', 'aria-hidden': 'true' }),
+      el('span', {}, p.category || '编辑甄选'),
+    ]),
+    el('h1', { class: 'name' }, p.name),
+    p.highlight ? el('div', { class: 'hl-lg' }, p.highlight) : null,
+    ratingButton,
+    priceLine,
+    skuBlock,
+    stockLine,
+    qtyRow,
+    el('div', { class: 'actions pdp-primary-actions' }, [addBtn, buyBtn, favoriteBtn]),
+    serviceCard,
+    aiSummary,
+    el('div', { class: 'pdp-secondary-actions' }, [
+      el('button', { type: 'button', class: 'ghost', onclick: () => askProductQA(p) }, '问我这件商品'),
+      el('button', { type: 'button', class: 'ghost', onclick: () => askGuide(`介绍一下「${p.name}」，适合什么人群和场景？`) }, 'AI 导购推荐'),
+      el('button', { type: 'button', class: 'ghost', onclick: () => copyShareLink(p, from) }, '复制分享'),
+    ]),
+  ]);
 
-  /* ---- 详情主体：参数 + 评价 ---- */
-  const body = el('section', { class: 'detail-body' });
-  body.appendChild(el('div', { class: 'panel' }, [
+  const gallery = el('section', { class: 'pdp-gallery', 'aria-label': '商品图片画廊' }, [mainButton, thumbs]);
+  const detailHead = el('div', { class: 'detail-head pdp-head' }, [gallery, info]);
+  page.appendChild(detailHead);
+
+  /* ---- 详情主体：介绍 + 评价 ---- */
+  const body = el('section', { class: 'detail-body pdp-detail-body' });
+  const descriptionPanel = el('div', { class: 'panel pdp-description' }, [
     el('h3', {}, '商品介绍'),
     el('p', { class: 'desc-block' }, p.description || '暂无详细描述'),
     skus.length
@@ -1007,23 +1330,41 @@ function buildDetailPage(p, from, presetRelated = []) {
           el('tbody', {}, [
             el('tr', {}, [el('th', {}, '规格'), el('td', {}, skus.map((s) => s.spec).join(' / '))]),
             el('tr', {}, [el('th', {}, '价格区间'), el('td', {}, `${fmtPrice(Math.min(...skus.map((s) => s.price)))} ~ ${fmtPrice(Math.max(...skus.map((s) => s.price)))}`)]),
-            el('tr', {}, [el('th', {}, '可售总量'), el('td', {}, `${skus.reduce((n, s) => n + s.stock, 0)} 件`)]),
+            el('tr', {}, [el('th', {}, '可售总量'), el('td', {}, `${skus.reduce((n, s) => n + (Number(s.stock) || 0), 0)} 件`)]),
           ]),
         ])
       : null,
-  ]));
+  ]);
+  body.appendChild(descriptionPanel);
 
-  const revWrap = el('div', { class: 'panel' }, [el('h3', {}, `用户评价${p.reviewsCount ? `（${fmtSales(p.reviewsCount)}）` : ''}`)]);
-  const reviews = p.reviews || [];
+  const reviewPanel = el('section', {
+    id: 'pdp-reviews',
+    class: 'panel pdp-reviews',
+    tabindex: '-1',
+  }, [
+    el('div', { class: 'pdp-review-head' }, [
+      el('h3', {}, '用户评价'),
+      el('div', { class: 'pdp-review-summary' }, [
+        el('span', { class: 'stars pdp-stars' }, starText(rating)),
+        el('span', {}, `${reviewCount ? fmtSales(reviewCount) : '暂无'} 条评价`),
+      ]),
+    ]),
+  ]);
+  const reviews = Array.isArray(p.reviews) ? p.reviews : [];
   if (reviews.length) {
-    reviews.forEach((r) => revWrap.appendChild(reviewCard(r)));
+    reviews.forEach((r) => reviewPanel.appendChild(reviewCard(r)));
   } else {
-    revWrap.appendChild(el('div', { class: 'cart-empty' }, '还没有评价，等你来写第一条。'));
+    reviewPanel.appendChild(
+      el('div', { class: 'pdp-review-placeholder' }, [
+        el('span', { class: 'eyebrow' }, 'REVIEWS RESERVED'),
+        el('p', {}, '真实评价区将在后续步骤接入。'),
+      ]),
+    );
   }
-  body.appendChild(revWrap);
+  body.appendChild(reviewPanel);
   page.appendChild(body);
 
-  /* ---- 相关推荐：优先用详情接口返回的同osm相似款，缺失时再走搜索 ---- */
+  /* ---- 相关推荐（保留原商品列表关联能力） ---- */
   const relatedWrap = el('section', { class: 'related' }, [
     el('div', { class: 'section-heading compact' }, [
       el('div', {}, [
@@ -1044,7 +1385,7 @@ function buildDetailPage(p, from, presetRelated = []) {
       return;
     }
     list.forEach((r) =>
-      relGrid.appendChild(productCard(r, { onDetail: (r) => openProductDetail(r, 'rec'), onAddCart: (r) => doAdd(r, 'rec') })),
+      relGrid.appendChild(productCard(r, { onDetail: (item) => openProductDetail(item, 'rec'), onAddCart: (item) => doAdd(item, 'rec') })),
     );
   };
 
@@ -1057,6 +1398,16 @@ function buildDetailPage(p, from, presetRelated = []) {
       .catch((err) => banner(relGrid, friendly(err), 'err'));
   }
 
+  // 移动端操作吸底；桌面端使用信息区内的 .pdp-primary-actions。
+  const mobileBar = el('div', { class: 'pdp-mobile-actions', role: 'group', 'aria-label': '商品操作' }, [
+    mobileFav,
+    mobileAdd,
+    mobileBuy,
+  ]);
+  page.appendChild(mobileBar);
+
+  syncFavorite();
+  syncSelection();
   return page;
 }
 
@@ -1075,22 +1426,11 @@ function reviewCard(r) {
   ]);
 }
 
-/** 立即购买：单品直连结算页 */
-function buyNow(p, sku, from) {
-  addToCart({ ...p, price: sku ? sku.price : p.price, spec: sku ? sku.spec : '' }, 1, sku ? sku.id : null);
+/** 立即购买：按当前所选规格与数量直达结算页 */
+function buyNow(p, sku, from, qty = 1) {
+  addToCart({ ...p, price: sku ? sku.price : p.price, spec: sku ? sku.spec : '' }, qty, sku ? sku.id : null);
   updateCartBadge();
   navigate('#/checkout' + (from ? `?from=${encodeURIComponent(from)}` : ''));
-}
-
-/** 收藏切换（演示模式下仅本地提示，网关可用时同步服务端） */
-async function toggleFavorite(p) {
-  trackEvent({ event: 'favorite', source: 'detail', productId: p.id });
-  try {
-    const d = await api('/api/favorites', { method: 'POST', body: { userId: getUserId(), productId: p.id }, retries: 0 });
-    toast(d && d.favorited ? '已加入已收藏' : '已取消收藏', 'ok');
-  } catch {
-    toast(isDemoMode() ? '演示模式暂不支持收藏同步' : '收藏失败，请稍后重试', 'warn');
-  }
 }
 
 function copyShareLink(p, from) {

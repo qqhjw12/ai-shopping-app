@@ -175,7 +175,7 @@ export function productArtSvg(p, opts = {}) {
   const angle = ((seed * 7) % 11) - 5;
   const scale = 0.94 + ((seed % 5) * 0.025);
   return `
-<svg class="art" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+<svg class="art" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
     <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${escapeAttr(c1)}"/>
