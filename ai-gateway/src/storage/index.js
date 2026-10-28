@@ -6,7 +6,7 @@
 // 读取时用 key 现签一次，才是正确姿势。旧的 `/api/uploads/xxx.png` 记录
 // 继续按原样透传（由本地静态路由兜底），不破坏历史数据。
 import { randomUUID } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, unlink, writeFile, readdir } from 'node:fs/promises';
 import { basename, extname, join, resolve as resolvePath } from 'node:path';
 import process from 'node:process';
 import { config } from '../config.js';
@@ -112,6 +112,49 @@ export async function removeObject(key) {
   } catch {
     return false;
   }
+}
+
+/**
+ * 孤儿对象清理：删除「存储中存在、但没有任何评价引用」的对象。
+ * 覆盖两类泄漏：① 上传了但没发布（或编辑时去掉了）的图片；② 评价被删后图片对象残留。
+ *
+ * @param {Set<string>|string[]} referencedKeys 所有被评价引用的对象键集合
+ * @param {{logger?: object}} [opts]
+ * @returns {Promise<number>} 实际删除的对象数
+ */
+export async function sweepOrphans(referencedKeys, { logger } = {}) {
+  const referenced = new Set([...(Array.isArray(referencedKeys) ? referencedKeys : referencedKeys.keys?.() || [])]);
+  let removed = 0;
+  if (config.storage.driver === 's3') {
+    let keys = [];
+    try {
+      keys = await s3.listObjects(config.storage, 'reviews/');
+    } catch (err) {
+      logger?.warn?.({ event: 'storage.sweep_list_failed', err: err.message });
+      return 0;
+    }
+    for (const k of keys) {
+      if (!referenced.has(k)) {
+        if (await removeObject(k)) removed += 1;
+      }
+    }
+  } else {
+    // 本地驱动：磁盘文件名是键的 basename（年月被拍平），所以按 basename 比对引用集
+    const referencedBases = new Set([...referenced].map((k) => basename(k)));
+    let files = [];
+    try {
+      files = await readdir(LOCAL_DIR);
+    } catch {
+      return 0; // 目录还没建（从未上传过）→ 没东西可清
+    }
+    for (const name of files) {
+      if (!referencedBases.has(name)) {
+        if (await removeObject(`reviews/0000/00/${name}`)) removed += 1;
+      }
+    }
+  }
+  if (removed) logger?.info?.({ event: 'storage.sweep', removed });
+  return removed;
 }
 
 /** 启动自检：bucket 不存在就建一个；连不上只告警（本地驱动不用管） */

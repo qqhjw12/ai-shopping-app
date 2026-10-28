@@ -30,6 +30,7 @@ import {
   submitReview as publishReviewApi,
   submitFollowUp as publishFollowUpApi,
   voteReview as voteReviewApi,
+  deleteReview as deleteReviewApi,
   uploadReviewImage,
   MAX_REVIEW_IMAGES,
 } from './store/productDetailStore.js';
@@ -1502,6 +1503,19 @@ function buildDetailPage(p, from, presetRelated = []) {
   }
 
   /**
+   * 删除本人评价：成功后从本地列表移除（含其追评），并重算概览与 AI 摘要。
+   * 服务端删除会级联清掉追评与图片对象，前端只负责把这条从视图里拿走。
+   */
+  async function deleteReviewHandler(parent) {
+    const res = await deleteReviewApi(p.id, parent.id);
+    allReviews = allReviews.filter((r) => String(r.id) !== String(parent.id));
+    paintReviewList();
+    refreshOverview();
+    refreshAiSummary();
+    toast(res.online ? '评价已删除' : '已删除本地草稿', res.online ? 'ok' : 'warn');
+  }
+
+  /**
    * 拉取服务端评价：成功后替换本地数据源并重绘。
    * 本地离线写过的评价若未出现在服务端结果里（如发布时断网），仍保留在最前面，
    * 保证用户看到自己写的内容不丢。
@@ -1533,7 +1547,7 @@ function buildDetailPage(p, from, presetRelated = []) {
       reviewList.appendChild(el('div', { class: 'pdp-review-empty' },
         allReviews.length ? '该筛选条件下还没有评价。' : '还没有评价，购买体验后可以回来写下第一条感受。'));
     } else {
-      shown.forEach((r) => reviewList.appendChild(reviewCard(r, voteReview, followUpHandler)));
+      shown.forEach((r) => reviewList.appendChild(reviewCard(r, voteReview, followUpHandler, deleteReviewHandler)));
     }
     const rest = list.length - shown.length;
     moreBtn.setAttribute('hidden', '');
@@ -2064,7 +2078,7 @@ function followUpForm(r, onSubmit) {
   return el('div', { class: 'pdp-followup-wrap' }, [toggleBtn, box]);
 }
 
-function reviewCard(r, onVote, onFollowUp) {
+function reviewCard(r, onVote, onFollowUp, onDelete) {
   // 直接把节点引用交给回调，避免投票时回溯查询 DOM（也兼容无 querySelector 的环境）。
   const voteText = el('span', { class: 'pdp-vote-text' }, r.voted ? '已赞同' : '有用');
   const voteCount = el('span', { class: 'pdp-vote-count' }, String(Number(r.helpful) || 0));
@@ -2080,6 +2094,32 @@ function reviewCard(r, onVote, onFollowUp) {
         voteCount,
       ])
     : null;
+  // 删除：mine 专属，行内二次确认（点一次变「确认删除?」，3 秒后自动取消），避免手滑误删
+  let confirmingDelete = false;
+  let deleteTimer = null;
+  const deleteBtn = (r.mine && onDelete)
+    ? el('button', {
+        type: 'button',
+        class: 'pdp-review-del',
+        'aria-label': '删除我的评价',
+        onclick: () => {
+          if (confirmingDelete) {
+            clearTimeout(deleteTimer);
+            confirmingDelete = false;
+            onDelete(r);
+            return;
+          }
+          confirmingDelete = true;
+          deleteBtn.textContent = '确认删除?';
+          deleteBtn.classList.add('is-confirm');
+          deleteTimer = setTimeout(() => {
+            confirmingDelete = false;
+            deleteBtn.textContent = '删除';
+            deleteBtn.classList.remove('is-confirm');
+          }, 3000);
+        },
+      }, '删除')
+    : null;
   const followUps = Array.isArray(r.followUps) ? r.followUps : [];
   const foot = voteBtn || r.skuSpec
     ? el('div', { class: 'rv-foot' }, [
@@ -2087,6 +2127,10 @@ function reviewCard(r, onVote, onFollowUp) {
         voteBtn,
       ])
     : null;
+  const headRight = el('div', { class: 'rv-head-right' }, [
+    r.created_at ? el('span', { class: 'rv-date' }, String(r.created_at).slice(0, 10)) : null,
+    deleteBtn,
+  ]);
   return el('div', { class: 'review' + (r.mine ? ' is-mine' : '') }, [
     el('div', { class: 'rv-head' }, [
       el('span', { class: 'avatar' }, (r.author || '匿')[0]),
@@ -2097,7 +2141,7 @@ function reviewCard(r, onVote, onFollowUp) {
         ]),
         el('div', { class: 'stars sm' }, starText(r.rating)),
       ]),
-      r.created_at ? el('span', { class: 'rv-date' }, String(r.created_at).slice(0, 10)) : null,
+      headRight,
     ]),
     el('div', { class: 'rv-content' }, r.content),
     foot,

@@ -428,6 +428,35 @@ export async function voteReview(reviewId) {
 }
 
 /**
+ * 删除评价：在线调网关 DELETE（级联删追评/投票 + 回收图片对象，全部服务端完成）；
+ * 离线且是本地草稿（ur- 开头）则只清本地，避免「删了却还显示」的割裂感。
+ * @returns {{ok:boolean, online:boolean}}
+ */
+export async function deleteReview(productId, reviewId) {
+  const id = String(reviewId);
+  if (id.startsWith('ur-')) {
+    removeUserReview(productId, id);
+    return { ok: true, online: false };
+  }
+  await api(`/api/reviews/${encodeURIComponent(id)}?userId=${encodeURIComponent(getUserId())}`, {
+    method: 'DELETE',
+    retries: 1,
+  });
+  return { ok: true, online: true };
+}
+
+/** 从本地草稿里移除一条我写的评价（离线删除用）。 */
+export function removeUserReview(productId, reviewId) {
+  const id = String(productId);
+  const rid = String(reviewId);
+  const all = readJSON(USER_REVIEWS_KEY, {});
+  if (!Array.isArray(all[id])) return;
+  all[id] = all[id].filter((r) => String(r.id) !== rid);
+  if (!all[id].length) delete all[id];
+  writeJSON(USER_REVIEWS_KEY, all);
+}
+
+/**
  * 买家秀上传：dataURL → 网关 → 对象存储。
  * 返回 `{ key, url }`：key 是入库用的稳定标识（对象键），url 是当次可渲染的地址
  * （s3 驱动下是预签名 URL，有有效期）。**持久化只能存 key**。

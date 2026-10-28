@@ -18,6 +18,7 @@ import { generateCopywriting } from './copywrite.js';
 import { handleAfterSale } from './aftersale.js';
 import { trackEvent, getTrackStats, ensureTrackIndex } from './trackStore.js';
 import { ensureSeeded } from './db/seedDb.js';
+import { getDb } from './db/connection.js';
 import * as chatEngine from './services/chatEngine.js';
 import * as productRepo from './repositories/productRepo.js';
 import * as cartRepo from './repositories/cartRepo.js';
@@ -415,6 +416,18 @@ async function route(req, res, url) {
       })), 201);
   }
 
+  // DELETE /api/reviews/:id：删除本人发布的评价（级联删追评/投票），并回收图片对象
+  const delMatch = url.pathname.match(/^\/api\/reviews\/(\d+)$/);
+  if (delMatch && req.method === 'DELETE') {
+    const userId = url.searchParams.get('userId') || 'anonymous';
+    return guarded(() => {
+      const { keys, followUpsDeleted } = reviewRepo.deleteReview(Number(delMatch[1]), userId);
+      // 图片对象 best-effort 回收：删不掉（如过期键/旧外链）也不阻断删除本身
+      const imagesRemoved = reviewRepo.purgeImages(keys);
+      return { deleted: true, followUpsDeleted, imagesRemoved };
+    });
+  }
+
   const helpfulMatch = url.pathname.match(/^\/api\/reviews\/(\d+)\/helpful$/);
   if (helpfulMatch && req.method === 'POST') {
     const parsed = await readJson(req);
@@ -726,6 +739,7 @@ async function route(req, res, url) {
         'GET /api/products/:id/reviews?userId=&filter=&sort=&limit=&offset= (评价列表 + 追评 + 星级分布)',
         'POST /api/reviews {productId|parentId, userId?, author?, rating?, content, skuSpec?, images?} (parentId 为追评)',
         'POST /api/reviews/:id/helpful {userId?} (有用投票，幂等可取消)',
+        'DELETE /api/reviews/:id?userId= (删除本人评价，级联删追评/投票并回收图片对象)',
         'POST /api/reviews/upload {data: base64} (买家秀，≤6MB，落 data/uploads 返回 /api/uploads/:name)',
         'GET /api/categories (tree=1 两级树 + 商品数)',
         'GET /api/brands (可按 category 过滤)',
@@ -812,6 +826,24 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// 孤儿对象清理：回收「已上传但没发布 / 评价删除后残留」的图片对象。
+// 读取所有评价引用的对象键，交给 storage 层比对并删除未引用的（best-effort）。
+async function runOrphanSweep() {
+  try {
+    const referenced = new Set();
+    for (const row of getDb().prepare('SELECT images FROM reviews').all()) {
+      try {
+        const arr = JSON.parse(row.images || '[]');
+        for (const img of arr) if (storage.isObjectKey(img)) referenced.add(img);
+      } catch { /* 坏数据跳过 */ }
+    }
+    const removed = await storage.sweepOrphans(referenced, { logger: log });
+    if (removed) log.info('storage.sweep_done', { removed });
+  } catch (e) {
+    log.warn('storage.sweep_failed', { err: e.message });
+  }
+}
+
 // ===== 优雅停机 =====
 let isClosing = false;
 const connections = new Set();
@@ -864,9 +896,19 @@ server.listen(config.port, async () => {
   for (const w of warns) log.warn('config', { msg: w });
   // 对象存储自检：桶不存在就建，连不上只告警（不阻断启动，上传时才报错）
   storage.ensureReady(log).then((r) => {
-    if (r.ok) log.info('storage', { driver: r.driver, created: !!r.created, ttl: store.signedUrlTtlSec });
-    else log.warn('storage', { driver: r.driver, err: r.error });
+    if (r.ok) {
+      log.info('storage', { driver: r.driver, created: !!r.created, ttl: store.signedUrlTtlSec });
+      // 启动后顺手清一次孤儿对象（上传未发布 / 删除后残留），失败不影响主流程
+      runOrphanSweep();
+    } else {
+      log.warn('storage', { driver: r.driver, err: r.error });
+    }
   });
+  // 周期回收孤儿对象：后台静默运行，不阻塞请求
+  if (config.storage.sweepIntervalSec > 0) {
+    const timer = setInterval(runOrphanSweep, config.storage.sweepIntervalSec * 1000);
+    if (timer.unref) timer.unref();
+  }
   // 埋点索引模板：docker 模式 best-effort 建（ES 不可用时静默跳过）
   ensureTrackIndex().catch(() => {});
   try {

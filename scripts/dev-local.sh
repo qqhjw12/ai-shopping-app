@@ -4,6 +4,7 @@
 #   bash scripts/dev-local.sh                # 默认 8080 + 5500
 #   PORT=9090 WEB_PORT=5501 bash scripts/dev-local.sh
 #   SKIP_GATEWAY=1 bash scripts/dev-local.sh # 只起前端（网关已在跑 / 连远程网关）
+#   WITH_STORAGE=1 bash scripts/dev-local.sh # 同时后台拉起本地 S3 替身，买家秀走对象存储（预签名 URL）
 #
 # 静态服务优先用本机 Python（scripts/dev_server.py：no-store + MIME 补全）：
 # 有 Python 就用 Python，Python 缺失或启动失败时自动降级到 Node 实现
@@ -17,8 +18,12 @@ GW_PORT="${PORT:-8080}"
 WEB_PORT="${WEB_PORT:-5500}"
 WEB_BIND="${WEB_BIND:-127.0.0.1}"
 SKIP_GATEWAY="${SKIP_GATEWAY:-0}"
+# 一键拉起本地 S3 替身（SeaweedFS），让买家秀对象存储链路开箱即跑
+WITH_STORAGE="${WITH_STORAGE:-0}"
+S3_PORT="${S3_PORT:-8333}"
 GW_PID=""
 WEB_PID=""
+S3_PID=""
 
 # ── 工具函数 ────────────────────────────────────────────────────────────────
 
@@ -55,6 +60,8 @@ cleanup() {
   WEB_PID=""
   stop_pid "$GW_PID" "网关"
   GW_PID=""
+  stop_pid "$S3_PID" "本地 S3"
+  S3_PID=""
 }
 trap cleanup EXIT INT TERM
 
@@ -102,6 +109,33 @@ if [[ -f "$ROOT/ai-gateway/.env" ]] && [[ "${SKIP_DOTENV:-0}" != "1" ]]; then
   . "$ROOT/ai-gateway/.env"
   set +a
   echo "· 已加载 ai-gateway/.env"
+fi
+
+# ── 0.5 可选：本地 S3 替身（买家秀对象存储） ────────────────────────────────
+# WITH_STORAGE=1 时，后台拉起 SeaweedFS，并把它打印的凭据/端点注入网关进程环境，
+# 让「买家秀落对象存储 + 预签名 URL」开箱即跑（凭据与 dev-storage.sh 默认值保持一致）。
+if [[ "$WITH_STORAGE" == "1" ]] && [[ "$SKIP_GATEWAY" != "1" ]]; then
+  echo "▶ 启动本地 S3 替身（SeaweedFS，端口 ${S3_PORT}）…"
+  bash "$ROOT/scripts/dev-storage.sh" &
+  S3_PID=$!
+  # 轮询等 S3 端口就绪（首次会先下载 weed 二进制，可能要一会儿）
+  for _ in $(seq 1 60); do
+    if node -e 'fetch(process.argv[1]).then(()=>process.exit(0)).catch(()=>process.exit(1))' "http://127.0.0.1:${S3_PORT}/" >/dev/null 2>&1; then
+      break
+    fi
+    kill -0 "$S3_PID" 2>/dev/null || { echo "⚠ 本地 S3 进程退出，买家秀将不可用（请查看上方日志）" >&2; S3_PID=""; break; }
+    sleep 1
+  done
+  if [[ -n "$S3_PID" ]]; then
+    export STORAGE_DRIVER=s3
+    export S3_ENDPOINT="http://127.0.0.1:${S3_PORT}"
+    export S3_REGION=us-east-1
+    export S3_BUCKET=review-media
+    export S3_ACCESS_KEY_ID=shopdevaccess
+    export S3_SECRET_ACCESS_KEY=shopdevsecret1234567890
+    export S3_FORCE_PATH_STYLE=1
+    echo "· 已注入 S3 环境变量（STORAGE_DRIVER=s3 @ ${S3_ENDPOINT}）"
+  fi
 fi
 
 if [[ "$SKIP_GATEWAY" == "1" ]]; then

@@ -277,6 +277,7 @@ if (failed === 0) {
       }
     }
 
+    // 删除本人评价闭环：mine 卡片带删除按钮，行内二次确认后从列表移除并回滚计数
     const cases = [
       ['投票计数 +1', voted === base + 1],
       ['投票选中态与文案', votedState],
@@ -296,6 +297,34 @@ if (failed === 0) {
     const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 有用投票 / 写评价${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
     if (bad.length) failed++;
+
+    // 删除本人评价：在主断言之后再做，避免改动列表影响前面的计数断言。
+    // 刚发布的「我的评价」是本地草稿（ur- 开头），走本地删除路径。
+    let confirming = false;
+    const delBtnBefore = pdp.querySelectorAll('.pdp-review-del').length;
+    // 垫片不支持复合选择器 .review.is-mine，改用 classList 精确判定
+    const mineCard = [...pdp.querySelectorAll('.review')].find((n) => n.classList.contains('is-mine'));
+    const mineHadText = mineCard ? /自动化测试/.test(mineCard.textContent || '') : false;
+    const delBtn = pdp.querySelectorAll('.pdp-review-del')[0];
+    if (delBtn && delBtn.listeners.click) {
+      delBtn.listeners.click(); // 第一次：进入二次确认态
+      confirming = delBtn.textContent === '确认删除?' && delBtn.classList.contains('is-confirm');
+      delBtn.listeners.click(); // 第二次：确认删除
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    const afterDelete = pdp.querySelectorAll('.review').length;
+    const delBtnAfter = pdp.querySelectorAll('.pdp-review-del').length;
+    const totalAfterDel = num(pdp.querySelectorAll('.pdp-review-filter')[0]);
+    const delCases = [
+      ['mine 评价带删除按钮', delBtnBefore >= 1 && mineHadText],
+      ['删除进入二次确认态', confirming],
+      ['删除后列表 −1', afterDelete === total],
+      ['删除后计数回滚', totalAfterDel === total],
+      ['删除后移除删除按钮', delBtnAfter < delBtnBefore],
+    ];
+    const delBad = delCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${delBad.length === 0 ? 'ok  ' : 'FAIL'} 删除本人评价${delBad.length ? ` → 缺失: ${delBad.join('、')}` : ''}`);
+    if (delBad.length) failed++;
   } catch (e) {
     failed++;
     console.log(`  FAIL 交互断言异常: ${String(e.message).split('\n')[0]}`);

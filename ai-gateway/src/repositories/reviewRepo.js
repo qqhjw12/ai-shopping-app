@@ -2,6 +2,7 @@
 // 与既有仓储保持一致：只依赖 connection.getDb()，全部参数化查询，不放任何用户输入进 SQL 字符串。
 import { getDb } from '../db/connection.js';
 import { resolveMediaList } from '../storage/index.js';
+import { removeObject } from '../storage/index.js';
 
 // 业务约束集中在此，路由层与存储层共用同一份口径
 export const REVIEW_RULES = {
@@ -250,6 +251,52 @@ export function createFollowUp({ reviewId, userId = 'anonymous', author, content
   );
   review.isMine = true;
   return review;
+}
+
+/**
+ * 删除评价（主评价，级联删追评与投票）。
+ * 只放行「本人发布（source==='user'）」的评价，种子数据不可删。
+ * @returns {{keys:string[], followUpsDeleted:number}} keys 为需要一并清理的图片对象键
+ * @throws 带 status 的业务错误：404 不存在 / 403 无权
+ */
+export function deleteReview(id, userId = 'anonymous') {
+  const db = getDb();
+  const rid = Number(id);
+  const row = db
+    .prepare('SELECT id, product_id, user_id, source, images FROM reviews WHERE id = ?')
+    .get(rid);
+  if (!row) throw fail('评价不存在', 404);
+  if (row.user_id !== String(userId) || row.source !== 'user') {
+    throw fail('无权删除该评价', 403);
+  }
+  // 收集主评价 + 所有追评的图片对象键（追评随主评价级联删除，但图片对象需应用层回收）
+  const keys = new Set(normalizeImages(safeJson(row.images, [])));
+  const followUps = db.prepare('SELECT images FROM reviews WHERE parent_id = ?').all(rid);
+  for (const f of followUps) {
+    for (const img of normalizeImages(safeJson(f.images, []))) keys.add(img);
+  }
+  // 事务删除：主评价删掉后，DB 层 parent_id / review_votes 的 ON DELETE CASCADE 自动清理
+  const followUpsDeleted = db.prepare('SELECT COUNT(*) AS n FROM reviews WHERE parent_id = ?').get(rid).n;
+  db.prepare('DELETE FROM reviews WHERE id = ?').run(rid);
+  syncProductStats(row.product_id);
+  return { keys: [...keys], followUpsDeleted };
+}
+
+/**
+ * 把一组对象键从存储里删掉（best-effort）。
+ * 只认对象存储键，旧的 /api/uploads 或外链不在此处理（由各自生命周期管理）。
+ * @returns {number} 实际删除成功的个数
+ */
+export function purgeImages(keys = []) {
+  let removed = 0;
+  for (const k of keys) {
+    try {
+      if (removeObject(k)) removed += 1;
+    } catch {
+      /* 单张失败不影响其余；图删不掉比评价删不掉轻得多 */
+    }
+  }
+  return removed;
 }
 
 /**

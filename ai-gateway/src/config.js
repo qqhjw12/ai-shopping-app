@@ -63,6 +63,8 @@ export const config = {
     forcePathStyle: env.S3_FORCE_PATH_STYLE !== '0',
     // 预签名 URL 有效期（秒）。短一点更安全：链接被转发出去也会自然失效
     mediaUrlTtl: Number(env.MEDIA_URL_TTL_SECONDS || 900),
+    // 孤儿对象清理周期（秒）：回收上传未发布/删除后残留的图片对象。0 关闭
+    sweepIntervalSec: Number(env.STORAGE_SWEEP_INTERVAL_SEC || 1800),
   },
   // 可选：OpenAI 兼容大模型（DeepSeek / 通义 / Kimi / OpenAI 皆可）。
   // 未配置 LLM_API_KEY 时自动使用内置本地对话引擎（零外部依赖）。
