@@ -2141,6 +2141,49 @@ textarea { resize: vertical; }
   letter-spacing: 0.02em;
 }
 .cart-foot .checkout:hover { background: #d2b47b; }
+/* 库存不足时禁用结算：静默变浅是不够的，配合上方 .cart-block-note 一起说明原因 */
+.cart-foot .checkout:disabled { opacity: 0.45; cursor: not-allowed; }
+.cart-foot .checkout:disabled:hover { background: var(--gold); }
+
+/* ---- 购物袋抽屉：金额明细 / 撤销条 / 步进与清空（Liquid Luxe Editorial 令牌） ---- */
+.cart-step:disabled { opacity: 0.35; cursor: not-allowed; }
+.cart-step:disabled:hover { border-color: var(--line); background: transparent; color: var(--body); }
+.cart-item.is-insufficient { opacity: 0.72; }
+.cart-del { color: var(--muted); font-size: 9.5px; }
+
+.cart-sum { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.cart-sum-row { display: flex; align-items: baseline; justify-content: space-between; padding: 3px 0; color: var(--body); font-size: 11px; }
+.cart-sum-val { color: var(--ink); font-variant-numeric: tabular-nums; }
+.cart-sum-total { margin-top: 7px; padding-top: 11px; border-top: 1px solid var(--line); }
+.cart-sum-total > span:first-child { color: var(--body); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.cart-sum-total .cart-sum-val { color: var(--gold-deep); font-family: var(--serif); font-size: 24px; font-weight: 700; }
+.cart-ship-hint { margin-top: 5px; color: var(--gold-deep); font-size: 10px; letter-spacing: 0.02em; }
+
+.cart-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.cart-undo[hidden] { display: none; }
+.cart-undo-text { color: var(--body); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cart-undo-btn { flex: none; height: 26px; padding: 0 11px; border-radius: var(--r-pill); color: var(--ink); font-size: 10px; }
+
+.cart-block-note { margin-bottom: 10px; padding: 8px 11px; border: 1px solid var(--line); border-radius: var(--r-btn); background: var(--surface); color: #8f5f52; font-size: 10.5px; }
+.cart-clear { margin-top: 10px; text-align: center; }
+.cart-clear-btn { width: 100%; height: 32px; border-radius: var(--r-pill); color: var(--muted); font-size: 10px; }
+
+@media (max-width: 640px) {
+  .cart-sum-row { font-size: 11.5px; }
+  .cart-undo { flex-wrap: wrap; }
+  .cart-undo-text { white-space: normal; }
+}
 
 /* ============================ 结算 / 订单 / 收藏 ============================ */
 .checkout { max-width: 1080px; }
@@ -2169,6 +2212,27 @@ textarea { resize: vertical; }
 .co-item .nm { color: var(--ink); font-size: 11.5px; font-weight: 500; }
 .co-item .price-line { display: flex; align-items: baseline; gap: 8px; color: var(--body); font-size: 10.5px; }
 .co-item .subtotal { color: var(--ink); font-family: var(--serif); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* 结算页清单内的数量步进：沿用抽屉同一套 .cart-step / .qty 视觉，避免两处长得不一样 */
+.co-item .info { min-width: 0; }
+.co-qty { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
+.co-qty .cart-step {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--body);
+  font-size: 13px;
+  line-height: 1;
+}
+.co-qty .cart-step:hover:not(:disabled) { border-color: var(--ink); background: var(--ink); color: var(--canvas); }
+.co-qty .cart-step:disabled { opacity: 0.35; cursor: not-allowed; }
+.co-qty .cart-qty-num { min-width: 16px; color: var(--ink); font-size: 11px; font-weight: 500; text-align: center; font-variant-numeric: tabular-nums; }
+.co-qty .cart-del { height: 24px; margin-left: 2px; padding: 0 9px; border-radius: var(--r-pill); color: var(--muted); font-size: 9.5px; }
+.co-item.is-insufficient { opacity: 0.72; }
 .addr {
   position: relative;
   margin-bottom: 9px;
@@ -2190,6 +2254,41 @@ textarea { resize: vertical; }
   background: var(--surface);
   color: var(--body);
   font-size: 8.5px;
+}
+/* 演示/离线数据的标记：让用户一眼看出这不是自己录入的真实资料 */
+.badge-demo {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-size: 8.5px;
+  vertical-align: middle;
+}
+.addr-tags { margin-top: 4px; min-height: 14px; }
+.addr-add-toggle { width: 100%; height: 34px; margin-top: 4px; border-radius: var(--r-pill); color: var(--ink); font-size: 10.5px; }
+.addr-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.addr-input {
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 11.5px;
+}
+.addr-input:focus { outline: none; border-color: var(--gold); }
+.addr-input::placeholder { color: var(--muted); }
+.addr-check-row { display: flex; align-items: center; gap: 7px; color: var(--body); font-size: 10.5px; }
+.addr-check { width: 13px; height: 13px; accent-color: var(--gold); }
+.addr-form-actions { display: flex; gap: 8px; }
+.addr-form-actions .buy { flex: 1; height: 36px; border-radius: var(--r-pill); }
+.cp-auto { display: inline-block; margin-top: 3px; color: var(--gold-deep); font-size: 9px; letter-spacing: 0.02em; }
+
+@media (max-width: 640px) {
+  .addr-form-actions .buy { width: 100%; }
 }
 .coupon {
   display: flex;

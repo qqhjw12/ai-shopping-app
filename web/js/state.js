@@ -83,6 +83,9 @@ export function addToCart(product, qty = 1, skuId = null) {
       brand: product.brand || '',
       spec: product.spec || '',
       categoryId: product.categoryId || '',
+      // 库存要跟着进购物袋：数量夹逼（抽屉/结算页的 + 上限）完全依赖这个值，
+      // 漏存会让本地加购的商品读不到库存，从而"想买多少买多少"，直到下单才被服务端驳回
+      stock: product.stock,
       qty,
     });
   }
@@ -104,6 +107,22 @@ export function setQty(id, qty) {
       .then((d) => d && Array.isArray(d.items) && mergeServer(d))
       .catch(() => {});
   }
+  return cart;
+}
+
+/**
+ * 撤销删除：把整条购物袋记录原样放回（含服务端同步）。
+ * 与 addToCart 的区别在于——它恢复的是被删前的快照（数量、itemId 原样），
+ * 而不是「再买一件」，避免撤销时数量被重复累加。
+ */
+export function restoreCartItem(snapshot) {
+  if (!snapshot) return getCart();
+  const cart = readLocal();
+  const key = snapshot.__key || keyOf(snapshot.productId, snapshot.skuId);
+  if (cart.some((i) => (i.__key || i.id) === key)) return cart;
+  cart.push({ ...snapshot, __key: key });
+  writeLocal(cart);
+  pushAdd(snapshot.productId, snapshot.skuId || null, snapshot.qty);
   return cart;
 }
 

@@ -9,6 +9,9 @@ export function el(tag, props = {}, children = []) {
     if (v == null || v === false) return;
     if (k === 'class') node.className = v;
     else if (k === 'html') node.innerHTML = v;
+    // 布尔属性要同时回写到 DOM 属性上：只 setAttribute 的话，
+    // 读 node.disabled / node.checked 仍是初始值，禁用态在代码层面就"看不见"
+    else if (k === 'disabled' || k === 'checked') { node.setAttribute(k, v); node[k] = Boolean(v); }
     else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
     else node.setAttribute(k, v);
   });

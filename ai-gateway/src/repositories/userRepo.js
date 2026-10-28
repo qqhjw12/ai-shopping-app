@@ -78,6 +78,9 @@ export function ensureUser(userId, nickname = '游客') {
   const row = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!row) {
     db.prepare('INSERT INTO users (id, nickname, level) VALUES (?, ?, ?)').run(userId, nickname, 'normal');
+    // 券是按会员发放的（user_coupons），新建会员时补发在售券；
+    // 否则任何首次到访的用户卡包都是空的，结算页优惠券区会永远显示「暂无可用优惠券」。
+    db.prepare("INSERT INTO user_coupons (user_id, coupon_id, status) SELECT ?, id, 'unused' FROM coupons").run(userId);
   }
   if (!defaultAddress(userId)) {
     db.prepare(`
@@ -110,6 +113,9 @@ export function saveAddress(userId, { id, receiver, phone, region, detail, isDef
 
 /** 用户卡包：未使用的券，并标注当前金额下是否可用 */
 export function listCoupons(userId, amount = 0) {
+  // 先建档：新访客首次进结算页时 ensureUser 才会补发体验券。
+  // 少了这一步，卡包永远查不到券，结算页的「自动选最优券」形同虚设。
+  const uid = ensureUser(userId, '游客');
   return getDb()
     .prepare(`
       SELECT uc.id, uc.coupon_id, uc.status, uc.claimed_at,
@@ -119,7 +125,7 @@ export function listCoupons(userId, amount = 0) {
       WHERE uc.user_id = ? AND uc.status = 'unused'
       ORDER BY c.threshold DESC
     `)
-    .all(userId)
+    .all(uid)
     .map((r) => {
       const usable = amount >= r.threshold;
       return {

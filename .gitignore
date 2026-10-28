@@ -14,6 +14,8 @@ ai-gateway/data/
 
 # 真实数据导入缓存：快照入库，保证全新克隆也能离线 `npm run db:ingest` 复现真实商品
 # （如需精简仓库，可忽略本目录并改用 `npm run db:ingest -- --fetch` 实时抓取）
+# 但下划线开头的临时/调试脚本一律不入库（如本地静态服务、一次性校验脚本）
+ai-gateway/.cache/_*.mjs
 
 # 依赖 / 构建产物
 node_modules/

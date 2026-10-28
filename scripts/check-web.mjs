@@ -302,5 +302,166 @@ if (failed === 0) {
   }
 }
 
+/* ---------------- 购物袋抽屉断言 ---------------- */
+// 抽屉改造的核心承诺：数量受库存夹逼、删除可撤销、底部给出金额明细与包邮差额。
+if (failed === 0) {
+  console.log('\n购物袋抽屉断言（数量夹逼 / 撤销删除 / 金额明细）');
+  try {
+    const state = await import(pathToFileURL(join(WEB_DIR, 'state.js')).href);
+    const { buildCartPanel } = await import(pathToFileURL(join(WEB_DIR, 'views.js')).href);
+    state.clearCart();
+    // 故意让两件商品的小计（80）低于包邮门槛（99），用于验证「再买 ¥19 包邮」提示
+    state.addToCart({ id: 'cart_probe_a', name: '测试商品A', price: 50, pic: '', spec: '规格A', stock: 2 }, 1);
+    state.addToCart({ id: 'cart_probe_b', name: '测试商品B', price: 30, pic: '', spec: '规格B' }, 1);
+
+    const panel = buildCartPanel();
+    const q = (cls) => panel.querySelectorAll(cls);
+    const click = (node) => node && node.listeners && node.listeners.click && node.listeners.click();
+    const text = () => panel.textContent;
+
+    // 行结构
+    const rows = q('.cart-item').length;
+    const sumRows = q('.cart-sum-row').length;
+    const hasTotalRow = q('.cart-sum-total').length === 1;
+    const gapHintBefore = /再买/.test(text()) && /19/.test(text());
+
+    // 数量步进：每件商品有一组「− / +」
+    const steps = q('.cart-step');
+    const minusA = steps[0];
+    const plusA = steps[1];
+    const minusDisabledAtOne = minusA.disabled === true;
+    click(plusA);
+    const qtyAfterPlus = state.getCart().find((i) => i.productId === 'cart_probe_a').qty;
+    // 库存上限 2：再点一次应被夹逼住，且按钮置灰
+    const panel2 = buildCartPanel();
+    const plusA2 = panel2.querySelectorAll('.cart-step')[1];
+    click(plusA2);
+    const qtyClamped = state.getCart().find((i) => i.productId === 'cart_probe_a').qty;
+    const plusDisabledAtMax = panel2.querySelectorAll('.cart-step')[1].disabled === true;
+
+    // 达到 130 元 → 免运费，包邮提示消失
+    const panel3 = buildCartPanel();
+    const freeShipping = /免运费/.test(panel3.textContent) && !/再买/.test(panel3.textContent);
+
+    // 删除 → 撤销
+    const panel4 = buildCartPanel();
+    const delBtns = panel4.querySelectorAll('.cart-del');
+    click(delBtns[0]);
+    const afterDeleteRows = panel4.querySelectorAll('.cart-item').length;
+    const undoVisible = panel4.querySelectorAll('.cart-undo')[0].getAttribute('hidden') == null;
+    const undoBtn = panel4.querySelectorAll('.cart-undo-btn')[0];
+    click(undoBtn);
+    const restoredRows = panel4.querySelectorAll('.cart-item').length;
+
+    // 清空需二次确认：第一次点只改文案不清空
+    const panel5 = buildCartPanel();
+    const clearBtn = panel5.querySelectorAll('.cart-clear-btn')[0];
+    click(clearBtn);
+    const afterFirstClickRows = panel5.querySelectorAll('.cart-item').length;
+    const confirmLabel = /再点一次/.test(panel5.querySelectorAll('.cart-clear-btn')[0].textContent || '');
+    click(panel5.querySelectorAll('.cart-clear-btn')[0]);
+    const clearedEmpty = panel5.querySelectorAll('.cart-item').length === 0 && panel5.querySelectorAll('.cart-empty').length >= 1;
+
+    const cases = [
+      ['商品行数 = 2', rows === 2],
+      ['金额明细（小计/运费/合计）', sumRows >= 3 && hasTotalRow],
+      ['未达门槛时给出包邮差额', gapHintBefore],
+      ['数量为 1 时「−」禁用', minusDisabledAtOne],
+      ['点击「+」数量增加', qtyAfterPlus === 2],
+      ['数量夹逼在库存上限', qtyClamped === 2],
+      ['到上限后「+」禁用', plusDisabledAtMax],
+      ['满额后转为免运费', freeShipping],
+      ['删除后行数 -1', afterDeleteRows === 1],
+      ['删除后撤销条可见', undoVisible],
+      ['撤销后恢复原行数', restoredRows === 2],
+      ['清空需二次确认（首点不清空）', afterFirstClickRows === 2 && confirmLabel],
+      ['二次确认后真正清空', clearedEmpty],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 购物袋抽屉${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 购物袋断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
+/* ---------------- 结算页断言（离线/演示链路） ---------------- */
+if (failed === 0) {
+  console.log('\n结算页断言（地址新增 / 清单改数量 / 优惠券自动最优）');
+  try {
+    const state = await import(pathToFileURL(join(WEB_DIR, 'state.js')).href);
+    const { renderCheckout } = await import(pathToFileURL(join(WEB_DIR, 'checkout.js')).href);
+    state.clearCart();
+    state.addToCart({ id: 'co_probe_a', name: '结算测试A', price: 120, pic: '', spec: '规格A', stock: 5 }, 1);
+    state.addToCart({ id: 'co_probe_b', name: '结算测试B', price: 30, pic: '', spec: '规格B' }, 1);
+
+    const view = new El('main');
+    await renderCheckout(view);
+    await new Promise((r) => setTimeout(r, 0));
+    const q = (cls) => view.querySelectorAll(cls);
+    const click = (node) => node && node.listeners && node.listeners.click && node.listeners.click();
+
+    const addrCountBefore = q('.addr').length;
+    const hasDemoAddr = /演示地址/.test(view.textContent);
+    const couponCount = q('.coupon').length;
+    const autoBest = q('.cp-auto').length >= 1;
+    const items = q('.co-item').length;
+    const inlineStepper = q('.co-qty').length === items && q('.cart-step').length === items * 2;
+    const sumRows = q('.sum-row').length >= 3;
+    const submitBtn = q('.submit')[0];
+    // 合计数值是结算页里唯一使用 .money 的地方（垫片不支持 `.sum-row.total` 这类复合选择）
+    const totalBefore = (q('.money')[0] || {}).textContent || '';
+
+    // 清单内改数量 → 金额明细应随之变化（垫片不支持后代选择器，这里按单类名取第 2 个按钮 = 首行「+」）
+    click(q('.cart-step')[1]);
+    await new Promise((r) => setTimeout(r, 20)); // 预览是异步重算的，多给一点 tick
+    const totalAfter = (view.querySelectorAll('.money')[0] || {}).textContent || '';
+    const amountChanged = Boolean(totalBefore) && Boolean(totalAfter) && totalBefore !== totalAfter;
+
+    // 地址表单：空内容保存不生效；补全后新增一条
+    // 注意：垫片不支持后代选择器，按单类名取 `.buy`（文档顺序上地址表单的保存按钮在前，结算提交按钮在后）
+    click(q('.addr-add-toggle')[0]);
+    const form = q('.addr-form')[0];
+    const formShown = Boolean(form);
+    let addrInvalidGuard = false;
+    let addrAdded = false;
+    if (form) {
+      const inputs = view.querySelectorAll('.addr-input');
+      click(q('.buy')[0]);   // 收货人为空 → 应被拦下
+      await new Promise((r) => setTimeout(r, 0));
+      addrInvalidGuard = view.querySelectorAll('.addr').length === addrCountBefore;
+
+      inputs[0].value = '张三';
+      inputs[1].value = '13800000000';
+      inputs[2].value = '上海市 徐汇区';
+      inputs[3].value = '某路 100 号';
+      click(view.querySelectorAll('.buy')[0]);
+      await new Promise((r) => setTimeout(r, 20));
+      addrAdded = view.querySelectorAll('.addr').length === addrCountBefore + 1;
+    }
+
+    const cases = [
+      ['购物袋外也能渲染结算页', items === 2],
+      ['离线给出演示收货地址', addrCountBefore >= 1 && hasDemoAddr],
+      ['优惠券区域已加载', couponCount >= 1],
+      ['自动选中省得最多的券', autoBest],
+      ['清单内含数量步进 + 删除', inlineStepper],
+      ['金额明细 + 提交按钮', sumRows && Boolean(submitBtn) && /提交订单/.test(submitBtn.textContent || '')],
+      ['改数量后金额即时重算', amountChanged],
+      ['新增地址入口可展开表单', formShown],
+      ['空地址被拦下（不新增）', addrInvalidGuard],
+      ['补全后地址新增成功', addrAdded],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 结算页${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+    state.clearCart();
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 结算页断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

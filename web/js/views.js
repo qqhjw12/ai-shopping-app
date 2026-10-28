@@ -5,7 +5,8 @@ import {
   loading, banner, productCard, productThumb, openModal, openDrawer, closeDrawer, toast, updateCartBadge, isRealPic,
   revealCards, emptyEditorial,
 } from './ui.js';
-import { addToCart, setQty, removeFromCart, clearCart, getUserId, getCart } from './state.js';
+import { addToCart, setQty, removeFromCart, clearCart, getUserId, getCart, restoreCartItem } from './state.js';
+import { summarize } from './store/checkoutStore.js';
 import { askGuide, askProductQA } from './assistant.js';
 import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
@@ -2123,50 +2124,224 @@ function copyShareLink(p, from) {
 }
 
 /* ---------------- 购物车抽屉 ---------------- */
-export function renderCartDrawer() {
-  const cart = getCart();
-  const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const rows = cart.map((it) =>
-    el('div', { class: 'cart-item' }, [
-      el('div', { class: 'thumb' }, productThumb(it)),
-      el('div', { class: 'info' }, [
-        el('div', { class: 'nm' }, it.name),
-        it.spec ? el('div', { class: 'spec' }, it.spec) : null,
-        el('div', { class: 'pr' }, fmtPrice(it.price * it.qty)),
-        it.insufficient ? el('div', { class: 'warn-line' }, `库存不足，仅剩 ${it.stock} 件`) : null,
-        el('div', { class: 'qty' }, [
-          el('button', { onclick: () => { setQty(it.__key || it.id, it.qty - 1); renderCartDrawer(); updateCartBadge(); } }, '−'),
-          el('span', {}, String(it.qty)),
-          el('button', { onclick: () => { setQty(it.__key || it.id, it.qty + 1); renderCartDrawer(); updateCartBadge(); } }, '+'),
-          el('button', { class: 'ghost', onclick: () => { removeFromCart(it.__key || it.id); renderCartDrawer(); updateCartBadge(); } }, '删除'),
-        ]),
-      ]),
-    ]),
-  );
+/** 单品数量上限：优先以库存为准，否则给演示上限，避免无限累加（购物袋抽屉与结算页共用） */
+export const MAX_CART_QTY = 99;
 
-  const node = el('div', {}, [
-    el('div', { class: 'drawer-heading' }, [
-      el('div', {}, [
-        el('span', { class: 'eyebrow' }, 'YOUR SELECTION'),
-        el('div', { class: 'drawer-title' }, [
-          el('h2', {}, '购物袋'),
-          el('span', { class: 'drawer-count' }, `${cart.reduce((n, i) => n + i.qty, 0)} 件`),
+export function maxQty(it) {
+  const stock = Number(it && it.stock);
+  return Number.isFinite(stock) && stock > 0 ? stock : MAX_CART_QTY;
+}
+
+/**
+ * 构建购物袋面板 —— 纯构建函数，不依赖抽屉是否已挂载，自检脚本可直接断言其内容。
+ *
+ * 相对上一版的迭代点：
+ *   - 数量步进受库存夹逼，到边界时禁用对应按钮（旧版点「−」到 0 会直接删掉商品，属误删）
+ *   - 删除后可「撤销」恢复，避免手滑清空后的无力感
+ *   - 底部不再是干巴巴一个总额，而是「商品小计 / 运费 / 合计」明细 + 「再买 ¥X 包邮」提示
+ *   - 存在库存不足的行时，明确拦截结算并说明原因，而不是让用户点了才报错
+ */
+export function buildCartPanel() {
+  const undoBox = el('div', { class: 'cart-undo', hidden: 'hidden' });
+  const listBox = el('div', { class: 'cart-list' });
+  const sumBox = el('div', { class: 'cart-sum' });
+  const footBox = el('div', { class: 'cart-foot' });
+  const clearBox = el('div', { class: 'cart-clear' });
+
+  let pendingUndo = null;      // 待撤销的已删行快照
+  let confirmingClear = false; // 清空需二次确认，避免误触
+
+  const root = el('div', {});
+
+  function paintUndo() {
+    undoBox.innerHTML = '';
+    if (!pendingUndo) {
+      undoBox.setAttribute('hidden', 'hidden');
+      return;
+    }
+    undoBox.removeAttribute('hidden');
+    undoBox.appendChild(el('span', { class: 'cart-undo-text' }, `已移除「${pendingUndo.name}」`));
+    undoBox.appendChild(
+      el('button', {
+        type: 'button',
+        class: 'ghost cart-undo-btn',
+        onclick: () => {
+          if (!pendingUndo) return;
+          restoreCartItem(pendingUndo); // 恢复的是快照而非重新加购，数量不会被重复累加
+          pendingUndo = null;
+          toast('已恢复该商品', 'ok');
+          repaint();
+        },
+      }, '撤销'),
+    );
+  }
+
+  function paintList() {
+    listBox.innerHTML = '';
+    const cart = getCart();
+    if (!cart.length) {
+      listBox.appendChild(el('div', { class: 'cart-empty' }, '购物袋还是空的。去挑一件值得的物件吧。'));
+      return;
+    }
+    cart.forEach((it) => {
+      const key = it.__key || it.id;
+      const max = maxQty(it);
+      const step = (delta) => {
+        const cur = getCart().find((x) => (x.__key || x.id) === key);
+        if (!cur) return;
+        // 数量始终夹逼在 [1, 库存上限]，避免越界后才发现库存不足
+        const next = Math.min(maxQty(cur), Math.max(1, cur.qty + delta));
+        if (next === cur.qty) return;
+        setQty(key, next);
+        updateCartBadge();
+        repaint();
+      };
+      listBox.appendChild(
+        el('div', { class: 'cart-item' + (it.insufficient ? ' is-insufficient' : '') }, [
+          el('div', { class: 'thumb' }, productThumb(it)),
+          el('div', { class: 'info' }, [
+            el('div', { class: 'nm' }, it.name),
+            it.spec ? el('div', { class: 'spec' }, it.spec) : null,
+            el('div', { class: 'pr' }, fmtPrice(Number(it.price || 0) * Number(it.qty || 0))),
+            it.insufficient ? el('div', { class: 'warn-line' }, `库存不足，仅剩 ${it.stock} 件`) : null,
+            el('div', { class: 'qty' }, [
+              el('button', {
+                class: 'cart-step',
+                type: 'button',
+                'aria-label': '减少数量',
+                disabled: it.qty <= 1,
+                onclick: () => step(-1),
+              }, '−'),
+              el('span', { class: 'cart-qty-num' }, String(it.qty)),
+              el('button', {
+                class: 'cart-step',
+                type: 'button',
+                'aria-label': '增加数量',
+                disabled: it.qty >= max,
+                onclick: () => step(1),
+              }, '+'),
+              el('button', {
+                class: 'ghost cart-del',
+                type: 'button',
+                onclick: () => {
+                  const cur = getCart().find((x) => (x.__key || x.id) === key);
+                  if (!cur) return;
+                  pendingUndo = { ...cur };
+                  removeFromCart(key);
+                  updateCartBadge();
+                  repaint();
+                },
+              }, '删除'),
+            ]),
+          ]),
         ]),
+      );
+    });
+  }
+
+  function paintSum() {
+    sumBox.innerHTML = '';
+    const cart = getCart();
+    if (!cart.length) return;
+    const productAmount = cart.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 0), 0);
+    const sum = summarize(productAmount); // 与网关同规则：满 ¥99 包邮，否则 ¥10
+    const row = (label, value, cls = '') =>
+      el('div', { class: `cart-sum-row ${cls}`.trim() }, [el('span', {}, label), el('span', { class: 'cart-sum-val' }, value)]);
+    sumBox.appendChild(row('商品小计', fmtPrice(sum.productAmount)));
+    sumBox.appendChild(row('运费', sum.shippingFee ? fmtPrice(sum.shippingFee) : '免运费'));
+    if (sum.shippingFee && sum.freeShippingGap) {
+      sumBox.appendChild(el('div', { class: 'cart-ship-hint' }, `再买 ${fmtPrice(sum.freeShippingGap)} 即可包邮`));
+    }
+    sumBox.appendChild(row('合计', fmtPrice(sum.payAmount), 'cart-sum-total'));
+  }
+
+  function paintFoot() {
+    footBox.innerHTML = '';
+    const cart = getCart();
+    if (!cart.length) {
+      footBox.appendChild(
+        el('button', { class: 'ghost', onclick: () => { closeDrawer(); navigate('#/products'); } }, '去逛逛'),
+      );
+      return;
+    }
+    const blocked = cart.filter((i) => i.insufficient);
+    const count = cart.reduce((n, i) => n + i.qty, 0);
+    if (blocked.length) {
+      footBox.appendChild(
+        el('div', { class: 'cart-block-note' }, `${blocked.length} 件商品库存不足，请先调整数量`),
+      );
+    }
+    const btn = el('button', {
+      class: 'checkout',
+      type: 'button',
+      disabled: blocked.length > 0,
+      onclick: () => {
+        if (blocked.length) return;
+        closeDrawer();
+        navigate('#/checkout');
+      },
+    }, `去结算 · ${count} 件`);
+    footBox.appendChild(btn);
+  }
+
+  function paintClear() {
+    clearBox.innerHTML = '';
+    if (!getCart().length) return;
+    confirmingClear = false;
+    const btn = el('button', {
+      class: 'ghost cart-clear-btn',
+      type: 'button',
+      onclick: () => {
+        // 二次确认而非弹窗：抽屉里用 confirm 会打断结账流，改用按钮自身状态切换
+        if (!confirmingClear) {
+          confirmingClear = true;
+          btn.textContent = '再点一次确认清空？';
+          return;
+        }
+        pendingUndo = null;
+        clearCart();
+        updateCartBadge();
+        toast('购物袋已清空', 'ok');
+        repaint();
+      },
+    }, '清空购物袋');
+    clearBox.appendChild(btn);
+  }
+
+  function repaint() {
+    const cart = getCart();
+    const count = cart.reduce((n, i) => n + i.qty, 0);
+    root.innerHTML = '';
+    root.appendChild(
+      el('div', { class: 'drawer-heading' }, [
+        el('div', {}, [
+          el('span', { class: 'eyebrow' }, 'YOUR SELECTION'),
+          el('div', { class: 'drawer-title' }, [
+            el('h2', {}, '购物袋'),
+            el('span', { class: 'drawer-count' }, `${count} 件`),
+          ]),
+        ]),
+        el('button', { class: 'drawer-close', 'aria-label': '关闭购物袋', onclick: () => closeDrawer() }, '×'),
       ]),
-      el('button', { class: 'drawer-close', 'aria-label': '关闭购物袋', onclick: () => closeDrawer() }, '×'),
-    ]),
-    cart.length ? el('div', { class: 'cart-list' }, rows) : el('div', { class: 'cart-empty' }, '购物袋还是空的。去挑一件值得的物件吧。'),
-    el('div', { class: 'cart-foot' }, [
-      cart.length ? el('div', { class: 'cart-total' }, [el('span', {}, '合计'), el('span', { class: 'money' }, fmtPrice(total))]) : null,
-      cart.length
-        ? el('button', {
-            class: 'checkout',
-            onclick: () => { closeDrawer(); navigate('#/checkout'); },
-          }, '去结算')
-        : el('button', { class: 'ghost', onclick: () => { closeDrawer(); navigate('#/products'); } }, '去逛逛'),
-    ]),
-  ]);
-  openDrawer(node);
+    );
+    paintUndo();
+    paintList();
+    paintSum();
+    paintFoot();
+    paintClear();
+    root.appendChild(undoBox);
+    root.appendChild(listBox);
+    root.appendChild(sumBox);
+    root.appendChild(footBox);
+    root.appendChild(clearBox);
+  }
+
+  repaint();
+  return root;
+}
+
+export function renderCartDrawer() {
+  openDrawer(buildCartPanel());
 }
 
 /* ---------------- 错误映射 ---------------- */
