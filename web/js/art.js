@@ -1,9 +1,17 @@
-// 程序化商品图：为每款商品生成一张「渐变底 + 类目线稿」的 SVG。
+// 程序化商品图：为每款商品生成一张「构图模板 + 类目线稿」的 SVG 封面。
 // 为什么不用真实图片：本项目零依赖、离线可跑、GitHub Pages 也能用，
-// 外链图床会引入网络依赖与版权问题，所以改为按商品数据现场绘制——
-// 同一个商品的封面永远一致（来自数据库 coverColor），同类目视觉成体系。
+// 外链图床会引入网络依赖与版权问题，所以改为按商品数据现场绘制。
+//
+// v2 —— 解决「看起来像没有图片」的三个根因：
+//   1. 同类目封面只有 ±5° 旋转的微差 → 拼图四格几乎相同。
+//      现在：每商品按 id 稳定派生「6 种构图模板 × 3 档明暗 + 位置/角度参数」，
+//      同类目相邻商品也能拉开明显差距。
+//   2. 浅色底上用白色线稿 → 线稿几乎隐形，观感就是"没图"。
+//      现在：按底色亮度自适应线稿颜色（浅底换墨色）。
+//   3. 装饰层全是 0.05~0.1 透明度的白 → 浅底上看不见。
+//      现在：装饰色随明暗档切换（深底纸白 / 浅底墨黑）。
 
-// 8 个类目的线稿（画布 200×200，图形居中；stroke 统一由外层 group 控制）
+// 16 个类目的线稿（画布 200×200，图形居中；stroke 由外层 group 统一控制）
 const ART = {
   phone: `
     <rect x="72" y="40" width="56" height="120" rx="13"/>
@@ -92,8 +100,7 @@ const ART = {
     <path d="M74 124 L102 96" opacity="0.3"/>`,
 };
 
-// 类目底色：低饱和的暖中性色，让程序化封面与「液态奢华编辑风」保持同一气质。
-// 同一类目共享色彩体系，不同商品按 ID 微调明暗，避免目录页出现刺眼的彩色噪音。
+// 类目底色：低饱和的暖中性色（[深, 浅] 两端），同类目共享色彩体系。
 const PALETTE = {
   phone: ['#5F665D', '#929A87'],
   computer: ['#525E62', '#8E9A9A'],
@@ -113,6 +120,9 @@ const PALETTE = {
   stationery: ['#6B6252', '#A39784'],
   misc: ['#6B6257', '#A69B89'],
 };
+
+const INK = '#33312C';
+const PAPER = '#FBF8F1';
 
 function escapeAttr(s) {
   return String(s).replace(/[<>"'&]/g, '');
@@ -141,65 +151,173 @@ function hexToHsl(hex) {
   return [h * 360, s * 100, l * 100];
 }
 
-/** 取一对暖中性色；同一商品永远得到相同色相微差 */
+/** 稳定 seed：同一商品永远派生同一封面（不再用 Math.random） */
+function seedOf(p) {
+  const s = String((p && p.id) || 'x');
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+/**
+ * 商品专属色彩：在类目色系内做三档明暗变体。
+ * 返回 { c1, c2, light, stroke, deco, shadow }
+ *  - light=true 表示浅色底：线稿/装饰换墨色，保证可见
+ */
 function colorsOf(p) {
   const cat = (p && p.categoryId) || 'misc';
   const pair = PALETTE[cat] || PALETTE.misc;
-  const seed = String((p && p.id) || 'x').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const [h, s, l] = hexToHsl(pair[0]);
-  const shift = ((seed % 9) - 4) * 1.1;
-  const c1 = `hsl(${(h + shift + 360) % 360} ${Math.max(4, s - 4)}% ${Math.max(18, l - 7)}%)`;
-  return [c1, pair[1]];
+  const seed = seedOf(p);
+  const [h, s0, l0] = hexToHsl(pair[0]);
+  const shift = (((seed >>> 3) % 9) - 4) * 1.4;
+  const hue = (h + shift + 360) % 360;
+  const s = s0;
+  const tone = (seed >>> 6) % 3; // 0 深 / 1 中 / 2 浅
+  const L = {
+    0: [clamp(l0 - 13, 14, 92), clamp(l0 + 2, 20, 94)],
+    1: [clamp(l0 - 5, 18, 92), clamp(l0 + 10, 24, 94)],
+    2: [clamp(l0 + 16, 22, 88), clamp(l0 + 26, 28, 92)],
+  }[tone];
+  const c1 = `hsl(${hue} ${Math.max(5, s - 3)}% ${L[0]}%)`;
+  const c2 = `hsl(${hue} ${Math.max(5, s + 1)}% ${L[1]}%)`;
+  const light = L[0] > 52;
+  return {
+    c1,
+    c2,
+    light,
+    stroke: light ? INK : PAPER,
+    deco: light ? 'rgba(51, 49, 44,' : 'rgba(250, 249, 246,',
+    shadow: light ? 'rgba(51, 49, 44, 0.14)' : 'rgba(10, 10, 8, 0.22)',
+  };
 }
 
 export function colorPair(p) {
-  return colorsOf(p);
+  const c = colorsOf(p);
+  return [c.c1, c.c2];
 }
+
+/* ------------------------------------------------------------------
+   6 种构图模板（背景 + 装饰层），T = colorsOf 结果，r = 伪随机参数
+   ------------------------------------------------------------------ */
+
+// v0 拱门：中央拱形龛 + 地面阴影
+function bdArches(T, r) {
+  const w = 88 + r(0) * 26;
+  const top = 118 - r(1) * 22;
+  return `
+  <rect width="200" height="200" fill="url(#GID)"/>
+  <path d="M${100 - w / 2} 200 V${top} a${w / 2} ${w / 2} 0 0 1 ${w} 0 V200 Z" fill="${T.deco}0.12)"/>
+  <ellipse cx="100" cy="164" rx="${w / 2 + 6}" ry="7" fill="${T.shadow}"/>`;
+}
+
+// v1 对角色块：右上大圆 + 左下三角 + 对角线
+function bdDiagonal(T, r) {
+  const cx = 150 + r(0) * 26;
+  const cy = 26 + r(1) * 30;
+  const rad = 62 + r(2) * 26;
+  return `
+  <rect width="200" height="200" fill="url(#GID)"/>
+  <circle cx="${cx}" cy="${cy}" r="${rad}" fill="${T.deco}0.13)"/>
+  <path d="M-14 214 L94 60 L214 214 Z" fill="${T.deco}0.09)"/>
+  <line x1="${20 + r(3) * 40}" y1="200" x2="200" y2="${60 + r(4) * 50}" stroke="${T.deco}0.22)" stroke-width="0.9"/>
+  <ellipse cx="100" cy="162" rx="46" ry="7" fill="${T.shadow}"/>`;
+}
+
+// v2 圆窗：中央纸色圆窗，线稿落在窗内
+function bdWindow(T, r) {
+  const rad = 58 + r(0) * 12;
+  const off = (r(1) - 0.5) * 14;
+  return `
+  <rect width="200" height="200" fill="url(#GID)"/>
+  <circle cx="${100 + off}" cy="102" r="${rad + 12}" fill="${T.deco}0.1)"/>
+  <circle cx="${100 + off}" cy="102" r="${rad}" fill="${T.light ? 'rgba(255,255,255,0.5)' : 'rgba(250,249,246,0.14)'}"/>
+  <circle cx="${100 + off}" cy="102" r="${rad}" fill="none" stroke="${T.deco}0.35)" stroke-width="1"/>
+  <circle cx="${100 + off}" cy="102" r="${rad + 18}" fill="none" stroke="${T.deco}0.18)" stroke-width="0.7"/>
+  <ellipse cx="${100 + off}" cy="${102 + rad * 0.62}" rx="${rad * 0.62}" ry="6" fill="${T.shadow}"/>`;
+}
+
+// v3 层叠卡：三张错位圆角卡片
+function bdStack(T, r) {
+  const o = (r(0) - 0.5) * 18;
+  return `
+  <rect width="200" height="200" fill="url(#GID)"/>
+  <rect x="${34 + o}" y="40" width="120" height="120" rx="14" fill="${T.deco}0.08)" transform="rotate(${-6 - r(1) * 5} 100 100)"/>
+  <rect x="${40 - o}" y="46" width="120" height="120" rx="14" fill="${T.deco}0.14)" transform="rotate(${3 + r(2) * 5} 100 100)"/>
+  <ellipse cx="100" cy="166" rx="52" ry="7" fill="${T.shadow}"/>`;
+}
+
+// v4 波纹：底部三层波浪
+function bdWaves(T, r) {
+  const y1 = 138 + r(0) * 14;
+  const y2 = y1 + 12 + r(1) * 8;
+  return `
+  <rect width="200" height="200" fill="url(#GID)"/>
+  <circle cx="${40 + r(2) * 120}" cy="${34 + r(3) * 26}" r="42" fill="${T.deco}0.1)"/>
+  <path d="M0 ${y1} Q 50 ${y1 - 14} 100 ${y1} T 200 ${y1} V200 H0 Z" fill="${T.deco}0.12)"/>
+  <path d="M0 ${y2} Q 60 ${y2 - 10} 120 ${y2} T 200 ${y2 - 4} V200 H0 Z" fill="${T.deco}0.18)"/>
+  <ellipse cx="100" cy="158" rx="48" ry="7" fill="${T.shadow}"/>`;
+}
+
+// v5 编号海报：超大衬线序号水印 + 底部色带
+function bdPoster(T, r, serial) {
+  const bx = 14 + r(0) * 10;
+  return `
+  <rect width="200" height="200" fill="url(#GID)"/>
+  <text x="${196 - r(1) * 30}" y="66" fill="${T.deco}0.16)" font-family="Georgia, serif"
+        font-size="${58 + r(2) * 16}" font-style="italic" text-anchor="end">${escapeAttr(serial)}</text>
+  <rect x="${bx}" y="168" width="${120 + r(3) * 40}" height="7" rx="3.5" fill="${T.deco}0.24)"/>
+  <ellipse cx="100" cy="158" rx="44" ry="6" fill="${T.shadow}"/>`;
+}
+
+const BACKDROPS = [bdArches, bdDiagonal, bdWindow, bdStack, bdWaves, bdPoster];
 
 /**
  * 生成商品图 SVG 字符串
- * @param {object} p 商品（需 id / categoryId / coverColor，缺失也能兜底）
- * @param {{label?:boolean}} [opts] label 为真时在角落显示品牌首字，用于极小尺寸
+ * @param {object} p 商品（需 id / categoryId，缺失也能兜底）
  */
-export function productArtSvg(p, opts = {}) {
-  const key = escapeAttr((p && p.id) || 'x') + '-' + Math.random().toString(36).slice(2, 7);
-  const [c1, c2] = colorsOf(p);
+export function productArtSvg(p) {
   const cat = (p && p.categoryId) || 'misc';
+  const T = colorsOf(p);
+  const seed = seedOf(p);
+  const gid = `g-${escapeAttr(String((p && p.id) || 'x'))}`;
+  const r = (n) => ((seed >>> (n * 4)) % 100) / 100; // 0..1 的稳定伪随机
+  const serial = String(((seed >>> 9) % 97) + 1).padStart(2, '0');
   const art = ART[cat] || ART.phone;
-  const gid = `g-${key}`;
-  const seed = String((p && p.id) || 'x').charCodeAt(String((p && p.id) || 'x').length - 1) || 0;
-  const serial = String((seed % 97) + 1).padStart(2, '0');
-  // 构图随商品微调，避免同类目拼图出现四张完全相同的封面
-  const cx = 120 + (seed % 50);
-  const cy = 34 + (seed % 24);
-  const angle = ((seed * 7) % 11) - 5;
-  const scale = 0.94 + ((seed % 5) * 0.025);
+
+  const backdrop = BACKDROPS[(seed >>> 12) % BACKDROPS.length](T, r, serial);
+  // 线稿姿态：位置 / 角度 / 缩放都随商品变，幅度克制
+  const gx = 100 + (r(5) - 0.5) * 8;
+  const gy = 98 + (r(6) - 0.5) * 8;
+  const angle = ((seed % 17) - 8) * 1.1;
+  const scale = 0.9 + r(7) * 0.2;
+
   return `
 <svg class="art" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
-    <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="${escapeAttr(c1)}"/>
-      <stop offset="100%" stop-color="${escapeAttr(c2)}"/>
+    <linearGradient id="${gid}" x1="${r(8) > 0.5 ? 1 : 0}" y1="0" x2="${r(9) > 0.5 ? 1 : 0}" y2="1">
+      <stop offset="0%" stop-color="${escapeAttr(T.c1)}"/>
+      <stop offset="100%" stop-color="${escapeAttr(T.c2)}"/>
     </linearGradient>
   </defs>
-  <rect width="200" height="200" fill="url(#${gid})"/>
-  <circle cx="${cx}" cy="${cy}" r="76" fill="#FAF9F6" opacity="0.09"/>
-  <circle cx="24" cy="184" r="62" fill="#1A1A1A" opacity="0.10"/>
-  <path d="M0 154 L200 82 L200 200 L0 200 Z" fill="#FAF9F6" opacity="0.045"/>
-  <path d="M14 20 H52" stroke="#FAF9F6" stroke-width="0.8" opacity="0.38"/>
-  <text x="14" y="13" fill="#FAF9F6" font-family="Georgia, serif" font-size="5" letter-spacing="1.1" opacity="0.58">MAISON / ${escapeAttr(cat.toUpperCase())}</text>
-  <text x="183" y="184" fill="#FAF9F6" font-family="Georgia, serif" font-style="italic" font-size="7" text-anchor="end" opacity="0.44">No. ${serial}</text>
-  <circle cx="100" cy="100" r="62" fill="none" stroke="#FAF9F6" stroke-width="0.5" opacity="0.18"/>
-  <g fill="none" stroke="#FBF8F1" stroke-opacity="0.82" stroke-width="1.35"
+  ${backdrop.replace(/GID/g, gid)}
+  <path d="M14 22 H52" stroke="${T.deco}0.45)" stroke-width="0.8"/>
+  <text x="14" y="15" fill="${T.deco}0.62)" font-family="Georgia, serif" font-size="5" letter-spacing="1.1">MAISON / ${escapeAttr(cat.toUpperCase())}</text>
+  <text x="186" y="188" fill="${T.deco}0.5)" font-family="Georgia, serif" font-style="italic" font-size="7" text-anchor="end">No. ${escapeAttr(serial)}</text>
+  <g fill="none" stroke="${T.stroke}" stroke-opacity="0.88" stroke-width="1.5"
      stroke-linecap="round" stroke-linejoin="round"
-     transform="translate(100 102) rotate(${angle}) scale(${scale}) translate(-100 -100)">
+     transform="translate(${gx} ${gy}) rotate(${angle}) scale(${scale}) translate(-100 -100)">
     ${art}
   </g>
 </svg>`;
 }
 
 /**
- * 商品图 DOM 节点（替代原先的 emoji 占位）
+ * 商品图 DOM 节点
  * @returns {HTMLElement}
  */
 export function productArt(p, cls = '') {

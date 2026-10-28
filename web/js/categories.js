@@ -6,7 +6,7 @@
 //   - 排序：类目顺序 / 商品数 / 名称
 // 条件写进 hash（#/categories?price=p100_500&sort=count），点进类目时会带进列表页，
 // 保证「在分类页选的条件」不会一进列表就丢。
-import { el, productThumb, emptyEditorial } from './ui.js';
+import { el, productThumb, emptyEditorial, isRealPic } from './ui.js';
 import { api } from './api.js';
 import { getProducts, deriveCategoryTree } from './views.js';
 import { navigate } from './router.js';
@@ -30,14 +30,31 @@ async function loadTree() {
   return null;
 }
 
-/** 用该类目下的真实商品封面拼 2×2 拼图 */
+/** 用该类目下的商品封面拼 2×2 拼图：优先真实照片，按子类去重保证四格不重样 */
 function collage(items) {
-  const picks = items.slice(0, 4);
-  while (picks.length < 4 && items.length) picks.push(items[picks.length % items.length]);
+  const seenSub = new Set();
+  const picks = [];
+  const take = (pool) => {
+    for (const p of pool) {
+      const k = p.subCategoryId || p.id;
+      if (seenSub.has(k)) continue;
+      seenSub.add(k);
+      picks.push(p);
+      if (picks.length === 4) return true;
+    }
+    return false;
+  };
+  // 先挑有真实图的（同类目里最"像照片"的四张），不够再补程序化封面
+  if (!take(items.filter((p) => isRealPic(p)))) take(items);
+  // 兜底补齐（类目商品极少时）
+  for (let i = 0; picks.length < 4 && i < items.length * 2; i++) {
+    const p = items[i % items.length];
+    if (!picks.includes(p)) picks.push(p);
+  }
   return el(
     'div',
     { class: 'cat-collage' },
-    picks.map((p) => el('div', { class: 'tile' }, productThumb(p))),
+    picks.slice(0, 4).map((p) => el('div', { class: 'tile' }, productThumb(p))),
   );
 }
 

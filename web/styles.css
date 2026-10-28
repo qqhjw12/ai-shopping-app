@@ -5446,3 +5446,17 @@ body.flt-sheet-open { overflow: hidden; }
   .hot-search { padding: 18px 16px; }
   .hot-word { padding: 7px 12px; }
 }
+
+/* ------------------------------------------------------------
+   真实图垫底：img 叠在程序化封面上，加载完成淡入，失败移除露出封面
+   ------------------------------------------------------------ */
+.art-wrap { position: relative; }
+.real-img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

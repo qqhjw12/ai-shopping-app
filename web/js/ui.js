@@ -1,6 +1,6 @@
 // 通用 UI 助手：DOM 构建、价格格式化、加载/错误态、商品卡片、弹窗、抽屉、toast。
 import { cartCount } from './state.js';
-import { productArt, colorPair } from './art.js';
+import { productArt } from './art.js';
 
 /** 轻量 DOM 构建器 */
 export function el(tag, props = {}, children = []) {
@@ -64,29 +64,27 @@ export function isRealPic(p) {
 
 /**
  * 商品缩略图：
- * - 真实图片：用类目 coverColor 作占位底，加载完成淡入，失败则回退到程序化 SVG（不破图）
- * - 无图：直接程序化 SVG 封面
+ * - 无图商品：直接程序化 SVG 封面
+ * - 真实图片：程序化封面垫底，图片加载完成后淡入覆盖；
+ *   图床不可达（离线 / 404 / 慢）时移除 img，露出垫底封面——任何时刻都不空白
  */
 export function productThumb(p, { fade = true } = {}) {
   if (isRealPic(p)) {
-    const [c1, c2] = colorPair(p);
     const img = el('img', {
       src: p.pic,
       alt: p.name || '',
       loading: 'lazy',
       class: 'real-img',
-      style: `width:100%;height:100%;object-fit:cover;background:linear-gradient(135deg,${c1},${c2})`,
     });
     if (fade) {
       img.style.opacity = '0';
       img.style.transition = 'opacity .25s ease';
       img.addEventListener('load', () => { img.style.opacity = '1'; });
     }
-    // 远程图不可达（离线 / 图床 404）时替换为程序化封面，避免破图
-    img.addEventListener('error', () => {
-      if (img.parentNode) img.replaceWith(productArt(p));
-    });
-    return img;
+    img.addEventListener('error', () => img.remove());
+    const wrap = productArt(p);
+    wrap.appendChild(img);
+    return wrap;
   }
   return productArt(p);
 }
