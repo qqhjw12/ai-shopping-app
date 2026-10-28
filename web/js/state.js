@@ -2,11 +2,19 @@
 // 购物车以服务端（SQLite）为真相源：同一账号换设备/清缓存不丢。
 // 网关不可达时（GitHub Pages 演示模式）自动回落到 localStorage，行为与原来一致。
 import { api } from './api.js';
+import { getCurrentUser } from './user.js';
 
 const CART_KEY = 'shop_cart';
 const UID_KEY = 'uid';
 
+/**
+ * 当前身份：登录用户优先，其次会话级匿名 ID。
+ * 这一处的口径决定了购物车 / 订单 / 收藏的归属——登录后它们会自动挂到账户名下，
+ * 退出登录则回落到匿名 ID，不会串到别人的数据上。
+ */
 export function getUserId() {
+  const user = getCurrentUser();
+  if (user && user.id) return user.id;
   let id = sessionStorage.getItem(UID_KEY);
   if (!id) {
     id = 'u_' + Math.random().toString(36).slice(2, 10);

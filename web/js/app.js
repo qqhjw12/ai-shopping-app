@@ -4,12 +4,16 @@ import { renderHome, renderProducts, renderSearch, renderCartDrawer, renderProdu
 import { renderCategories } from './categories.js';
 import { renderCheckout } from './checkout.js';
 import { renderOrders, renderFavorites } from './account.js';
+import { renderAccount, renderOrderDetail } from './accountCenter.js';
+import { renderLogin } from './login.js';
 import { renderTools } from './tools.js';
 import { renderAnalytics } from './analytics.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
 import { createRouter, navigate } from './router.js';
 import { getUserId, loadCart, onCartChange } from './state.js';
 import { ensureSession } from './auth.js';
+import { isProtectedPath, loginTarget } from './guard.js';
+import { getCurrentUser, initials, onUserChange } from './user.js';
 
 // 仅在显式直连网关（?api=...）时自动建立会话：
 // 纯静态演示（GitHub Pages 无后端）跳过，避免每页产生无谓的 404 请求。
@@ -38,6 +42,31 @@ document.getElementById('search-form').addEventListener('submit', (e) => {
 
 document.getElementById('cart-btn').addEventListener('click', () => renderCartDrawer());
 
+/* ---------------- 顶栏账户入口 ---------------- */
+// 未登录显示「登录」，登录后显示头像字 + 昵称首字；登录态变化时自动重绘。
+function paintAccountEntry() {
+  const slot = document.getElementById('account-slot');
+  if (!slot) return;
+  const user = getCurrentUser();
+  slot.innerHTML = '';
+  slot.appendChild(el('a', {
+    class: `account-entry${user ? ' is-in' : ''}`,
+    href: user ? '#/account' : '#/login',
+    'aria-label': user ? '进入个人中心' : '登录',
+    title: user ? '个人中心' : '登录 / 注册',
+  }, [
+    el('span', { class: 'account-entry-avatar', 'aria-hidden': 'true' }, user ? initials(user) : '·'),
+    el('span', { class: 'account-entry-word' }, user ? '我的' : '登录'),
+  ]));
+}
+
+paintAccountEntry();
+onUserChange((user) => {
+  paintAccountEntry();
+  // 登录 / 换号后购物车归属变了，重新拉一次服务端购物袋（离线时静默保持本地）
+  if (user) loadCart();
+});
+
 /* ---------------- 路由分发 ---------------- */
 function setActiveNav(path) {
   const key = path === '/' ? 'home'
@@ -45,16 +74,27 @@ function setActiveNav(path) {
     : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') ? 'products'
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
-    : path.startsWith('/checkout') || path.startsWith('/orders') || path.startsWith('/favorites') ? 'account'
+    : path.startsWith('/account') || path.startsWith('/checkout') || path.startsWith('/orders') || path.startsWith('/favorites') || path.startsWith('/login') ? 'account'
     : '';
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.nav === key));
 }
 
 function dispatch({ path, query }) {
+  // 路由守卫：受保护页面未登录 → 登录页，并把原始 hash（含查询串）塞进 redirect
+  if (isProtectedPath(path) && !getCurrentUser()) {
+    setActiveNav(path);
+    navigate(loginTarget(location.hash.slice(1) || path));
+    return;
+  }
   setActiveNav(path);
   window.scrollTo(0, 0);
   if (path === '/' || path === '') renderHome(view);
   else if (path === '/categories') renderCategories(view);
+  else if (path === '/login') renderLogin(view, { redirect: query.redirect || '' });
+  else if (path === '/account') renderAccount(view, { tab: query.tab || 'orders' });
+  else if (path.startsWith('/account/order/')) {
+    renderOrderDetail(view, decodeURIComponent(path.slice('/account/order/'.length)));
+  }
   else if (path === '/products') {
     const num = (k) => (query[k] == null || query[k] === '' ? undefined : Number(query[k]));
     renderProducts(view, {

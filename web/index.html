@@ -28,7 +28,7 @@
         <a href="#/products" data-nav="products">甄选</a>
         <a href="#/analytics" data-nav="analytics">洞察</a>
         <a href="#/tools" data-nav="tools">AI 工坊</a>
-        <a href="#/orders" data-nav="account">订单</a>
+        <a href="#/account" data-nav="account">我的</a>
       </nav>
 
       <div class="topbar-end">
@@ -50,6 +50,8 @@
             </svg>
           </button>
         </form>
+
+        <div id="account-slot" class="account-slot"></div>
 
         <button id="cart-btn" class="cart-btn" aria-label="打开购物袋">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -80,7 +82,7 @@
           </div>
           <div>
             <span class="footer-label">服务</span>
-            <a href="#/orders">我的订单</a>
+            <a href="#/account?tab=orders">我的订单</a>
             <a href="#/favorites">我的收藏</a>
             <a href="#/analytics">数据洞察</a>
           </div>

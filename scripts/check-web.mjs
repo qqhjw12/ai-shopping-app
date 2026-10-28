@@ -492,5 +492,204 @@ if (failed === 0) {
   }
 }
 
+/* ---------------- 账户体系断言（登录 / 守卫 / 个人中心 / 地址簿） ---------------- */
+// 这一层检查的是「归属」与「拦截」这两件容易悄悄坏掉的事：
+// 如果守卫只写在 app.js 里，谁都测不到；如果地址没按用户隔离，换个账号就串数据。
+if (failed === 0) {
+  console.log('\n账户体系断言（登录校验 / 路由守卫 / 地址簿隔离）');
+  try {
+    const dir = (f) => pathToFileURL(join(WEB_DIR, f)).href;
+    const userMod = await import(dir('user.js'));
+    const guard = await import(dir('guard.js'));
+    const { renderLogin } = await import(dir('login.js'));
+    const { renderAccount, renderOrderDetail } = await import(dir('accountCenter.js'));
+    const addr = await import(dir('store/addressStore.js'));
+    const state = await import(dir('state.js'));
+
+    /* 1) 守卫规则：哪些页面要登录、回流地址怎么拼 */
+    const guardCases = [
+      ['#/account 需登录', guard.isProtectedPath('/account')],
+      ['#/account/order/x 需登录', guard.isProtectedPath('/account/order/o_1')],
+      ['#/checkout 需登录', guard.isProtectedPath('/checkout')],
+      ['#/products 不需登录', !guard.isProtectedPath('/products')],
+      ['redirect 带原始查询串', guard.loginTarget('/checkout?x=1') === '#/login?redirect=%2Fcheckout%3Fx%3D1'],
+      ['拒绝协议相对跳转', guard.sanitizeRedirect('//evil.com') === '#/account'],
+      ['登录页不自跳回登录页', guard.sanitizeRedirect('/login') === '#/account'],
+      ['登录后原路返回', guard.sanitizeRedirect('/checkout') === '#/checkout'],
+    ];
+    const gBad = guardCases.filter(([, ok]) => !ok).map(([l]) => l);
+    console.log(`  ${gBad.length === 0 ? 'ok  ' : 'FAIL'} 路由守卫规则${gBad.length ? ` → 缺失: ${gBad.join('、')}` : ''}`);
+    if (gBad.length) failed++;
+
+    /* 2) 登录页：空提交 / 非法账号 / 验证码错 / 验证码对 */
+    localStorage.clear();
+    const lv = new El('main');
+    renderLogin(lv, {});
+    const lq = (c) => lv.querySelectorAll(c);
+    const lform = lq('.auth-form')[0];
+    const errText = () => (lq('.auth-error')[0] || {}).textContent || '';
+    const submitLogin = () => lform.listeners.submit({ preventDefault() {} });
+
+    submitLogin();
+    const errEmpty = /手机号|邮箱/.test(errText());
+    lq('.auth-id')[0].value = '12345';
+    submitLogin();
+    const errBadId = /手机号|邮箱/.test(errText());
+    lq('.auth-id')[0].value = '13800001234';
+    lq('.auth-code')[0].value = '000000';
+    submitLogin();
+    const errBadCode = /验证码/.test(errText()) && !userMod.isLoggedIn();
+
+    lq('.auth-code')[0].value = userMod.DEMO_CODE;
+    submitLogin();
+    const loggedIn = userMod.isLoggedIn();
+    const me = userMod.getCurrentUser();
+    const persisted = JSON.parse(localStorage.getItem('current_user') || 'null');
+    const backToAccount = location.hash === '#/account';
+    const noTokenInStorage = localStorage.getItem('accessToken') === null
+      && localStorage.getItem('refreshToken') === null
+      && !JSON.stringify(persisted || {}).includes('Token');
+    const stateFollowsUser = state.getUserId() === me.id;
+
+    /* 3) 演示账号一键登录 + redirect 回流 */
+    localStorage.clear();
+    userMod.clearCurrentUser();
+    const lv2 = new El('main');
+    renderLogin(lv2, { redirect: '/checkout' });
+    lv2.querySelectorAll('.auth-demo')[0].listeners.click();
+    const demoId = (userMod.getCurrentUser() || {}).id;
+    const redirectWorks = location.hash === '#/checkout';
+
+    /* 4) 未登录访问个人中心 → 跳登录并带 redirect */
+    userMod.clearCurrentUser();
+    const av0 = new El('main');
+    renderAccount(av0, { tab: 'orders' });
+    const guardedHash = location.hash;
+
+    /* 5) 登录后渲染：Bento 网格 + 三个 Tab */
+    userMod.setCurrentUser({ ...userMod.DEMO_ACCOUNT });
+    const av = new El('main');
+    renderAccount(av, { tab: 'address' });
+    await new Promise((r) => setTimeout(r, 0));
+    const bentoOk = av.querySelectorAll('.acct-hero').length === 1
+      && av.querySelectorAll('.acct-glow').length === 1
+      && av.querySelectorAll('.acct-stat').length === 3;
+    const tabCount = av.querySelectorAll('.acct-tab').length;
+    const tabActive = av.querySelectorAll('.acct-tab')[1].classList.contains('is-on');
+
+    /* 6) 地址簿：空 → 校验拦截 → 新增 → 第二条 → 设默认 → 删除 */
+    const emptyFirst = av.querySelectorAll('.acct-empty').length >= 1;
+    av.querySelectorAll('.acct-add')[0].listeners.click();
+    const form1 = av.querySelectorAll('.acct-addr-form')[0];
+    const formShown = Boolean(form1);
+    const field = (cls) => av.querySelectorAll(cls)[0];
+    form1.listeners.submit({ preventDefault() {} });
+    const invalidBlocked = av.querySelectorAll('.acct-addr').length === 0
+      && /姓名/.test((av.querySelectorAll('.acct-form-err')[0] || {}).textContent || '');
+
+    field('.f-receiver').value = '张三';
+    field('.f-phone').value = '13800001234';
+    field('.f-province').value = '上海市';
+    field('.f-city').value = '浦东新区';
+    field('.f-detail').value = '世纪大道 100 号 8 楼';
+    field('.f-postal').value = '200120';
+    form1.listeners.submit({ preventDefault() {} });
+    const oneCard = av.querySelectorAll('.acct-addr').length === 1;
+    const autoDefault = /默认/.test((av.querySelectorAll('.acct-addr')[0] || {}).textContent || '');
+
+    av.querySelectorAll('.acct-add')[0].listeners.click();
+    const form2 = av.querySelectorAll('.acct-addr-form')[0];
+    field('.f-receiver').value = '李四';
+    field('.f-phone').value = '13900002222';
+    field('.f-province').value = '浙江省';
+    field('.f-city').value = '杭州市 西湖区';
+    field('.f-detail').value = '文三路 200 号 A 座 5 层';
+    form2.listeners.submit({ preventDefault() {} });
+    const twoCards = av.querySelectorAll('.acct-addr').length === 2;
+    // 面板计数与顶部数据块都要跟着地址数走（不能停在渲染时的快照 0）
+    const panelCountSynced = (av.querySelectorAll('.acct-panel-sub')[0] || {}).textContent === '2 个 · 按账户隔离'
+      && (av.querySelectorAll('.acct-stat-value')[0] || {}).textContent === '2'
+      && /默认收货：张三/.test((av.querySelectorAll('.acct-hero-note')[0] || {}).textContent || '');
+
+    const setDefaultBtn = av.querySelectorAll('.acct-addr-act')
+      .find((b) => b.textContent === '设为默认' && b.listeners && b.listeners.click);
+    if (setDefaultBtn) setDefaultBtn.listeners.click();
+    const listAfterDefault = addr.listAddresses(userMod.DEMO_ACCOUNT.id);
+    const defaultMoved = listAfterDefault[0] && listAfterDefault[0].receiver === '李四'
+      && listAfterDefault.filter((a) => a.isDefault).length === 1;
+
+    // 按用户隔离：另一个账户看到的必须是空的
+    const otherEmpty = addr.listAddresses('u_someone_else').length === 0;
+    addr.saveAddress('u_someone_else', { receiver: '王五', phone: '13700003333', province: '北京市', city: '朝阳区', detail: '建国路 1 号院 3 号楼' });
+    const isolated = addr.listAddresses(userMod.DEMO_ACCOUNT.id).length === 2
+      && addr.listAddresses('u_someone_else').length === 1;
+
+    const delBtn = av.querySelectorAll('.acct-addr-act').find((b) => b.classList.contains('del'));
+    delBtn.listeners.click();
+    const confirming = delBtn.textContent === '确认删除?' && delBtn.classList.contains('is-confirm');
+    delBtn.listeners.click();
+    const afterDelete = av.querySelectorAll('.acct-addr').length === 1;
+
+    const badPostal = addr.saveAddress(userMod.DEMO_ACCOUNT.id, {
+      receiver: '赵六', phone: '13600004444', province: '广东省', city: '深圳市', detail: '科技园南路 8 号', postal: '123',
+    });
+
+    /* 7) 优惠券占位 + 订单 Tab + 订单详情占位 */
+    const av2 = new El('main');
+    renderAccount(av2, { tab: 'coupons' });
+    const couponEmpty = av2.querySelectorAll('.acct-empty').length >= 1
+      && /优惠券/.test(av2.textContent || '');
+
+    const av3 = new El('main');
+    renderAccount(av3, { tab: 'orders' });
+    await new Promise((r) => setTimeout(r, 10));
+    const ordersFallback = av3.querySelectorAll('.acct-empty').length >= 1;
+
+    const av4 = new El('main');
+    renderOrderDetail(av4, 'o_demo_123');
+    const detailPlaceholder = /o_demo_123/.test(av4.textContent || '')
+      && /建设中/.test(av4.textContent || '');
+
+    const cases = [
+      ['空表单提交被拦下', errEmpty],
+      ['非法账号被拦下', errBadId],
+      ['验证码错误被拦下', errBadCode],
+      ['正确验证码登录成功', loggedIn],
+      ['currentUser 写入 localStorage', persisted && persisted.id === me.id && persisted.nickname === '用户1234'],
+      ['登录后跳回 #/account', backToAccount],
+      ['localStorage 不存令牌', noTokenInStorage],
+      ['getUserId 跟随登录用户', stateFollowsUser],
+      ['演示账号一键登录', demoId === 'u_demo'],
+      ['登录后回到 redirect 目标', redirectWorks],
+      ['未登录进个人中心被拦到登录页', guardedHash === '#/login?redirect=%2Faccount'],
+      ['Bento 头部（玻璃卡+微光+3 数据块）', bentoOk],
+      ['三个 Tab 胶囊', tabCount === 3],
+      ['当前 Tab 选中态', tabActive],
+      ['地址簿初始为空', emptyFirst],
+      ['新增地址表单可展开', formShown],
+      ['必填缺失不落库', invalidBlocked],
+      ['新增后出现 1 张地址卡', oneCard],
+      ['首条地址自动为默认', autoDefault],
+      ['可新增第二条', twoCards],
+      ['面板计数/数据块/默认提示同步', panelCountSynced],
+      ['设为默认生效且唯一', defaultMoved],
+      ['新账户地址簿为空', otherEmpty],
+      ['地址按用户隔离', isolated],
+      ['删除需二次确认', confirming],
+      ['确认后删除生效', afterDelete],
+      ['邮编格式校验', badPostal.ok === false && /邮编/.test(badPostal.error || '')],
+      ['优惠券占位空状态', couponEmpty],
+      ['订单取不回时给兜底提示', ordersFallback],
+      ['订单详情占位页', detailPlaceholder],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 登录 / 守卫 / 地址簿${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 账户体系断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

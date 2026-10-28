@@ -36,3 +36,6 @@ __pycache__/
 
 # 本地对象存储工具与数据（SeaweedFS 二进制 / bucket 数据）
 .devtools/
+
+# 浏览器实测截图（本地产物）
+.shots/
