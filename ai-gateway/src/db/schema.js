@@ -432,6 +432,52 @@ const MIGRATIONS = [
         ON orders(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
     `,
   },
+  {
+    version: 14,
+    name: 'order-logistics-and-aftersale',
+    sql: `
+      -- 发货/完成时间：订单详情要画「待付款 → 待发货 → 已发货 → 已完成」的流转条，
+      -- 只靠 status 一个字段画不出来——退款中（refunding）的订单仍然要显示它走到了哪一步。
+      -- 阶段一律由时间戳推导，status 只负责顶部那个胶囊标签，两者不互相冒充。
+      ALTER TABLE orders ADD COLUMN shipped_at   TEXT;
+      ALTER TABLE orders ADD COLUMN completed_at TEXT;
+
+      -- 物流事件：原来是 orders.logistics_company / tracking_no 两个字段 + 一句描述，
+      -- 前端只能显示一行字。改成事件流水（一次揽收、一次中转、一次派送、一次签收各一行），
+      -- 时间线才有东西可画。seq 单独存而不是靠 happened_at 排序：
+      -- mock 时同一分钟可能发生两件事，只按时间排会颠倒。
+      CREATE TABLE IF NOT EXISTS order_logistics_events (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id    TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        code        TEXT NOT NULL,               -- picked_up / in_transit / out_for_delivery / signed
+        title       TEXT NOT NULL,
+        detail      TEXT NOT NULL DEFAULT '',
+        happened_at TEXT NOT NULL,
+        seq         INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_logi_order ON order_logistics_events(order_id, seq);
+
+      -- 售后单：一个订单在同一时刻只允许有一条「待处理」的申请（下面的部分唯一索引保证），
+      -- 否则用户连点几次提交就能堆出好几条，客服看到的是一堆重复工单。
+      CREATE TABLE IF NOT EXISTS aftersales (
+        id          TEXT PRIMARY KEY,            -- AS + 日期 + 序列
+        order_id    TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        user_id     TEXT NOT NULL REFERENCES users(id),
+        type        TEXT NOT NULL,               -- refund / return
+        reason      TEXT NOT NULL,               -- quality / wrong / damaged / not_fit / other
+        note        TEXT NOT NULL DEFAULT '',
+        evidence    TEXT NOT NULL DEFAULT '[]',  -- JSON 数组：{name,size}，本轮只存凭证文件名
+        status      TEXT NOT NULL DEFAULT 'reviewing',  -- reviewing / approved / rejected
+        handle_note TEXT NOT NULL DEFAULT '',
+        created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_as_order  ON aftersales(order_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_as_user   ON aftersales(user_id, created_at DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_as_open
+        ON aftersales(order_id) WHERE status = 'reviewing';
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

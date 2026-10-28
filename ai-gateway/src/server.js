@@ -30,6 +30,7 @@ import * as userRepo from './repositories/userRepo.js';
 import * as orderService from './services/orderService.js';
 import * as settingsService from './services/settingsService.js';
 import * as couponCatalogService from './services/couponCatalogService.js';
+import * as aftersaleService from './services/aftersaleService.js';
 import * as reviewRepo from './repositories/reviewRepo.js';
 import * as storage from './storage/index.js';
 import * as authService from './auth/service.js';
@@ -520,6 +521,46 @@ async function route(req, res, url) {
   if (payMatch && req.method === 'POST') {
     const userId = userIdOf(req, url.searchParams.get('userId'));
     return guarded(() => ({ order: orderService.payOrder(decodeURIComponent(payMatch[1]), userId) }));
+  }
+
+  // 演示端点：模拟发货 / 模拟签收。
+  // 这两颗按钮只为了让「待发货 → 已发货 → 已完成 → 申请售后」这条路走得通，
+  // 真实系统里状态由仓储系统与快递回传推进，不该由买家点。
+  // DEMO_ACTIONS=false 时整组关掉（403），而不是靠前端把按钮藏起来——
+  // 前端藏起来只防手滑，防不了直接调接口的人。
+  const fulfillMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/(ship|complete)$/);
+  if (fulfillMatch && req.method === 'POST') {
+    if (!config.demoActions) {
+      return sendError(res, 403, '演示接口已关闭（DEMO_ACTIONS=false）', req.reqId);
+    }
+    const userId = userIdOf(req, url.searchParams.get('userId'));
+    const orderId = decodeURIComponent(fulfillMatch[1]);
+    return guarded(() => ({
+      order: fulfillMatch[2] === 'ship'
+        ? orderService.shipOrder(orderId, userId)
+        : orderService.completeOrder(orderId, userId),
+    }));
+  }
+
+  // 售后申请：真实业务路径，不受 DEMO_ACTIONS 影响。
+  // 返回售后单 + 刷新后的订单（状态已变售后中），前端一次请求就能整页重绘。
+  const asMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/aftersale$/);
+  if (asMatch && req.method === 'POST') {
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    const userId = userIdOf(req, parsed.userId || url.searchParams.get('userId'));
+    const orderId = decodeURIComponent(asMatch[1]);
+    return guarded(() => {
+      const aftersale = aftersaleService.createAftersale({
+        orderId,
+        userId,
+        type: parsed.type,
+        reason: parsed.reason,
+        note: parsed.note || '',
+        evidence: parsed.evidence || [],
+      });
+      return { aftersale, order: orderService.getOrder(orderId, userId) };
+    }, 201);
   }
 
   if (url.pathname.startsWith('/api/orders/') && req.method === 'GET') {
@@ -1073,8 +1114,10 @@ async function route(req, res, url) {
         'GET|PUT /api/config (运营配置：配送/运费 + 支付方式 + 券返还顺延；写入需 X-Admin-Key)',
         'POST /api/orders/preview {userId, items?, addressId?, couponId?, shippingMethodId?, paymentMethodId?} (结算预览)',
         'GET /api/orders?userId= · POST /api/orders {userId, items, addressId?, couponId?, shippingMethodId?, paymentMethodId?, idempotencyKey?}',
-        'GET /api/orders/:id?userId= · POST /api/orders/:id/pay?userId=',
+        'GET /api/orders/:id?userId= (含物流事件与售后记录) · POST /api/orders/:id/pay?userId=',
         'POST /api/orders/:id/cancel?userId= (取消订单事务：关单 + 券返还顺延)',
+        'POST /api/orders/:id/ship?userId= · /complete?userId= (演示：发货 / 签收，DEMO_ACTIONS=false 时 403)',
+        'POST /api/orders/:id/aftersale {userId, type, reason, note?, evidence?} (申请售后，订单转售后中)',
         'GET|POST|DELETE /api/favorites?userId= (收藏夹：POST 为切换)',
         'GET /api/coupons/catalog (券目录，前端离线兜底同构)',
         'PUT /api/coupons/catalog {coupon|coupons, force?} (券目录 upsert，需 X-Admin-Key)',
@@ -1122,6 +1165,8 @@ const server = http.createServer(async (req, res) => {
         storage: config.storage.driver,
         // 认证模式：required=强制令牌，optional=可选；便于上线后核对鉴权策略
         auth: config.auth.required ? 'required' : 'optional',
+        // 演示端点开关：上线后一眼确认「模拟发货/签收」是否已关（关演示不该去翻环境变量）
+        demo: config.demoActions ? 'on' : 'off',
       });
     }
     const deps = probeDeps();

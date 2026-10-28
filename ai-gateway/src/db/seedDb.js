@@ -6,6 +6,7 @@ import '../quiet.js';
 import { pathToFileURL } from 'node:url';
 import { getDb } from './connection.js';
 import { migrate, SCHEMA_VERSION } from './schema.js';
+import { backfillMissing } from '../services/logisticsService.js';
 import {
   CATEGORIES,
   SUBCATEGORIES,
@@ -29,13 +30,14 @@ function countOf(db, table) {
 function resetTables(db) {
   // 顺序遵循外键依赖，先子后父
   for (const t of [
-    'messages', 'conversations', 'track_events', 'order_items', 'orders',
+    'messages', 'conversations', 'track_events', 'order_logistics_events', 'aftersales',
+    'order_items', 'orders',
     'reviews', 'addresses', 'product_skus', 'products', 'brands', 'users', 'categories',
     'faqs', 'policies', 'cart_items', 'favorites', 'user_coupons', 'coupons',
   ]) {
     db.exec(`DELETE FROM ${t}`);
   }
-  db.exec("DELETE FROM sqlite_sequence WHERE name IN ('order_items','reviews','messages','track_events','faqs','cart_items','favorites','user_coupons')");
+  db.exec("DELETE FROM sqlite_sequence WHERE name IN ('order_items','reviews','messages','track_events','faqs','cart_items','favorites','user_coupons','order_logistics_events')");
 }
 
 function daysAgo(n) {
@@ -50,6 +52,13 @@ export function ensureSeeded({ reset = false } = {}) {
 
   if (reset) resetTables(db);
   if (!reset && countOf(db, 'products') > 0) {
+    // 历史订单补物流时间线（幂等）：迁移只建表，老订单的「已发货」不该是一片空白
+    try {
+      backfillMissing(db);
+    } catch (e) {
+      // 补数据失败不该拦住启动：时间线缺失只影响展示，卖不了东西才是真事故
+      console.warn(`[seed] 物流时间线回填失败: ${e.message}`);
+    }
     return { seeded: false, version, products: countOf(db, 'products') };
   }
 
@@ -180,6 +189,14 @@ export function ensureSeeded({ reset = false } = {}) {
   } catch (e) {
     db.exec('ROLLBACK');
     throw e;
+  }
+
+  // 刚灌进去的演示订单里有 shipped/completed，补上时间线（放在事务外：
+  // 回填失败时订单数据本身应该已经落库，不该跟着回滚）
+  try {
+    backfillMissing(db);
+  } catch (e) {
+    console.warn(`[seed] 物流时间线回填失败: ${e.message}`);
   }
 
   return { seeded: true, version: SCHEMA_VERSION, products: countOf(db, 'products') };

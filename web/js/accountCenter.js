@@ -8,7 +8,7 @@
 //   - 优惠券：本步骤只做占位，下一步接 /api/coupons。
 //   - 优惠券：券包在本地按 userId 隔离（store/couponStore.js），领取/核销/返还都在那里改，
 //     本页只做「按状态分栏 + 状态回显」，所以结算页用掉一张券，回到这里立刻是「已使用」。
-import { api, isMissingEndpoint } from './api.js';
+import { api } from './api.js';
 import { el, fmtPrice, loading, toast, productThumb } from './ui.js';
 import { navigate } from './router.js';
 import { logout as closeSession } from './auth.js';
@@ -20,10 +20,10 @@ import {
   saveAddress, setDefaultAddress, validateAddress,
 } from './store/addressStore.js';
 import {
-  getOrder, listOrders, mergeOrders, normalizeRemote, statusText, updateOrderStatus,
+  listOrders, mergeOrders, normalizeRemote, statusText,
 } from './store/orderStore.js';
 import {
-  STATE_TEXT, fmtCouponValue, onWalletChange, refundCouponsByOrder,
+  STATE_TEXT, fmtCouponValue, onWalletChange,
   syncWallet, walletByState, walletStats,
 } from './store/couponStore.js';
 
@@ -625,224 +625,6 @@ function myCouponCard(w) {
       el('p', { class: 'mycp-meta' }, `${stateLine} · ${w.scopeText || '全场通用'}`),
       el('p', { class: 'mycp-state' }, STATE_TEXT[state] || ''),
       act,
-    ]),
-  ]);
-}
-
-/* ============================================================
-   订单详情（#/account/order/:id）
-   ============================================================ */
-
-/**
- * 订单详情：本地订单优先（结算页刚下的单就在这儿），查不到再问网关。
- * 成功页 →「查看订单」的落点就是这里，所以不能是占位页。
- */
-export async function renderOrderDetail(view, orderId) {
-  const user = getCurrentUser();
-  const id = decodeURIComponent(String(orderId || ''));
-  if (!user) {
-    navigate(`#/login?redirect=${encodeURIComponent(`/account/order/${id}`)}`);
-    return;
-  }
-  view.innerHTML = '';
-  const host = el('div', { class: 'od-host' });
-  view.appendChild(el('section', { class: 'acct-page' }, [
-    el('div', { class: 'acct-crumb' }, [
-      el('a', { href: '#/account?tab=orders' }, '← 返回我的订单'),
-    ]),
-    host,
-  ]));
-  loading(host, '正在取回订单…');
-
-  let order = getOrder(user.id, id);
-  if (!order) {
-    try {
-      const d = await api(`/api/orders?userId=${encodeURIComponent(user.id)}`, { retries: 0 });
-      const hit = (Array.isArray(d && d.orders) ? d.orders : [])
-        .find((o) => String(o.orderId || o.id) === id);
-      if (hit) order = normalizeRemote(hit);
-    } catch {
-      /* 网关不可达：下面走「找不到订单」分支 */
-    }
-  }
-
-  host.innerHTML = '';
-  if (!order) {
-    host.appendChild(emptyCard({
-      title: '没有找到这笔订单',
-      text: `订单号 ${id || '（空）'} 不属于当前账户，或已被清理。`,
-      primary: '回到订单列表',
-      onPrimary: () => navigate('#/account?tab=orders'),
-      secondary: '继续购物',
-      onSecondary: () => navigate('#/products'),
-    }));
-    return;
-  }
-  host.appendChild(orderDetailCard(order, {
-    user,
-    // 状态变更后整页重绘：金额/状态/按钮可见性都要跟着变，局部改容易漏
-    repaint: () => renderOrderDetail(view, id),
-  }));
-}
-
-/**
- * 取消订单：服务端单走服务端事务，本地镜像单走本地返还。
- *
- * 为什么要分两条路：服务端订单的券是在**下单事务里**核销的，本地券包根本没有
- * 「已使用」这条记录，本地 `refundCouponsByOrder` 找不到可退的券 → 用户会看到
- * 「订单已取消」但券一直不回来。反过来，无网关时的本地单服务端没有这笔订单，
- * 调 cancel 只会 404。用订单号前缀（SO = 服务端 / MS = 本地）判断，比猜更可靠。
- *
- * 服务端不可达时降级本地处理并交发件箱补推：取消动作是用户已经点下的，
- * 不能因为网络抖一下就变成「请重试」——券最终会按服务端口径重新顺延。
- *
- * @returns {Promise<{ok:boolean, error?:string, refund?:object, sync?:Function}>}
- */
-async function cancelOrderEverywhere(userId, order) {
-  const oid = String(order.id || '');
-  const isServerOrder = /^SO/.test(oid);
-
-  const doLocal = () => {
-    updateOrderStatus(userId, oid, 'closed');
-    return { ok: true, refund: refundCouponsByOrder(userId, oid) };
-  };
-
-  if (!isServerOrder) return doLocal();
-
-  try {
-    const d = await api(
-      `/api/orders/${encodeURIComponent(oid)}/cancel?userId=${encodeURIComponent(userId)}`,
-      { method: 'POST', retries: 0 },
-    );
-    // 服务端事务已完成：本地镜像只同步状态，券包交给 syncWallet 用服务端结果覆盖
-    updateOrderStatus(userId, oid, (d && d.order && d.order.status) || 'closed');
-    return {
-      ok: true,
-      refund: (d && d.coupon) || { restored: 0, extended: 0, graceDays: 0 },
-      sync: () => syncWallet(userId),
-    };
-  } catch (e) {
-    // 业务拒绝（已发货 409 / 订单不存在 404）要如实告诉用户，不能偷偷本地关掉
-    if (!isMissingEndpoint(e) && e.kind !== 'offline' && e.status !== 404) {
-      return { ok: false, error: (e && e.message) || '取消失败，请稍后重试' };
-    }
-    return doLocal();
-  }
-}
-
-function orderDetailCard(o, { user, repaint } = {}) {
-  const addr = o.address;
-  const a = o.amounts || {};
-  const infoRow = (label, value) => el('div', { class: 'od-info-row' }, [
-    el('span', { class: 'od-info-label' }, label),
-    el('span', { class: 'od-info-value' }, value || '—'),
-  ]);
-
-  const items = el('div', { class: 'od-items' });
-  (o.items || []).forEach((it) => {
-    items.appendChild(el('div', { class: 'od-item' }, [
-      el('div', { class: 'od-item-thumb' }, productThumb({ id: it.productId, name: it.name, coverColor: it.coverColor, pic: it.pic }, { fade: false })),
-      el('div', { class: 'od-item-info' }, [
-        el('div', { class: 'od-item-name' }, it.name),
-        // 规格单独存了才显示：历史订单把规格拼在名称里（spec 为空），
-        // 这里再补一行「默认规格」只会制造噪音。
-        it.spec ? el('div', { class: 'od-item-sku' }, `SKU：${it.spec}`) : null,
-        el('div', { class: 'od-item-price num' }, `${fmtPrice(it.price)} × ${it.qty}`),
-      ]),
-      el('span', { class: 'od-item-sub num' }, fmtPrice(Number(it.price || 0) * Number(it.qty || 0))),
-    ]));
-  });
-
-  const sumRows = [
-    ['商品总额', fmtPrice(a.productAmount)],
-    ['运费', a.shippingFee ? fmtPrice(a.shippingFee) : '免运费'],
-    ['优惠券' + (a.couponTitle ? `（${a.couponTitle}）` : ''),
-      a.couponDiscount ? `- ${fmtPrice(a.couponDiscount)}` : '- ¥0'],
-  ];
-
-  // 取消订单（仅待付款）：状态关闭 + 券退回券包。
-  // 两步都要做：只改状态不返还券，用户会觉得「券被吃了」；
-  // 只返还券不改状态，订单还挂着待付款，券就可能被重复使用。
-  //
-  // 服务端订单走 POST /api/orders/:id/cancel —— 关单与返券在同一个事务里完成，
-  // 前端不需要（也不应该）再自己返一次；本地镜像单才用本地返还 + 发件箱补推。
-  const cancelBtn = o.status === 'pending'
-    ? el('button', { class: 'od-cancel', type: 'button' }, '取消订单')
-    : null;
-  if (cancelBtn) {
-    let armed = false;
-    let timer = null;
-    cancelBtn.addEventListener('click', async () => {
-      if (!armed) {
-        armed = true;
-        cancelBtn.textContent = '确认取消？';
-        cancelBtn.classList.add('is-confirm');
-        timer = setTimeout(() => {
-          armed = false;
-          cancelBtn.textContent = '取消订单';
-          cancelBtn.classList.remove('is-confirm');
-        }, 3000);
-        return;
-      }
-      if (timer) clearTimeout(timer);
-      cancelBtn.disabled = true;
-      cancelBtn.textContent = '取消中…';
-      const done = await cancelOrderEverywhere(user.id, o);
-      if (!done.ok) {
-        cancelBtn.disabled = false;
-        cancelBtn.textContent = '取消订单';
-        cancelBtn.classList.remove('is-confirm');
-        toast(done.error || '取消失败，请稍后重试', 'warn');
-        return;
-      }
-      const refund = done.refund || { restored: 0, extended: 0, graceDays: 0 };
-      toast(
-        refund.restored
-          ? `订单已取消，${refund.restored} 张优惠券已退回券包${refund.extended ? `（有效期顺延 ${refund.graceDays} 天）` : ''}`
-          : '订单已取消',
-        'ok',
-      );
-      if (typeof done.sync === 'function') await done.sync();
-      if (repaint) repaint();
-    });
-  }
-
-  return el('article', { class: 'od-card' }, [
-    el('div', { class: 'od-head' }, [
-      el('div', {}, [
-        el('span', { class: 'eyebrow' }, 'ORDER DETAIL'),
-        el('h1', { class: 'od-id num' }, o.id),
-      ]),
-      el('span', { class: `acct-status s-${o.status}` }, statusText(o.status)),
-    ]),
-    el('p', { class: 'od-date' }, `下单时间 ${fmtDate(o.createdAt) || '—'}`),
-    items,
-    el('div', { class: 'od-grid' }, [
-      el('div', { class: 'od-block' }, [
-        el('h3', {}, '收货信息'),
-        infoRow('收货人', addr ? `${addr.receiver || ''}${addr.phone ? ` · ${addr.phone}` : ''}` : ''),
-        infoRow('地址', addr ? `${addr.region || ''} ${addr.detail || ''}`.trim() : ''),
-        infoRow('邮编', addr ? addr.postal : ''),
-      ]),
-      el('div', { class: 'od-block' }, [
-        el('h3', {}, '配送与支付'),
-        infoRow('配送方式', `${o.shippingMethod.name} · ${o.shippingMethod.eta || ''}`.trim()),
-        infoRow('支付方式', o.paymentMethod.name),
-        infoRow('订单备注', o.remark),
-      ]),
-    ]),
-    el('div', { class: 'od-amounts' }, sumRows.map(([k, v]) => el('div', { class: 'od-sum-row' }, [
-      el('span', {}, k), el('span', { class: 'num' }, v),
-    ])).concat([
-      el('div', { class: 'od-sum-row is-total' }, [
-        el('span', {}, '应付金额'),
-        el('span', { class: 'num od-total' }, fmtPrice(a.payAmount)),
-      ]),
-    ])),
-    el('div', { class: 'od-actions' }, [
-      cancelBtn,
-      el('a', { class: 'acct-save', href: '#/account?tab=orders' }, '回到订单列表'),
-      el('a', { class: 'acct-cancel', href: '#/products' }, '继续购物'),
     ]),
   ]);
 }

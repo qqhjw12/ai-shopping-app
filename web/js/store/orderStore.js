@@ -13,6 +13,7 @@
 // （GET /api/config），本模块只通过 store/config.js 读取，
 // 保证结算页展示、下单请求、订单快照三处拿到的是同一组数字。
 import { findPayment, findShipping, paymentMethods, shippingFeeOf, shippingMethods } from './config.js';
+import { mockDeliverEvents, mockShipment } from './logistics.js';
 
 const KEY_PREFIX = 'maison_orders::';
 
@@ -39,17 +40,65 @@ export function getPaymentMethods() {
   return paymentMethods();
 }
 
+/**
+ * 订单状态词条。
+ *
+ * paid 显示「待发货」而不是「已付款」：用户关心的是「接下来会发生什么」。
+ * 已付款是既成事实，写在状态胶囊里等于没给信息——这一格应该回答「还要等多久」。
+ * 同理 closed 显示「已取消」而不是「已关闭」：关闭是系统内部说法。
+ */
 export const ORDER_STATUS_TEXT = {
   pending: '待付款',
-  paid: '已付款',
+  paid: '待发货',
   shipped: '已发货',
   completed: '已完成',
-  closed: '已关闭',
+  refunding: '售后中',
+  closed: '已取消',
 };
 
 export function statusText(status) {
   return ORDER_STATUS_TEXT[status] || status || '—';
 }
+
+/**
+ * 履约四步：提交 → 付款 → 发货 → 收货。
+ *
+ * 阶段**由时间戳推导**，不看 status：售后中（refunding）的订单仍然要知道自己走到了哪一步，
+ * 而 status 此时只剩「售后中」一个词，把它当阶段用会让流转条整条消失。
+ */
+export const ORDER_STEPS = [
+  { key: 'created', label: '待付款', field: 'createdAt' },
+  { key: 'paid', label: '待发货', field: 'paidAt' },
+  { key: 'shipped', label: '已发货', field: 'shippedAt' },
+  { key: 'completed', label: '已完成', field: 'completedAt' },
+];
+
+/**
+ * @returns {{cancelled:boolean, index:number, steps:Array<{key,label,at,done}>}}
+ *   index = 已走到第几步（0 起）；cancelled 时 steps 仍返回，供页面判断要不要画
+ */
+export function orderStage(order = {}) {
+  const steps = ORDER_STEPS.map((s) => ({
+    key: s.key,
+    label: s.label,
+    at: order[s.field] || '',
+    done: Boolean(order[s.field]),
+  }));
+  // 本地单可能只有 status 没有时间戳（历史数据 / 服务端没返回字段）：
+  // 用状态兜底，避免「已发货的单流转条停在第 1 步」。
+  const rank = { pending: 0, paid: 1, shipped: 2, completed: 3 }[order.status];
+  if (rank != null) {
+    for (let i = 0; i <= rank && i < steps.length; i += 1) steps[i].done = true;
+  }
+  const index = steps.reduce((n, s, i) => (s.done ? i : n), 0);
+  return {
+    cancelled: order.status === 'closed',
+    refunding: order.status === 'refunding',
+    index: steps.every((s) => !s.done) ? -1 : index,
+    steps,
+  };
+}
+
 
 export function shippingById(id) {
   return findShipping(id);
@@ -211,6 +260,13 @@ export function createOrder(userId, draft = {}) {
     amounts,
     status: draft.status || 'pending',
     createdAt: draft.createdAt || new Date().toISOString(),
+    // 履约时间戳 / 物流 / 售后：只有「服务端订单落镜像」时才会带进来，
+    // 正常下单时这些键都不存在，不会给订单塞一堆空字段。
+    ...(draft.paidAt ? { paidAt: draft.paidAt } : {}),
+    ...(draft.shippedAt ? { shippedAt: draft.shippedAt } : {}),
+    ...(draft.completedAt ? { completedAt: draft.completedAt } : {}),
+    ...(draft.logistics ? { logistics: draft.logistics } : {}),
+    ...(draft.aftersales ? { aftersales: draft.aftersales } : {}),
     // remote=true 表示这条是服务端订单的本地镜像（核销/取消都以服务端为准）
     ...(draft.remote ? { remote: true } : {}),
   };
@@ -236,6 +292,80 @@ export function updateOrderStatus(userId, id, status) {
   hit.updatedAt = new Date().toISOString();
   write(userId, list);
   return hit;
+}
+
+/** 按 id 覆盖写入（服务端最新状态回写镜像时用；不存在则插到最前） */
+export function upsertOrder(userId, order = {}) {
+  if (!userId || !order.id) return null;
+  const list = read(userId);
+  const idx = list.findIndex((o) => String(o.id) === String(order.id));
+  const merged = idx >= 0 ? { ...list[idx], ...order } : order;
+  if (idx >= 0) list[idx] = merged;
+  else list.unshift(merged);
+  write(userId, list);
+  return merged;
+}
+
+/* ---------------- 履约推进（本地单 / 离线演示） ---------------- */
+
+/**
+ * 模拟发货：paid → shipped，并生成快递公司、运单号与两条物流事件。
+ *
+ * 服务端订单不该走这里——它们在服务端事务里推进，前端只负责把返回结果写回镜像。
+ * 这条路径是给「没有网关的纯静态站点」用的：那条路上没有任何服务端可以改状态，
+ * 否则演示按钮点下去什么也不会发生。
+ */
+export function applyShipment(userId, id, now = Date.now()) {
+  const hit = getOrder(userId, id);
+  if (!hit) return null;
+  if (hit.status !== 'paid') return hit;
+  const shipment = mockShipment(now);
+  return upsertOrder(userId, {
+    ...hit,
+    status: 'shipped',
+    shippedAt: shipment.events[shipment.events.length - 1].at,
+    logisticsCompany: shipment.company,
+    trackingNo: shipment.trackingNo,
+    logistics: {
+      company: shipment.company,
+      trackingNo: shipment.trackingNo,
+      shippedAt: shipment.events[0].at,
+      completedAt: null,
+      events: shipment.events,
+    },
+  });
+}
+
+/** 模拟签收：shipped → completed，追加派送中 / 已签收两条事件 */
+export function applyDelivery(userId, id, now = Date.now()) {
+  const hit = getOrder(userId, id);
+  if (!hit) return null;
+  if (hit.status !== 'shipped') return hit;
+  const prev = (hit.logistics && Array.isArray(hit.logistics.events)) ? hit.logistics.events : [];
+  const events = [...prev, ...mockDeliverEvents(now)];
+  return upsertOrder(userId, {
+    ...hit,
+    status: 'completed',
+    completedAt: events[events.length - 1].at,
+    logistics: {
+      company: (hit.logistics && hit.logistics.company) || hit.logisticsCompany || '',
+      trackingNo: (hit.logistics && hit.logistics.trackingNo) || hit.trackingNo || '',
+      shippedAt: (hit.logistics && hit.logistics.shippedAt) || hit.shippedAt || null,
+      completedAt: events[events.length - 1].at,
+      events,
+    },
+  });
+}
+
+/** 售后中标记：本地单申请售后后调用（服务端单由服务端返回的状态覆盖） */
+export function markRefunding(userId, id, aftersales) {
+  const hit = getOrder(userId, id);
+  if (!hit) return null;
+  return upsertOrder(userId, {
+    ...hit,
+    status: 'refunding',
+    ...(Array.isArray(aftersales) ? { aftersales } : {}),
+  });
 }
 
 export function clearOrders(userId) {
@@ -275,11 +405,31 @@ export function normalizeRemote(raw = {}) {
     pic: i.pic || '',
     coverColor: i.coverColor || '',
   }));
+  // 地址兼容两种形态：结构化对象（当前网关）与拼接字符串（老版本 / 缓存里的镜像）。
+  // 只认对象的话，老数据会把整块「收货信息」渲染成三个「—」，看起来像订单丢了地址。
+  const rawAddr = raw.address;
+  const address = rawAddr && typeof rawAddr === 'object'
+    ? {
+      receiver: rawAddr.receiver || raw.receiver || '',
+      phone: rawAddr.phone || raw.phone || '',
+      region: rawAddr.region || '',
+      detail: rawAddr.detail || '',
+      postal: rawAddr.postal || '',
+    }
+    : (rawAddr || raw.addressText)
+      ? {
+        receiver: raw.receiver || '',
+        phone: raw.phone || '',
+        region: String(raw.addressText || rawAddr || ''),
+        detail: '',
+        postal: '',
+      }
+      : null;
   return {
     id: raw.id || raw.orderId,
     userId: raw.userId || '',
     items,
-    address: raw.address || null,
+    address,
     shippingMethod: { id: shipping.id, name: shipping.name, fee: raw.shippingFee ?? shipping.fee ?? 0, eta: shipping.eta || '' },
     paymentMethod: { id: payment.id, name: payment.name },
     remark: raw.remark || '',
@@ -292,6 +442,24 @@ export function normalizeRemote(raw = {}) {
     }),
     status: raw.status || 'pending',
     createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),
+    // 履约时间戳：流转条靠它们判断走到第几步（status 只负责顶部胶囊）
+    paidAt: raw.paidAt || null,
+    shippedAt: raw.shippedAt || null,
+    completedAt: raw.completedAt || null,
+    // 物流与售后只有详情接口会带；列表接口没有这两个字段，保持 undefined 而不是空对象，
+    // 免得详情页把「列表数据」误当成「没有物流事件」。
+    ...(raw.logistics ? {
+      logistics: {
+        company: raw.logistics.company || '',
+        trackingNo: raw.logistics.trackingNo || '',
+        shippedAt: raw.logistics.shippedAt || null,
+        completedAt: raw.logistics.completedAt || null,
+        events: Array.isArray(raw.logistics.events) ? raw.logistics.events : [],
+      },
+    } : {}),
+    ...(Array.isArray(raw.aftersales) ? { aftersales: raw.aftersales } : {}),
+    ...(raw.logisticsCompany ? { logisticsCompany: raw.logisticsCompany } : {}),
+    ...(raw.trackingNo ? { trackingNo: raw.trackingNo } : {}),
     remote: raw.remote !== false,
   };
 }

@@ -5992,3 +5992,322 @@ body.flt-sheet-open { overflow: hidden; }
   transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
 }
 .co2-coupon-toggle:hover { border-color: var(--gold); color: var(--gold-deep); }
+
+/* ============================================================
+   订单详情 v2：状态流转 / 物流时间线 / 售后
+   ------------------------------------------------------------
+   视觉约束（这一页信息密度高，统一按「细线 + 金色节点 + 胶囊标签」走）：
+     - 流转条与时间线都只用 1px 细线，节点用金色实心点，避免色块堆叠；
+     - 状态胶囊颜色克制：只有「待付款 / 售后中」用金色，其余走中性灰；
+     - 主按钮只有一个（去支付），售后与取消都是细线按钮，不抢主视觉；
+     - 金额一律 tabular-nums，纵向对齐才看得清加减关系。
+   ============================================================ */
+
+/* ---- 状态胶囊 ---- */
+.od-pill {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  background: rgba(26, 26, 26, 0.05);
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.od-pill.s-pending { background: var(--gold-weak); color: var(--gold-deep); }
+.od-pill.s-paid { background: rgba(26, 26, 26, 0.07); color: var(--ink); }
+.od-pill.s-shipped { background: rgba(38, 84, 138, 0.08); color: #26548a; }
+.od-pill.s-completed { background: rgba(46, 125, 80, 0.09); color: #2e7d50; }
+.od-pill.s-refunding { background: var(--gold-weak); color: var(--gold-deep); }
+.od-pill.s-closed { background: rgba(26, 26, 26, 0.04); color: var(--muted); }
+
+/* ---- 状态流转条 ---- */
+.od-steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 22px 0 0;
+  padding: 18px 0 4px;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+/* 细线只连节点中心：铺满整行会顶到卡片边缘，看起来像分隔线而不是进度 */
+.od-steps::before {
+  content: "";
+  position: absolute;
+  left: 12.5%;
+  right: 12.5%;
+  top: 24px;
+  height: 1px;
+  background: var(--line-strong);
+}
+.od-step {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+.od-step-dot {
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  transition: background 0.25s var(--ease), border-color 0.25s var(--ease);
+}
+.od-step.is-done .od-step-dot { border-color: var(--gold); background: var(--gold); }
+.od-step.is-current .od-step-dot { box-shadow: 0 0 0 4px var(--gold-weak); }
+.od-step-label { color: var(--muted); font-size: 11.5px; letter-spacing: 0.02em; }
+.od-step.is-done .od-step-label { color: var(--ink); }
+.od-step.is-current .od-step-label { font-weight: 600; }
+.od-step-at { min-height: 13px; color: var(--muted); font-size: 10px; }
+
+/* 已取消：不画进度条（走到一半停了，画出来反而误导停在哪一步） */
+.od-flow.is-cancelled {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 12px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-btn);
+}
+.od-flow-cancel { color: var(--body); font-size: 12px; letter-spacing: 0.04em; }
+.od-flow-note { color: var(--muted); font-size: 10.5px; }
+
+/* ---- 区块标题 ---- */
+.od-logi,
+.od-as {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.od-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.od-sec-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+}
+.od-sec-tag {
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+.od-sec-meta { display: flex; gap: 10px; align-items: baseline; color: var(--muted); font-size: 11px; }
+.od-waybill { color: var(--body); letter-spacing: 0.04em; }
+
+/* ---- 物流时间线 ---- */
+.od-logi-empty { margin: 12px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.7; }
+.od-track { margin: 14px 0 0; padding: 0; list-style: none; }
+.od-track-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 16px;
+}
+.od-track-item:last-child { padding-bottom: 0; }
+/* 竖线从上一个节点连下来，最后一段不画（别把线拖到卡片底边） */
+.od-track-item::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 13px;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-strong);
+}
+.od-track-item:last-child::before { display: none; }
+.od-track-dot {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  margin-top: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+}
+.od-track-item.is-done .od-track-dot { border-color: var(--gold); background: var(--gold); }
+.od-track-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.od-track-title { color: var(--muted); font-size: 12px; }
+.od-track-item.is-done .od-track-title { color: var(--ink); }
+.od-track-at { flex: none; color: var(--muted); font-size: 10.5px; }
+.od-track-detail { margin: 4px 0 0; color: var(--body); font-size: 11px; line-height: 1.6; }
+
+/* ---- 售后记录 ---- */
+.od-as-item {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: rgba(250, 249, 246, 0.6);
+}
+.od-as-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.od-as-type { color: var(--ink); font-size: 12px; font-weight: 500; }
+.od-as-status {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.od-as-status.s-approved { background: rgba(46, 125, 80, 0.09); color: #2e7d50; }
+.od-as-status.s-rejected { background: rgba(26, 26, 26, 0.05); color: var(--muted); }
+.od-as-note { margin: 8px 0 0; color: var(--body); font-size: 11.5px; line-height: 1.7; }
+.od-as-ev { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+.od-as-handle {
+  margin: 9px 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  color: var(--body);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.od-as-meta { margin: 6px 0 0; color: var(--muted); font-size: 10px; }
+
+/* ---- 动作区 ---- */
+.od-main-btn {
+  padding: 11px 22px;
+  border: 1px solid var(--ink);
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s var(--ease);
+}
+.od-main-btn:hover:not(:disabled) { opacity: 0.86; }
+.od-main-btn:disabled { opacity: 0.5; cursor: default; }
+/* 售后 / 返回这类次级动作：细线按钮，刻意不抢「去支付」 */
+.od-line-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.od-line-btn:hover { border-color: var(--gold); color: var(--gold-deep); }
+.od-actions { align-items: center; }
+
+/* ---- 演示动作：低对比，放在卡片最底部 ---- */
+.od-demo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+.od-demo-note {
+  color: rgba(141, 138, 132, 0.75);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.od-demo-btn {
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(141, 138, 132, 0.45);
+  cursor: pointer;
+}
+.od-demo-btn:hover { color: var(--gold-deep); }
+.od-demo-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ---- 金额纵向对齐 ---- */
+.od-amounts, .od-sum-row, .od-total { font-variant-numeric: tabular-nums; }
+
+/* ---- 售后申请弹层 ---- */
+.as-form { display: flex; flex-direction: column; gap: 10px; max-width: 460px; }
+.as-title { margin: 0; color: var(--ink); font-family: var(--serif); font-size: 22px; font-weight: 500; }
+.as-sub { margin: -4px 0 6px; color: var(--muted); font-size: 11px; }
+.as-label {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.as-types { display: flex; gap: 8px; }
+.as-type {
+  flex: 1;
+  padding: 9px 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-btn);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.as-type.is-on { border-color: var(--gold); background: var(--gold-weak); color: var(--gold-deep); }
+.as-reason,
+.as-note {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+}
+.as-note { min-height: 84px; line-height: 1.7; resize: vertical; }
+.as-reason:focus,
+.as-note:focus { outline: none; border-color: var(--gold); }
+.as-file { color: var(--body); font-size: 11px; }
+.as-hint { margin: -2px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+.as-ev-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.as-ev-tag {
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: rgba(26, 26, 26, 0.05);
+  color: var(--body);
+  font-size: 10px;
+}
+.as-error { min-height: 14px; margin: 0; color: #a6453b; font-size: 11px; }
+.as-actions { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 2px; }
+.as-submit { flex: none; min-width: 148px; }
+
+@media (max-width: 640px) {
+  .od-steps::before { top: 22px; }
+  .od-step { gap: 6px; }
+  .od-step-label { font-size: 10.5px; }
+  .od-step-at { font-size: 9px; }
+  .od-pill { padding: 3px 10px; font-size: 10px; }
+  .od-actions { gap: 8px; }
+  .od-line-btn { padding: 9px 14px; font-size: 11px; }
+  .as-form { max-width: none; }
+}
+
+/* 售后弹层用窄版弹窗：表单只有一列，用 720px 会空出半张卡片 */
+.modal.is-narrow { width: min(520px, 92vw); }

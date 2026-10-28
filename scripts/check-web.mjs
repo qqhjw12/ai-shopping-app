@@ -491,7 +491,7 @@ if (failed === 0) {
     const { renderCheckout } = await import(dir('checkout.js'));
     const { renderCart } = await import(dir('cart.js'));
     const { renderOrderSuccess } = await import(dir('orderSuccess.js'));
-    const { renderOrderDetail } = await import(dir('accountCenter.js'));
+    const { renderOrderDetail } = await import(dir('orderDetail.js'));
     const cp = await import(dir('store/couponStore.js'));
     const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms));
     const click = (node) => node && node.listeners && node.listeners.click && node.listeners.click();
@@ -788,7 +788,8 @@ if (failed === 0) {
     const state = await import(dir('state.js'));
     const userMod = await import(dir('user.js'));
     const { renderCoupons } = await import(dir('coupons.js'));
-    const { renderAccount, renderOrderDetail } = await import(dir('accountCenter.js'));
+    const { renderAccount } = await import(dir('accountCenter.js'));
+    const { renderOrderDetail } = await import(dir('orderDetail.js'));
     const { renderCheckout } = await import(dir('checkout.js'));
     const tick = (ms = 25) => new Promise((r) => setTimeout(r, ms));
     const click = (n) => n && n.listeners && n.listeners.click && n.listeners.click();
@@ -1146,7 +1147,8 @@ if (failed === 0) {
     const userMod = await import(dir('user.js'));
     const guard = await import(dir('guard.js'));
     const { renderLogin } = await import(dir('login.js'));
-    const { renderAccount, renderOrderDetail } = await import(dir('accountCenter.js'));
+    const { renderAccount } = await import(dir('accountCenter.js'));
+    const { renderOrderDetail } = await import(dir('orderDetail.js'));
     const addr = await import(dir('store/addressStore.js'));
     const state = await import(dir('state.js'));
 
@@ -1522,6 +1524,212 @@ if (failed === 0) {
   } catch (e) {
     failed++;
     console.log(`  FAIL 检索断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
+/* ---------------- 履约与售后断言（状态流转 / 物流时间线 / 售后记录） ---------------- */
+// 这一层守的是「订单页说的和真发生的一致」：
+//   1) 阶段由时间戳推导、status 只负责胶囊——售后中的订单不能因此丢掉进度（否则整条流转条消失）；
+//   2) 物流没事件行时要能回退合成，不能出现「已发货但时间线空白」；
+//   3) 售后必须真的改订单状态并留下记录，否则那颗按钮只是装饰。
+if (failed === 0) {
+  console.log('\n履约与售后断言（状态流转 / 物流时间线 / 售后申请与记录）');
+  try {
+    const dir = (f) => pathToFileURL(join(WEB_DIR, f)).href;
+    const orders = await import(dir('store/orderStore.js'));
+    const logi = await import(dir('store/logistics.js'));
+    const as = await import(dir('store/aftersaleStore.js'));
+    const userMod = await import(dir('user.js'));
+    const { renderOrderDetail } = await import(dir('orderDetail.js'));
+    const tick = (ms = 25) => new Promise((r) => setTimeout(r, ms));
+    const hasCls = (node, c) => Boolean(node && node.classList && node.classList.contains(c));
+
+    localStorage.clear();
+    userMod.clearCurrentUser();
+    const uid = 'u_fulfil_test';
+    userMod.setCurrentUser({ id: uid, nickname: '履约测试', phone: '13800001234' });
+
+    /* 1) 状态词表：说人话（待发货 / 已取消），不要说系统内部叫法 */
+    const texts = ['paid', 'closed', 'refunding', 'pending', 'shipped', 'completed'].map((s) => orders.statusText(s));
+    const textOk = texts[0] === '待发货' && texts[1] === '已取消' && texts[2] === '售后中'
+      && texts[3] === '待付款' && texts[4] === '已发货' && texts[5] === '已完成';
+
+    /* 2) 阶段推导：只看时间戳，不看 status */
+    const stPending = orders.orderStage({ status: 'pending', createdAt: '2026-10-27 10:00:00' });
+    const stPaid = orders.orderStage({ status: 'paid', paidAt: '2026-10-27 10:01:00' });
+    const stRefunding = orders.orderStage({
+      status: 'refunding', paidAt: '2026-10-27 10:01:00', shippedAt: '2026-10-27 18:00:00', completedAt: '2026-10-28 09:00:00',
+    });
+    const stClosed = orders.orderStage({ status: 'closed', createdAt: '2026-10-27 10:00:00' });
+    const stageOk = stPending.steps.length === 4 && stPending.index === 0
+      && stPaid.index === 1 && !stPaid.steps[2].done
+      && stRefunding.index === 3 && stRefunding.refunding && !stRefunding.cancelled
+      && stClosed.cancelled;
+
+    /* 3) 造一笔待发货订单 */
+    const oid = 'MS202610280001';
+    const base = {
+      id: oid,
+      userId: uid,
+      items: [{ productId: 'p244', name: '履约测试签字笔', spec: '0.5mm / 灰', price: 29, qty: 2, subtotal: 58 }],
+      address: { receiver: '履约', phone: '13800001234', region: '浙江省 杭州市', detail: '文三路 88 号' },
+      shippingMethod: { id: 'standard', name: '标准配送', fee: 0, eta: '3-5 天' },
+      paymentMethod: { id: 'online', name: '在线支付' },
+      amounts: { productAmount: 58, shippingFee: 0, couponDiscount: 0, payAmount: 58 },
+      status: 'paid',
+      createdAt: '2026-10-27 10:00:00',
+      paidAt: '2026-10-27 10:01:00',
+    };
+    orders.upsertOrder(uid, base);
+
+    /* 4) 未发货：物流块显示「待发货」而不是空时间线 */
+    const vPaid = new El('main');
+    await renderOrderDetail(vPaid, oid);
+    await tick();
+    const paidEmpty = vPaid.querySelectorAll('.od-track').length === 0
+      && (vPaid.querySelectorAll('.od-sec-tag')[0] || {}).textContent === '待发货'
+      // 待发货的文案分两种（未付款 / 已付款待打包），这里只认「会在这里更新」这个共同承诺
+      && /物流信息会在这里更新/.test(vPaid.textContent || '');
+    const demoShipLabel = (vPaid.querySelectorAll('.od-demo-btn')[0] || {}).textContent;
+
+    /* 5) 本地模拟发货：状态 + 运单号 + 两条事件 */
+    const shippedOrder = orders.applyShipment(uid, oid);
+    const logiAfterShip = logi.logisticsOf(shippedOrder);
+    const shipOk = shippedOrder.status === 'shipped'
+      && /^(SF|JD|ZT)\d{10,}/.test(shippedOrder.logistics.trackingNo)
+      && logiAfterShip.stages.filter((s) => s.done).length === 2
+      && logiAfterShip.stages[3].done === false;
+
+    /* 6) 页面：四段节点全画出来，未到达的灰显 */
+    const vShip = new El('main');
+    await renderOrderDetail(vShip, oid);
+    await tick();
+    const steps = vShip.querySelectorAll('.od-step');
+    const trackItems = vShip.querySelectorAll('.od-track-item');
+    const shipPageOk = steps.length === 4 && trackItems.length === 4
+      && trackItems.filter((n) => hasCls(n, 'is-done')).length === 2
+      && /待更新/.test(vShip.textContent || '')
+      && new RegExp(shippedOrder.logistics.trackingNo).test(vShip.textContent || '');
+    const aftersaleBtn = vShip.querySelectorAll('.od-line-btn').filter((n) => /申请退款/.test(n.textContent));
+    const demoCompleteLabel = (vShip.querySelectorAll('.od-demo-btn')[0] || {}).textContent;
+
+    /* 7) 本地模拟签收：四段全绿 + 已完成 */
+    const doneOrder = orders.applyDelivery(uid, oid);
+    const logiDone = logi.logisticsOf(doneOrder);
+    const completeOk = doneOrder.status === 'completed'
+      && logiDone.events.length === 4
+      && logiDone.stages.every((s) => s.done)
+      && Boolean(doneOrder.completedAt);
+
+    /* 8) 回退合成：老订单没有事件行时按时间戳补，不留空白时间线 */
+    const legacy = logi.logisticsOf({ status: 'shipped', shippedAt: '2026-10-27 12:00:00' });
+    const legacyOk = legacy.shipped && legacy.events.length === 2
+      && legacy.stages[0].done && !legacy.stages[2].done;
+    const noShip = logi.logisticsOf({ status: 'paid' });
+    const noShipOk = noShip.shipped === false && noShip.stages.length === 4
+      && noShip.stages.every((s) => !s.done);
+
+    /* 9) 售后：可申请条件 + 表单校验 */
+    const canShipped = as.canApply({ status: 'shipped' }).ok;
+    const canPending = as.canApply({ status: 'pending' }).ok;
+    const canRefunding = as.canApply({ status: 'refunding' }).ok;
+    const badType = as.validateAftersale({ type: 'magic', reason: 'quality' });
+    const badReason = as.validateAftersale({ type: 'refund', reason: 'whatever' });
+    const longNote = as.validateAftersale({ type: 'refund', reason: 'quality', note: 'x'.repeat(201) });
+    const okForm = as.validateAftersale({ type: 'return', reason: 'damaged', note: '外箱破损' });
+    const guardOk = canShipped && !canPending && !canRefunding
+      && Boolean(badType) && Boolean(badReason) && Boolean(longNote) && okForm === null;
+
+    /* 10) 落记录 + 订单转售后中 + 详情页显示记录与处理说明 */
+    const rec = as.saveAftersale(uid, {
+      orderId: oid,
+      type: 'return',
+      reason: 'damaged',
+      note: '外箱破损，内件有划痕',
+      evidence: [{ name: 'proof-1.jpg', size: 2048 }],
+      handleNote: '已收到申请，客服会在 24 小时内联系你确认处理方式',
+    });
+    orders.markRefunding(uid, oid, as.listByOrder(uid, oid));
+    const recOk = /^AS\d{8}\d{4}$/.test(rec.id)
+      && as.listByOrder(uid, oid).length === 1
+      && as.listByOrder('u_other_user', oid).length === 0;
+
+    const vAs = new El('main');
+    await renderOrderDetail(vAs, oid);
+    await tick();
+    const asPageOk = vAs.querySelectorAll('.od-as-item').length === 1
+      && /售后中/.test(vAs.textContent || '')
+      && /运输破损/.test(vAs.textContent || '')
+      && /外箱破损/.test(vAs.textContent || '')
+      && /处理说明/.test(vAs.textContent || '')
+      && /proof-1\.jpg/.test(vAs.textContent || '')
+      // 售后中不再显示申请入口（否则用户能对同一笔订单反复提交）
+      && vAs.querySelectorAll('.od-line-btn').filter((n) => /申请退款/.test(n.textContent)).length === 0;
+    // 售后中仍然要看得到自己走到了哪一步（阶段靠时间戳，不靠 status）
+    const asStepsOk = vAs.querySelectorAll('.od-step').filter((n) => hasCls(n, 'is-done')).length === 4;
+
+    /* 11) 已取消：不画进度条，只留一行说明 */
+    const cancelOrder = orders.upsertOrder(uid, { ...base, id: 'MS202610280002', status: 'closed', paidAt: null });
+    const vCancel = new El('main');
+    await renderOrderDetail(vCancel, cancelOrder.id);
+    await tick();
+    const cancelPageOk = vCancel.querySelectorAll('.od-flow').length === 1
+      && vCancel.querySelectorAll('.od-steps').length === 0
+      && /订单已取消/.test(vCancel.textContent || '');
+
+    /* 12) 同一订单重复 upsert 不产生第二条 */
+    orders.upsertOrder(uid, { ...base, status: 'completed' });
+    const noDup = orders.listOrders(uid).filter((o) => o.id === oid).length === 1;
+
+    /* 13) 本地单（无网关）点演示按钮也要真的推进状态：
+       纯静态站点没有服务端可以改状态，这条路径如果不通，
+       演示按钮就是一颗点了没反应的死按钮——而它恰恰是离线演示的主要入口。 */
+    const localId = 'MS202610280003';
+    orders.upsertOrder(uid, { ...base, id: localId, status: 'paid' });
+    const vLocal = new El('main');
+    await renderOrderDetail(vLocal, localId);
+    await tick();
+    const localDemoBtn = vLocal.querySelectorAll('.od-demo-btn')[0];
+    // 垫片不带事件对象，这里按浏览器的最小契约补一个 currentTarget
+    if (localDemoBtn && localDemoBtn.listeners.click) await localDemoBtn.listeners.click({ currentTarget: localDemoBtn });
+    await tick(60);
+    const localShipOk = orders.getOrder(uid, localId).status === 'shipped'
+      && ((vLocal.querySelectorAll('.od-pill')[0] || {}).textContent || '').trim() === '已发货';
+    const localCompleteBtn = vLocal.querySelectorAll('.od-demo-btn')[0];
+    if (localCompleteBtn && localCompleteBtn.listeners.click) await localCompleteBtn.listeners.click({ currentTarget: localCompleteBtn });
+    await tick(60);
+    // 垫片不认复合选择器（.a.b 会当成单个类名），命中态一律按 classList 统计
+    const localDoneOk = orders.getOrder(uid, localId).status === 'completed'
+      && vLocal.querySelectorAll('.od-track-item').filter((n) => hasCls(n, 'is-done')).length === 4;
+
+    const cases = [
+      ['状态词表（待发货 / 已取消 / 售后中）', textOk],
+      ['阶段由时间戳推导（售后中不丢进度）', stageOk],
+      ['未发货显示「待发货」占位', paidEmpty],
+      ['待发货显示「模拟发货」', demoShipLabel === '模拟发货'],
+      ['模拟发货生成运单号与两条事件', shipOk],
+      ['详情页四段节点 + 未达节点灰显', shipPageOk],
+      ['已发货出现售后入口', aftersaleBtn.length === 1],
+      ['已发货显示「模拟签收」', demoCompleteLabel === '模拟签收'],
+      ['模拟签收补齐四段并置已完成', completeOk],
+      ['老订单无事件时按时间戳合成', legacyOk],
+      ['未发货时间线不假装已发货', noShipOk],
+      ['售后可申请条件（已发货可 / 待发货与售后中不可）', guardOk],
+      ['售后记录落库并按用户隔离', recOk],
+      ['详情页显示售后状态/说明/凭证', asPageOk],
+      ['售后中仍显示履约进度', asStepsOk],
+      ['已取消不画进度条', cancelPageOk],
+      ['同一订单重复写入不产生两条', noDup],
+      ['本地单点「模拟发货」真的推进状态', localShipOk],
+      ['本地单点「模拟签收」补齐四段', localDoneOk],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 履约与售后${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 履约与售后断言异常: ${String(e.message).split('\n')[0]}`);
+    console.log(String(e.stack).split('\n').slice(1, 4).join('\n'));
   }
 }
 

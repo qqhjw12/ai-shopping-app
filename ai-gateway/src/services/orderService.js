@@ -12,6 +12,10 @@ import * as cartRepo from '../repositories/cartRepo.js';
 import * as userRepo from '../repositories/userRepo.js';
 import { listCart } from '../repositories/cartRepo.js';
 import { normalizePaymentId, paymentMethods, shippingById, shippingFeeOf } from './settingsService.js';
+import {
+  appendEvents, dbTime, eventsOnDeliver, listEvents, newShipment,
+} from './logisticsService.js';
+import { listAftersales } from './aftersaleService.js';
 
 /** 已废弃：运费改由运营配置（app_settings.shipping）决定。保留导出仅为不打断外部引用。 */
 export const SHIPPING_FREE_THRESHOLD = 99;
@@ -248,8 +252,13 @@ export function createOrder({ userId, items, addressId, couponId, remark = '', s
   }
 }
 
-/** 订单详情（含明细、物流、金额拆分） */
-export function getOrder(orderId, userId) {
+/**
+ * 订单详情（含明细、物流、金额拆分、售后记录）。
+ *
+ * withDetail=false 用于列表接口：物流事件与售后单各是一次额外查询，
+ * 列表只显示「订单号 / 状态 / 金额」，为 50 笔订单各查两次属于典型的 N+1。
+ */
+export function getOrder(orderId, userId, { withDetail = true } = {}) {
   const db = getDb();
   const row = db
     .prepare(`
@@ -279,6 +288,8 @@ export function getOrder(orderId, userId) {
     status: row.status,
     createdAt: row.created_at,
     paidAt: row.paid_at,
+    shippedAt: row.shipped_at || null,
+    completedAt: row.completed_at || null,
     productAmount: row.product_amount ?? row.total_amount,
     shippingFee: row.shipping_fee ?? 0,
     discountAmount: row.discount_amount ?? 0,
@@ -291,9 +302,30 @@ export function getOrder(orderId, userId) {
     remark: row.remark || '',
     logisticsCompany: row.logistics_company,
     trackingNo: row.tracking_no,
+    // 物流与售后只在详情里带：没发货时 events 为空数组，前端据此显示「待发货」
+    ...(withDetail ? {
+      logistics: {
+        company: row.logistics_company || '',
+        trackingNo: row.tracking_no || '',
+        shippedAt: row.shipped_at || null,
+        completedAt: row.completed_at || null,
+        events: listEvents(db, orderId),
+      },
+      aftersales: listAftersales(orderId, db),
+    } : {}),
     receiver: row.receiver || '',
     phone: row.phone || '',
-    address: row.region ? `${row.region} ${row.detail}` : '',
+    // 结构化地址：前端的订单页要分「收货人 / 电话 / 地区 / 详细地址」三行显示，
+    // 只给一个拼接字符串的话，页面只能整行倒出来（或者干脆显示成「—」）。
+    // addressText 保留给「一行式」消费方（日志、AI 客服话术）。
+    address: (row.region || row.detail) ? {
+      receiver: row.receiver || '',
+      phone: row.phone || '',
+      region: row.region || '',
+      detail: row.detail || '',
+      postal: '',
+    } : null,
+    addressText: row.region ? `${row.region} ${row.detail}` : '',
     items,
   };
 }
@@ -302,7 +334,9 @@ export function listOrders(userId, limit = 50) {
   const rows = getDb()
     .prepare('SELECT id FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT ?')
     .all(userId, limit);
-  return rows.map((r) => getOrder(r.id, userId)).filter(Boolean);
+  return rows
+    .map((r) => getOrder(r.id, userId, { withDetail: false }))
+    .filter(Boolean);
 }
 
 /** 支付（演示：pending → paid，不接真实支付网关） */
@@ -313,6 +347,96 @@ export function payOrder(orderId, userId) {
   if (row.status !== 'pending') throw Object.assign(new Error('该订单无需重复支付'), { status: 409 });
   db.prepare("UPDATE orders SET status = 'paid', paid_at = datetime('now') WHERE id = ?").run(orderId);
   return getOrder(orderId, userId);
+}
+
+/* ---------------- 履约推进（模拟发货 / 模拟签收） ---------------- */
+
+/** 允许演示推进的前置状态 */
+const SHIPPABLE = 'paid';
+const DELIVERABLE = 'shipped';
+
+/**
+ * 模拟发货（演示用）：paid → shipped，写物流公司与运单号 + 揽收/运输两条事件。
+ *
+ * 为什么状态检查这么死：发货不是「改个标签」，它决定了用户能不能申请售后
+ * （只有已发货/已完成可申请）。如果允许从 pending 直接发货，
+ * 就会出现「没付款也能退款」这种账算不平的路径。
+ *
+ * 幂等：已经发过货再点一次直接返回现状，不重新生成运单号——
+ * 同一笔订单两次发货会得到两个运单号，用户不知道该看哪个。
+ */
+export function shipOrder(orderId, userId) {
+  const db = getDb();
+  db.exec('BEGIN');
+  try {
+    const row = db.prepare('SELECT status FROM orders WHERE id = ? AND user_id = ?').get(orderId, userId);
+    if (!row) throw Object.assign(new Error('订单不存在'), { status: 404 });
+    if (row.status === 'shipped' || row.status === 'completed') {
+      db.exec('COMMIT');
+      return getOrder(orderId, userId);
+    }
+    if (row.status !== SHIPPABLE) {
+      throw Object.assign(
+        new Error(row.status === 'pending' ? '订单还未付款，无法发货' : '当前状态不支持发货'),
+        { status: 409 },
+      );
+    }
+    const now = new Date();
+    const shipment = newShipment(now);
+    db.prepare(`
+      UPDATE orders
+      SET status = 'shipped', shipped_at = ?, logistics_company = ?, tracking_no = ?
+      WHERE id = ?
+    `).run(dbTime(now), shipment.company, shipment.trackingNo, orderId);
+    appendEvents(db, orderId, shipment.events);
+    db.exec('COMMIT');
+    return getOrder(orderId, userId);
+  } catch (e) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* 不掩盖原始错误 */
+    }
+    throw e;
+  }
+}
+
+/**
+ * 模拟签收（演示用）：shipped → completed，追加派送中 / 已签收两条事件。
+ *
+ * 没有它就没有「已完成」的订单可申请售后，售后入口等于永远点不到。
+ * 同样是幂等的：已完成再点一次返回现状，不会补出第二组签收事件。
+ */
+export function completeOrder(orderId, userId) {
+  const db = getDb();
+  db.exec('BEGIN');
+  try {
+    const row = db.prepare('SELECT status FROM orders WHERE id = ? AND user_id = ?').get(orderId, userId);
+    if (!row) throw Object.assign(new Error('订单不存在'), { status: 404 });
+    if (row.status === 'completed') {
+      db.exec('COMMIT');
+      return getOrder(orderId, userId);
+    }
+    if (row.status !== DELIVERABLE) {
+      throw Object.assign(
+        new Error(row.status === 'shipped' ? '当前状态不支持签收' : '订单尚未发货，无法签收'),
+        { status: 409 },
+      );
+    }
+    const now = new Date();
+    db.prepare("UPDATE orders SET status = 'completed', completed_at = ? WHERE id = ?")
+      .run(dbTime(now), orderId);
+    appendEvents(db, orderId, eventsOnDeliver(now));
+    db.exec('COMMIT');
+    return getOrder(orderId, userId);
+  } catch (e) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* 不掩盖原始错误 */
+    }
+    throw e;
+  }
 }
 
 /** 可取消的状态：已发货/已完成的订单必须先走售后，不能直接取消 */

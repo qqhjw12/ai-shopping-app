@@ -211,7 +211,7 @@ try {
   await page.locator('.od-cancel').click();
   await page.waitForTimeout(700);
   const afterCancel = (await page.locator('.od-card').textContent()) || '';
-  check('取消后订单已关闭', /已关闭/.test(afterCancel), afterCancel.slice(0, 30));
+  check('取消后订单显示已取消', /已取消/.test(afterCancel), afterCancel.slice(0, 30));
 
   await go('#/account?tab=coupons');
   await page.waitForTimeout(360);

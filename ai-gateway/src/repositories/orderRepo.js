@@ -1,13 +1,16 @@
 // 订单仓储：售后 / 物流问答的数据来源（SQLite）。
 import { getDb } from '../db/connection.js';
 
+// 状态文案与前端 orderStore.ORDER_STATUS_TEXT 保持一致：
+// 同一笔订单在「AI 客服说」和「订单详情页显示」里必须是同一个词，
+// 否则用户会以为客服说的是另一笔单。
 export const STATUS_LABEL = {
-  pending: '待支付',
-  paid: '已支付待发货',
+  pending: '待付款',
+  paid: '待发货',
   shipped: '已发货',
   completed: '已完成',
-  refunding: '退款中',
-  closed: '已关闭',
+  refunding: '售后中',
+  closed: '已取消',
 };
 
 function mapOrder(row, items) {

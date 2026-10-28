@@ -48,6 +48,10 @@ export const config = {
   // 限流：每 IP 每分钟请求数（0 表示不限流，仅演示）
   rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN || 60),
   rateLimitWindowMs: Number(env.RATE_LIMIT_WINDOW_MS || 60000),
+  // 演示开关：模拟发货 / 模拟签收两个端点。
+  // 只影响「订单详情的演示按钮」，正常下单、支付、取消、售后路径完全不受影响。
+  // 默认开（本站是演示站）；生产部署必须显式设 false，否则任何人都能把别人的订单推进状态。
+  demoActions: env.DEMO_ACTIONS !== 'false',
   // 若 Gateway 前置了反向代理（如 nginx），从 X-Forwarded-For 取真实客户端 IP
   trustProxy: env.TRUST_PROXY === 'true',
   // 买家秀上传加固：单请求重（base64 可达 6MB），需独立的频率 / 并发 / 配额约束
@@ -129,6 +133,9 @@ export function startupWarnings() {
   }
   if (!config.adminApiKey) {
     warns.push('ADMIN_API_KEY 未设置：运营配置接口（PUT /api/config）为只读，无法调整运费与券返还规则');
+  }
+  if (config.demoActions) {
+    warns.push('DEMO_ACTIONS 未关闭：模拟发货 / 模拟签收端点对外开放（仅演示站可接受，生产请设 DEMO_ACTIONS=false）');
   }
   return warns;
 }
