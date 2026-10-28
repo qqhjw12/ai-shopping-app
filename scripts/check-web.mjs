@@ -1938,5 +1938,54 @@ if (failed === 0) {
   }
 }
 
+/* ---------------- 资金与凭证断言（账本流水 / 打款确认 / 真上传） ---------------- */
+{
+  try {
+    const detailSrc = readFileSync(join(WEB_DIR, 'orderDetail.js'), 'utf8');
+    const adminSrc = readFileSync(join(WEB_DIR, 'adminAftersales.js'), 'utf8');
+    const uploadSrc = readFileSync(join(WEB_DIR, 'imgUpload.js'), 'utf8');
+
+    // 媒体地址必须过 mediaUrl()：运营台卡片曾直接用服务端给的相对路径，
+    // <img> 相对页面 origin 解析 → 打到静态服务器上 404。这个坑用源码锁住。
+    const mediaOk = /mediaUrl\(f\.url\)/.test(adminSrc)
+      && /mediaUrl\(f\.url\)/.test(detailSrc);
+
+    const ledgerOk = /function ledgerBlock/.test(detailSrc)
+      && /订单实付/.test(detailSrc)
+      && /可退额度/.test(detailSrc)
+      && /o\.balance \|\| \{\}/.test(detailSrc);
+
+    // 承诺与事实分开：工单上的退款金额是承诺，打款状态来自账本流水
+    const payoutOk = /function payoutBlock/.test(detailSrc)
+      && /待打款/.test(detailSrc)
+      && /已打款/.test(detailSrc)
+      && /l\.aftersaleId === r\.id/.test(detailSrc);
+
+    const settleOk = /api\/ledger\/refunds\/\$\{encodeURIComponent\(/.test(adminSrc)
+      && /确认已打款/.test(adminSrc);
+
+    // 上传：压缩 + 端点 + 多张容错（一张失败不拖累其它）
+    const uploadOk = /compressImageFile/.test(uploadSrc)
+      && /\/api\/aftersale\/evidence/.test(uploadSrc)
+      && /uploadEvidence/.test(detailSrc)
+      && /accept:\s*'image\/\*'/.test(detailSrc)
+      && /最多 \$\{MAX_EVIDENCE\} 份凭证/.test(detailSrc);
+
+    const cases = [
+      ['媒体地址过 mediaUrl()（相对路径会打到静态服务器 404）', mediaOk],
+      ['详情页退款进度区（实付 / 已退 / 可退额度 + 待打款）', ledgerOk],
+      ['工单打款进度只认账本流水（不认工单上的承诺金额）', payoutOk],
+      ['审核台打款确认按钮调账本结算端点', settleOk],
+      ['凭证真上传（压缩 + 端点 + 多张容错）', uploadOk],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 资金与凭证${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 资金与凭证断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

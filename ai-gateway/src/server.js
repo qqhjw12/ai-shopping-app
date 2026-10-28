@@ -1,6 +1,6 @@
 import './quiet.js';
 import http from 'node:http';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
@@ -31,6 +31,7 @@ import * as orderService from './services/orderService.js';
 import * as settingsService from './services/settingsService.js';
 import * as couponCatalogService from './services/couponCatalogService.js';
 import * as aftersaleService from './services/aftersaleService.js';
+import * as ledgerService from './services/ledgerService.js';
 import * as reviewRepo from './repositories/reviewRepo.js';
 import * as storage from './storage/index.js';
 import * as authService from './auth/service.js';
@@ -165,6 +166,73 @@ function adminKeyFingerprint(req) {
   return raw ? createHash('sha256').update(raw).digest('hex').slice(0, 8) : 'none';
 }
 
+// 物流推送的 body 上限：几条事件文本，64KB 绰绰有余。
+// 单独设一个比复用 6MB 的图片上限合理——这个端点只该收到几 KB。
+const WEBHOOK_BODY_LIMIT = 64 * 1024;
+
+/**
+ * 校验快递物流推送的签名。
+ *
+ * 签名内容 = `${timestamp}.${原始 body}`，HMAC-SHA256，每家快递一把密钥。
+ *
+ * 时间戳必须进签名：只签 body 的话，任何人截到一条合法请求就能无限重放，
+ * 「把订单改成已签收」这个动作会被反复执行。带上时间戳后服务端还能按窗口直接拒。
+ *
+ * 验签用常量时间比较（timingSafeEqual）：用 === 比较签名会按字节逐个短路，
+ * 响应时间的微小差异足以让对方逐字节猜出正确签名。
+ *
+ * @param {Buffer} raw 原始请求体（必须在 JSON.parse 之前拿到：
+ *   解析后重新序列化的键顺序/空格会变，签名必然对不上）
+ */
+function verifyLogisticsSignature(req, res, raw) {
+  const carrier = String(req.headers['x-carrier'] || '').trim().toLowerCase();
+  const secret = carrier ? config.logisticsWebhook.keys.get(carrier) : '';
+  if (!carrier) {
+    sendError(res, 401, '缺少物流渠道标识', req.reqId);
+    return false;
+  }
+  if (!secret) {
+    // 没配这家 = 这家没开通。刻意不说「签名错误」——那会让对接的人
+    // 反复去检查签名算法，而真问题是这家的密钥还没配置。
+    log.warn('logistics.webhook_unconfigured', { reqId: req.reqId, carrier, ip: req.ip });
+    sendError(res, 401, `${carrier} 渠道的物流推送未启用`, req.reqId);
+    return false;
+  }
+
+  const sig = String(req.headers['x-signature'] || '').trim().toLowerCase();
+  const ts = Number(req.headers['x-timestamp'] || 0);
+  if (!sig || !ts) {
+    sendError(res, 401, '缺少签名或时间戳', req.reqId);
+    return false;
+  }
+  const skew = Math.abs(Math.floor(Date.now() / 1000) - ts);
+  if (!Number.isFinite(skew) || skew > config.logisticsWebhook.toleranceSec) {
+    log.warn('logistics.webhook_stale', { reqId: req.reqId, carrier, skewSec: skew });
+    sendError(res, 401, '推送时间戳超出容差，可能已被重放', req.reqId);
+    return false;
+  }
+
+  const expect = createHmac('sha256', secret).update(`${ts}.${raw.toString('utf8')}`).digest('hex');
+  if (!safeEqualHex(expect, sig)) {
+    log.warn('logistics.webhook_bad_signature', { reqId: req.reqId, carrier, ip: req.ip });
+    sendError(res, 401, '签名校验失败', req.reqId);
+    return false;
+  }
+  return true;
+}
+
+/** 常量时间比较十六进制串（长度不等时先按长度比，否则 timingSafeEqual 会直接抛） */
+function safeEqualHex(a, b) {
+  const x = String(a || '');
+  const y = String(b || '');
+  if (x.length !== y.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(x, 'utf8'), Buffer.from(y, 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
 // ===== 买家秀上传 =====
 const UPLOAD_DIR = resolve(process.cwd(), 'data/uploads');
 const UPLOAD_LIMIT = config.upload.maxBytes; // 单张原始上限（默认 6MB，可由 UPLOAD_MAX_BYTES 覆盖）
@@ -185,6 +253,85 @@ function sniffImage(buf) {
   if (buf.length >= 6 && /^GIF8[79]a$/.test(buf.toString('latin1', 0, 6))) return '.gif';
   if (buf.length >= 12 && buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return '.webp';
   return null;
+}
+
+/**
+ * 读取并校验一张 base64 提交的图片（买家秀与售后凭证共用）。
+ *
+ * 校验顺序刻意从外到内：声明长度 → 实际字节 → 文件头嗅探。
+ * 先做嗅探的话，对方只要发个 100MB 的垃圾就能让服务器先读满内存再说「格式不对」。
+ *
+ * @returns {Promise<{buf: Buffer, ext: string}|null>} null = 已发出错误响应，调用方直接 return
+ */
+async function decodeImageBody(req, res, limit) {
+  const declared = Number(req.headers['content-length'] || 0);
+  const maxBody = Math.ceil(limit * 1.4); // base64 比原始大 ~1.33，留 40% 余量
+  if (declared && declared > maxBody) {
+    sendError(res, 413, `图片过大（上限 ${Math.round(limit / 1024 / 1024)}MB）`, req.reqId);
+    return null;
+  }
+  const raw = await readRawBody(req, limit);
+  if (raw === null) {
+    sendError(res, 413, `图片过大（上限 ${Math.round(limit / 1024 / 1024)}MB）`, req.reqId);
+    return null;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.toString('utf8') || '{}');
+  } catch {
+    sendError(res, 400, '请求格式有误', req.reqId);
+    return null;
+  }
+  const dataUrl = String((parsed && parsed.data) || '');
+  const base64 = dataUrl.includes(',') ? dataUrl.slice(dataUrl.indexOf(',') + 1) : dataUrl;
+  if (!base64) {
+    sendError(res, 400, '缺少图片数据', req.reqId);
+    return null;
+  }
+  let buf;
+  try {
+    buf = Buffer.from(base64, 'base64');
+  } catch {
+    sendError(res, 400, '图片编码有误', req.reqId);
+    return null;
+  }
+  // 拒绝浏览器被绕过时传来的空壳（base64 非法字符会让还原长度远小于预期）
+  if (!buf.length) {
+    sendError(res, 400, '图片内容为空', req.reqId);
+    return null;
+  }
+  if (buf.length > limit) {
+    sendError(res, 413, `图片过大（上限 ${Math.round(limit / 1024 / 1024)}MB）`, req.reqId);
+    return null;
+  }
+  const ext = sniffImage(buf);
+  if (!ext) {
+    sendError(res, 415, '仅支持 JPG / PNG / WebP / GIF 图片', req.reqId);
+    return null;
+  }
+  return { buf, ext };
+}
+
+/**
+ * 落对象存储并返回给客户端的描述。
+ * 键进库、URL 只用于当次响应——URL 可能是会过期的预签名地址，存下来就是死链。
+ */
+async function storeImage(buf, ext, ns = 'reviews') {
+  const saved = await storage.saveObject({
+    buffer: buf,
+    ext,
+    contentType: IMAGE_MIME[ext] || 'application/octet-stream',
+    ns,
+  });
+  return {
+    key: saved.key,
+    url: saved.url,
+    size: buf.length,
+    contentType: IMAGE_MIME[ext],
+    driver: saved.driver,
+    // 客户端据此知道预览地址的有效期，避免缓存过久后变死链
+    expiresIn: config.storage.driver === 's3' ? config.storage.mediaUrlTtl : null,
+  };
 }
 
 // ===== 上传限流（进程内；多实例请上移到网关/Redis）=====
@@ -640,6 +787,113 @@ async function route(req, res, url) {
     });
   }
 
+  /**
+   * 资金流水：待打款清单与全库概览（运营侧）。
+   * 待打款是运营每天开工要看的第一份清单——同意了但还没转出去的钱。
+   */
+  if (url.pathname === '/api/ledger/pending' && req.method === 'GET') {
+    if (!requireAdmin(req, res)) return;
+    return guarded(() => ({
+      ...ledgerService.listPending({
+        page: url.searchParams.get('page'),
+        size: url.searchParams.get('size'),
+      }),
+      summary: ledgerService.summary(),
+    }));
+  }
+
+  /**
+   * 确认已打款：pending → settled。
+   *
+   * 这一步让账本从「客服说要退」变成「钱真的出去了」。持钥匙的人点这一下
+   * 等于声明款项已转出，所以操作人会一起记账（自报，能追责的是钥匙指纹）。
+   */
+  const settleMatch = url.pathname.match(/^\/api\/ledger\/refunds\/([^/]+)\/settle$/);
+  if (settleMatch && req.method === 'POST') {
+    if (!requireAdmin(req, res)) return;
+    const id = decodeURIComponent(settleMatch[1]);
+    const actor = adminActor(req);
+    return guarded(() => {
+      const entry = ledgerService.settleRefund({ id, by: actor });
+      log.info('ledger.settled', {
+        reqId: req.reqId, actor, id, keyFp: adminKeyFingerprint(req),
+        amount: entry.amount, orderId: entry.orderId,
+      });
+      return { entry };
+    });
+  }
+
+  /**
+   * 售后凭证上传：图片落对象存储（local 或 s3），只把对象键交给工单。
+   *
+   * 与买家秀共用四道闸（频率 + 全局并发 + 字节上限 + 文件头嗅探），
+   * 但**不共用每日配额**：凭证与买家秀是两件事，今天发了 20 张买家秀
+   * 就不让用户提交破损照片是没有道理的。上限由「每单最多 5 份」约束。
+   */
+  if (url.pathname === '/api/aftersale/evidence' && req.method === 'POST') {
+    const who = userIdOf(req, null) || `ip:${req.ip}`;
+    const uGate = uploadUserWindow.hit(who);
+    if (!uGate.allowed) {
+      res.setHeader('Retry-After', String(uGate.retryAfterSec));
+      log.warn('upload.rate_limited', { reqId: req.reqId, scope: 'evidence', who });
+      return sendError(res, 429, '上传过于频繁，请稍后再试', req.reqId);
+    }
+    const release = uploadGate.acquire();
+    if (!release) {
+      res.setHeader('Retry-After', '2');
+      return sendError(res, 503, '上传繁忙，请稍后再试', req.reqId);
+    }
+    try {
+      const decoded = await decodeImageBody(req, res, UPLOAD_LIMIT);
+      if (!decoded) return;
+      const saved = await storeImage(decoded.buf, decoded.ext, 'evidence');
+      log.info({
+        reqId: req.reqId, event: 'evidence.upload', driver: saved.driver,
+        key: saved.key, bytes: saved.size, who,
+      });
+      return send(res, 201, saved);
+    } catch (e) {
+      log.error({ reqId: req.reqId, err: e.message, event: 'evidence.upload_failed' });
+      return sendError(res, 502, '凭证存储失败，请稍后重试', req.reqId);
+    } finally {
+      release();
+    }
+  }
+
+  /**
+   * 快递物流推送（webhook）。
+   *
+   * 公开端点，所以鉴权不是可选项：验 HMAC-SHA256 签名，每家快递一把密钥。
+   * 少了它，任何人都能 POST 一条 signed 把别人的订单改成已签收——
+   * 而签收会释放「可申请售后」的入口，等于能随意开启退款流程。
+   *
+   * 三道闸：签名（对不对）→ 时间戳窗口（是不是旧的）→ 事件去重（是不是重推）。
+   */
+  if (url.pathname === '/api/webhooks/logistics' && req.method === 'POST') {
+    // 必须先拿原始字节再验签：JSON.parse 之后再序列化，键顺序与空格都变了，
+    // 签名必然对不上。这是 webhook 实现里最常见的踩坑点。
+    const raw = await readRawBody(req, WEBHOOK_BODY_LIMIT);
+    if (raw === null) return sendError(res, 413, '推送内容过大', req.reqId);
+    if (!verifyLogisticsSignature(req, res, raw)) return;
+    let parsed;
+    try {
+      parsed = JSON.parse(raw.toString('utf8') || '{}');
+    } catch {
+      return sendError(res, 400, '请求格式有误', req.reqId);
+    }
+    return guarded(() => {
+      const r = orderService.ingestLogisticsWebhook({
+        trackingNo: parsed.trackingNo,
+        events: parsed.events,
+      });
+      log.info('logistics.webhook', {
+        reqId: req.reqId, carrier: String(req.headers['x-carrier'] || '').toLowerCase(),
+        orderId: r.orderId, inserted: r.inserted, deduped: r.deduped, advanced: r.advanced,
+      });
+      return r;
+    }, 200);
+  }
+
   if (url.pathname.startsWith('/api/orders/') && req.method === 'GET') {
     const userId = userIdOf(req, url.searchParams.get('userId'));
     const orderId = decodeURIComponent(url.pathname.slice('/api/orders/'.length));
@@ -828,32 +1082,9 @@ async function route(req, res, url) {
     }
 
     try {
-      const raw = await readRawBody(req, UPLOAD_LIMIT);
-      if (raw === null) {
-        return sendError(res, 413, `image too large (max ${Math.round(UPLOAD_LIMIT / 1024 / 1024)}MB)`, req.reqId);
-      }
-      let parsed = null;
-      try {
-        parsed = JSON.parse(raw.toString('utf8') || '{}');
-      } catch {
-        return sendError(res, 400, 'invalid json', req.reqId);
-      }
-      const dataUrl = String(parsed.data || '');
-      const base64 = dataUrl.includes(',') ? dataUrl.slice(dataUrl.indexOf(',') + 1) : dataUrl;
-      if (!base64) return sendError(res, 400, 'image data required', req.reqId);
-      let buf;
-      try {
-        buf = Buffer.from(base64, 'base64');
-      } catch {
-        return sendError(res, 400, 'invalid image encoding', req.reqId);
-      }
-      // 拒绝浏览器被绕过时传来的空壳（base64 非法字符会让还原长度远小于预期）
-      if (!buf.length) return sendError(res, 400, 'invalid image data', req.reqId);
-      if (buf.length > UPLOAD_LIMIT) {
-        return sendError(res, 413, `image too large (max ${Math.round(UPLOAD_LIMIT / 1024 / 1024)}MB)`, req.reqId);
-      }
-      const ext = sniffImage(buf);
-      if (!ext) return sendError(res, 415, '仅支持 JPG / PNG / WebP / GIF 图片', req.reqId);
+      const decoded = await decodeImageBody(req, res, UPLOAD_LIMIT);
+      if (!decoded) return; // 响应已在 decodeImageBody 里发出
+      const { buf, ext } = decoded;
 
       // 4) 每用户频率 + 每日配额（令牌身份优先，其次 body.userId，最后回退到 IP）
       const uploader = userIdOf(req, parsed.userId || `ip:${req.ip}`);
@@ -873,23 +1104,11 @@ async function route(req, res, url) {
       try {
         // 落对象存储（s3）或本地（local），返回对象键 + 可直接渲染的地址。
         // 键进库、URL 只用于当次响应：预签名 URL 会过期，绝不能存。
-        const saved = await storage.saveObject({
-          buffer: buf,
-          ext,
-          contentType: IMAGE_MIME[ext] || 'application/octet-stream',
-        });
+        const saved = await storeImage(req, buf, ext);
         log.info({
           reqId: req.reqId, event: 'review.upload', driver: saved.driver, key: saved.key, bytes: buf.length, uploader,
         });
-        return send(res, 201, {
-          key: saved.key,
-          url: saved.url,
-          size: buf.length,
-          contentType: IMAGE_MIME[ext],
-          driver: saved.driver,
-          // 客户端可据此提前知道预览地址的有效期，避免缓存过久后变死链
-          expiresIn: config.storage.driver === 's3' ? config.storage.mediaUrlTtl : null,
-        });
+        return send(res, 201, saved);
       } catch (e) {
         log.error({ reqId: req.reqId, err: e.message, event: 'review.upload_failed' });
         return sendError(res, 502, '图片存储失败，请稍后重试', req.reqId);
@@ -1195,6 +1414,12 @@ async function route(req, res, url) {
         'POST /api/orders/:id/cancel?userId= (取消订单事务：关单 + 券返还顺延)',
         'POST /api/orders/:id/ship?userId= · /complete?userId= (演示：发货 / 签收，DEMO_ACTIONS=false 时 403)',
         'POST /api/orders/:id/aftersale {userId, type, reason, note?, evidence?} (申请售后，订单转售后中)',
+        'POST /api/aftersale/evidence {data(base64)} (售后凭证上传，落对象存储，返回对象键)',
+        'GET /api/aftersales?status=&reviewed=&page=&size= (运营工单列表，需 X-Admin-Key)',
+        'PATCH /api/aftersales/:id {action, note?, refundAmount?} (审核：同意/驳回，需 X-Admin-Key)',
+        'GET /api/ledger/pending?page=&size= (待打款退款清单，需 X-Admin-Key)',
+        'POST /api/ledger/refunds/:id/settle (确认已打款，需 X-Admin-Key)',
+        'POST /api/webhooks/logistics {trackingNo, events[]} (快递推送；X-Carrier + X-Timestamp + X-Signature 验签)',
         'GET|POST|DELETE /api/favorites?userId= (收藏夹：POST 为切换)',
         'GET /api/coupons/catalog (券目录，前端离线兜底同构)',
         'PUT /api/coupons/catalog {coupon|coupons, force?} (券目录 upsert，需 X-Admin-Key)',
@@ -1244,6 +1469,9 @@ const server = http.createServer(async (req, res) => {
         auth: config.auth.required ? 'required' : 'optional',
         // 演示端点开关：上线后一眼确认「模拟发货/签收」是否已关（关演示不该去翻环境变量）
         demo: config.demoActions ? 'on' : 'off',
+        // 已开通的物流推送渠道（只列渠道名，不列密钥）。一家都没配时是个空数组，
+        // 对接的人一眼就知道推送没生效是因为没配密钥，而不是签名算法写错了
+        logisticsWebhookCarriers: [...config.logisticsWebhook.keys.keys()],
       });
     }
     const deps = probeDeps();
@@ -1295,16 +1523,33 @@ const server = http.createServer(async (req, res) => {
 
 // 孤儿对象清理：回收「已上传但没发布 / 评价删除后残留」的图片对象。
 // 读取所有评价引用的对象键，交给 storage 层比对并删除未引用的（best-effort）。
+/**
+ * 收集所有仍被引用的对象键。
+ * 评价图与售后凭证一起收：凭证不在评价的引用集里，漏掉它就会被当成孤儿删掉——
+ * 用户刚提交的破损照片，半小时后运营点开是一片空白。
+ */
+function collectReferencedKeys() {
+  const referenced = new Set();
+  const add = (raw, pick) => {
+    try {
+      for (const item of JSON.parse(raw || '[]')) {
+        const k = pick(item);
+        if (storage.isObjectKey(k)) referenced.add(k);
+      }
+    } catch { /* 坏数据跳过，不因此中断整个清理 */ }
+  };
+  for (const row of getDb().prepare('SELECT images FROM reviews').all()) {
+    add(row.images, (v) => (typeof v === 'string' ? v : ''));
+  }
+  for (const row of getDb().prepare('SELECT evidence FROM aftersales').all()) {
+    add(row.evidence, (v) => (v && typeof v === 'object' ? v.key : ''));
+  }
+  return referenced;
+}
+
 async function runOrphanSweep() {
   try {
-    const referenced = new Set();
-    for (const row of getDb().prepare('SELECT images FROM reviews').all()) {
-      try {
-        const arr = JSON.parse(row.images || '[]');
-        for (const img of arr) if (storage.isObjectKey(img)) referenced.add(img);
-      } catch { /* 坏数据跳过 */ }
-    }
-    const removed = await storage.sweepOrphans(referenced, { logger: log });
+    const removed = await storage.sweepOrphans(collectReferencedKeys(), { logger: log });
     if (removed) log.info('storage.sweep_done', { removed });
   } catch (e) {
     log.warn('storage.sweep_failed', { err: e.message });

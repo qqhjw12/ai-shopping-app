@@ -6171,7 +6171,59 @@ body.flt-sheet-open { overflow: hidden; }
 .od-as-status.s-approved { background: rgba(46, 125, 80, 0.09); color: #2e7d50; }
 .od-as-status.s-rejected { background: rgba(26, 26, 26, 0.05); color: var(--muted); }
 .od-as-note { margin: 8px 0 0; color: var(--body); font-size: 11.5px; line-height: 1.7; }
-.od-as-ev { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+.od-as-ev { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
+.od-as-ev-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.od-as-ev-img {
+  width: 64px; height: 64px; object-fit: cover;
+  border: 1px solid var(--line); border-radius: 8px; display: block;
+}
+.od-as-ev-file {
+  display: inline-flex; align-items: center; max-width: 100%;
+  padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* 退款进度（流水）区：三格汇总 + 每笔流水一行 */
+.od-ledger { margin-top: 18px; }
+.od-ledger-sum { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.od-ledger-cell {
+  flex: 1 1 120px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: #fff;
+}
+.od-ledger-label { display: block; color: var(--muted); font-size: 10px; }
+.od-ledger-value { display: block; margin-top: 3px; color: var(--ink); font-size: 13px; }
+.od-ledger-item {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 9px 2px; border-bottom: 1px dashed var(--line);
+  font-size: 11px; color: var(--body);
+}
+.od-ledger-item:last-child { border-bottom: none; }
+.od-ledger-item .num { color: var(--ink); }
+.od-ledger-row {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 9px 2px; border-bottom: 1px dashed var(--line);
+  font-size: 11px; color: var(--body);
+}
+.od-ledger-row:last-child { border-bottom: none; }
+.od-ledger-kind { flex: none; color: var(--ink); }
+.od-ledger-amount { flex: 1; color: var(--ink); }
+.od-ledger-status { flex: none; padding: 2px 8px; border-radius: 999px; background: rgba(46, 125, 80, 0.09); color: #2e7d50; font-size: 10px; }
+.od-ledger-status.s-pending { background: var(--gold-weak, rgba(198, 156, 84, 0.14)); color: var(--gold-deep, #8a6a2f); }
+.od-ledger-time { flex: none; color: var(--muted); }
+.od-ledger-tip { margin: 8px 0 0; color: var(--muted); font-size: 10.5px; }
+
+/* 工单里的打款进度：待打款一粒金点提示，已打款收敛成灰字 */
+.od-as-payout {
+  display: flex; align-items: center; gap: 7px;
+  margin: 9px 0 0; font-size: 11px; color: var(--body);
+}
+.od-as-payout-label {
+  flex: none; padding: 2px 8px; border-radius: 999px;
+  background: var(--gold-weak, rgba(198, 156, 84, 0.14)); color: var(--gold-deep, #8a6a2f);
+  font-size: 10px;
+}
+.od-as-payout.is-settled .od-as-payout-label { background: rgba(26, 26, 26, 0.05); color: var(--muted); }
+.od-as-payout-text { color: var(--body); }
 .od-as-handle {
   margin: 9px 0 0;
   padding-top: 8px;
@@ -6289,6 +6341,32 @@ body.flt-sheet-open { overflow: hidden; }
 .as-note:focus { outline: none; border-color: var(--gold); }
 .as-file { color: var(--body); font-size: 11px; }
 .as-hint { margin: -2px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+
+/* 凭证上传列表：64px 缩略图 + 文件名 + 删除角标 */
+.as-ev-list { display: flex; flex-direction: column; gap: 8px; }
+.as-ev-loading { margin: 0; color: var(--muted); font-size: 10.5px; }
+.as-ev-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px; border: 1px solid var(--line); border-radius: 10px;
+}
+.as-ev-thumb {
+  flex: none; width: 44px; height: 44px; object-fit: cover;
+  border-radius: 8px; border: 1px solid var(--line); display: block;
+}
+.as-ev-thumb.is-text {
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 11px; background: rgba(26, 26, 26, 0.03);
+}
+.as-ev-name {
+  flex: 1; min-width: 0; color: var(--body); font-size: 10.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.as-ev-del {
+  flex: none; width: 24px; height: 24px; padding: 0;
+  border: 1px solid var(--line); border-radius: 999px; background: #fff;
+  color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer;
+}
+.as-ev-del:hover { color: #a6453b; border-color: rgba(166, 69, 59, 0.4); }
 .as-ev-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .as-ev-tag {
   padding: 3px 9px;
@@ -6453,6 +6531,35 @@ body.flt-sheet-open { overflow: hidden; }
 }
 .adm-verdict-main { color: var(--ink); }
 .adm-verdict-note { display: block; margin-top: 4px; }
+
+/* 凭证缩略图：96px 方块，点开放大；旧工单只有文件名时退回文字胶囊 */
+.adm-ev-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.adm-ev-thumb {
+  width: 96px; height: 96px; padding: 0; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--r-card, 10px);
+  background: #fff; cursor: zoom-in;
+}
+.adm-ev-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.adm-ev-tag {
+  display: inline-flex; align-items: center; max-width: 100%;
+  padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--muted); font-size: 10.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.adm-ev-view img { max-width: min(560px, 86vw); max-height: 60vh; display: block; margin: 0 auto; border-radius: var(--r-card, 10px); }
+.adm-ev-view .adm-ev-name { margin: 10px 0 2px; color: var(--muted); font-size: 11px; text-align: center; word-break: break-all; }
+
+/* 打款状态条：待打款给一个次级按钮，已确认收敛成一行说明 */
+.adm-payout {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 12px; padding: 9px 12px;
+  border: 1px dashed var(--line); border-radius: var(--r-card, 10px);
+  color: var(--body); font-size: 11px;
+}
+.adm-payout.is-pending { border-color: rgba(198, 156, 84, 0.55); }
+.adm-payout.is-settled { color: var(--muted); border-style: solid; }
+.adm-payout .adm-line-btn { flex: none; padding: 6px 14px; font-size: 11px; }
+.adm-payout-meta { color: var(--muted); }
 
 .adm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
 .adm-btn {

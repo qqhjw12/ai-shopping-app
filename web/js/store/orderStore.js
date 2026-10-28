@@ -460,6 +460,10 @@ export function normalizeRemote(raw = {}) {
       },
     } : {}),
     ...(Array.isArray(raw.aftersales) ? { aftersales: raw.aftersales } : {}),
+    // 资金流水与余额：只详情接口带。列表不带的字段保持缺失，
+    // 免得详情页把「没有数据」当成「余额为 0」——那是两种完全不同的意思。
+    ...(Array.isArray(raw.ledger) ? { ledger: raw.ledger } : {}),
+    ...(raw.balance ? { balance: raw.balance } : {}),
     ...(raw.logisticsCompany ? { logisticsCompany: raw.logisticsCompany } : {}),
     ...(raw.trackingNo ? { trackingNo: raw.trackingNo } : {}),
     remote: raw.remote !== false,

@@ -13,9 +13,11 @@ import * as userRepo from '../repositories/userRepo.js';
 import { listCart } from '../repositories/cartRepo.js';
 import { normalizePaymentId, paymentMethods, shippingById, shippingFeeOf } from './settingsService.js';
 import {
-  appendEvents, dbTime, eventsOnDeliver, listEvents, newShipment,
+  appendEvents, dbTime, eventsOnDeliver, ingestEvents, listEvents, newShipment,
+  parseDbTime, STAGE_CODES, toDbTime,
 } from './logisticsService.js';
 import { listAftersales } from './aftersaleService.js';
+import { balanceOf, listByOrder, recordPayment } from './ledgerService.js';
 
 /** 已废弃：运费改由运营配置（app_settings.shipping）决定。保留导出仅为不打断外部引用。 */
 export const SHIPPING_FREE_THRESHOLD = 99;
@@ -312,6 +314,10 @@ export function getOrder(orderId, userId, { withDetail = true } = {}) {
         events: listEvents(db, orderId),
       },
       aftersales: listAftersales(orderId, db),
+      // 资金流水与余额：只在详情里带。列表页每单多两次聚合查询是纯浪费，
+      // 而详情页要显示「已退 / 待打款 / 可退」，这三个数不查账本算不出来。
+      ledger: listByOrder(orderId, db),
+      balance: balanceOf(orderId, row.total_amount, db),
     } : {}),
     receiver: row.receiver || '',
     phone: row.phone || '',
@@ -330,6 +336,104 @@ export function getOrder(orderId, userId, { withDetail = true } = {}) {
   };
 }
 
+/**
+ * 接收快递公司的物流推送（webhook）。
+ *
+ * 与「模拟签收」的区别：这条是外部系统说的，不是我们点了按钮。
+ * 因此它只做两件事——把事件记进去、把订单推进到已完成，
+ * 不生成运单号（运单是发货时我们自己的事），也不回头改发货时间。
+ *
+ * 几个刻意的克制：
+ * - 只认 tracking_no 能匹配上的订单。匹配不上就是 404，不猜是哪家哪单。
+ * - 只有 signed 会推进订单状态；运输中的推送只是过程，不该让订单提前进入终态。
+ * - 签收时间取快递给的 happened_at，而不是服务器收包的时刻：
+ *   「快递说 14:00 签收」与「我们 14:05 收到通知」是两回事，写后者会让
+ *   用户看到签收时间比物流时间线的上一节点还晚得莫名其妙。
+ * - 已退款 / 已取消 / 售后中的订单：事件照记，状态不动。
+ *   退款了但货还是送到了，这是真实会发生的事；但终态不该被物流推送改写，
+ *   否则用户会看到「已退款」突然变成「已完成」。
+ */
+export function ingestLogisticsWebhook({ trackingNo, events }) {
+  const db = getDb();
+  const no = String(trackingNo || '').trim();
+  if (!no) throw Object.assign(new Error('trackingNo required'), { status: 400 });
+
+  const order = db
+    .prepare('SELECT id, status, completed_at, created_at, shipped_at FROM orders WHERE tracking_no = ?')
+    .get(no);
+  if (!order) throw Object.assign(new Error('该运单号没有对应的订单'), { status: 404 });
+  // 终态与售后中：事件是既成事实要记录，但订单状态不跟着动
+  const frozen = ['completed', 'refunded', 'closed', 'refunding'].includes(order.status);
+
+  // 时间戳合理性：外部系统给的时间不一定靠谱，落库前先筛一遍。
+  //
+  // 非法事件是**跳过**而不是让整个请求 400：webhook 收到 4xx 时快递公司会重推，
+  // 而坏数据重推一万次还是坏的——结果是无限重推把两边都拖死。
+  // 正确姿势是收下（200）、跳过坏的、在响应里写清楚跳过了什么。
+  const nowMs = Date.now();
+  const createdMs = parseDbTime(order.created_at);
+  const shippedMs = parseDbTime(order.shipped_at);
+  const accepted = [];
+  const rejected = [];
+  for (const e of Array.isArray(events) ? events : []) {
+    const code = String((e && e.code) || '').trim();
+    if (!STAGE_CODES.includes(code)) {
+      rejected.push({ code, reason: '未知的物流阶段' });
+      continue;
+    }
+    const at = toDbTime(e.happenedAt);
+    const ms = parseDbTime(at);
+    // 允许 1 小时往前偏差：快递系统与我们有时钟差很正常，但 1970 年不行
+    if (Number.isFinite(createdMs) && ms < createdMs - 3600_000) {
+      rejected.push({ code, reason: '事件时间早于下单时间' });
+      continue;
+    }
+    // 允许 5 分钟时钟超前，再远就是「还没发生的事已经签收了」
+    if (ms > nowMs + 300_000) {
+      rejected.push({ code, reason: '事件时间在未来' });
+      continue;
+    }
+    // 签收早于发货是自相矛盾：货还没发就签收了。时间线倒流会让用户以为系统出错
+    if (code === 'signed' && Number.isFinite(shippedMs) && ms < shippedMs) {
+      rejected.push({ code, reason: '签收时间早于发货时间' });
+      continue;
+    }
+    accepted.push({ ...e, happenedAt: at });
+  }
+
+  const signedAt = accepted
+    .filter((e) => e.code === 'signed')
+    .map((e) => e.happenedAt)[0] || null;
+
+  db.exec('BEGIN');
+  try {
+    const r = ingestEvents(db, order.id, accepted);
+    let advanced = false;
+    if (r.hasSigned && !frozen && !order.completed_at) {
+      db.prepare(
+        "UPDATE orders SET status = 'completed', completed_at = ? WHERE id = ?",
+      ).run(signedAt || dbTime(new Date()), order.id);
+      advanced = true;
+    }
+    db.exec('COMMIT');
+    return {
+      orderId: order.id,
+      accepted: true,
+      inserted: r.inserted,
+      deduped: r.deduped,
+      rejected,
+      advanced,
+      // 冻结单收到推送时明确说明原因，别让对接的人以为推送丢了
+      skipped: frozen ? `订单当前状态为 ${order.status}，未推进` : '',
+    };
+  } catch (e) {
+    try {
+      db.exec('ROLLBACK');
+    } catch { /* 不掩盖原始错误 */ }
+    throw e;
+  }
+}
+
 export function listOrders(userId, limit = 50) {
   const rows = getDb()
     .prepare('SELECT id FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT ?')
@@ -342,10 +446,27 @@ export function listOrders(userId, limit = 50) {
 /** 支付（演示：pending → paid，不接真实支付网关） */
 export function payOrder(orderId, userId) {
   const db = getDb();
-  const row = db.prepare('SELECT status FROM orders WHERE id = ? AND user_id = ?').get(orderId, userId);
+  const row = db
+    .prepare('SELECT status, total_amount, payment_method_id FROM orders WHERE id = ? AND user_id = ?')
+    .get(orderId, userId);
   if (!row) throw Object.assign(new Error('订单不存在'), { status: 404 });
   if (row.status !== 'pending') throw Object.assign(new Error('该订单无需重复支付'), { status: 409 });
-  db.prepare("UPDATE orders SET status = 'paid', paid_at = datetime('now') WHERE id = ?").run(orderId);
+
+  db.exec('BEGIN');
+  try {
+    db.prepare("UPDATE orders SET status = 'paid', paid_at = datetime('now') WHERE id = ?").run(orderId);
+    // 收款入账与支付状态同事务：账上没有这笔收款，后面退款时「可退额度」会算成 0，
+    // 表现为客服同意退款却一分钱都退不了。
+    recordPayment({
+      orderId, amount: row.total_amount, channel: row.payment_method_id || 'online', note: '订单支付',
+    }, db);
+    db.exec('COMMIT');
+  } catch (e) {
+    try {
+      db.exec('ROLLBACK');
+    } catch { /* 不掩盖原始错误 */ }
+    throw e;
+  }
   return getOrder(orderId, userId);
 }
 

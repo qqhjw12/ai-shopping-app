@@ -251,14 +251,19 @@ try {
   await page.locator('.as-type', { hasText: '退货退款' }).click();
   await page.selectOption('.as-reason', 'damaged');
   await page.locator('.as-note').fill('外箱破损，笔身有划痕');
+  // 真 1×1 PNG：凭证现在真的会上传（压缩 → /api/aftersale/evidence → 对象键），
+  // 截断的假 PNG 会被服务端魔数嗅探 415 拒掉
   await page.setInputFiles('.as-file', {
     name: 'proof-1.png',
     mimeType: 'image/png',
-    buffer: Buffer.from('89504e470d0a1a0a0000000d494844520000000100000001080600000',
-      'hex'),
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    ),
   });
-  await page.waitForTimeout(200);
-  check('凭证占位记录文件名', (await page.locator('.as-ev-tag').count()) === 1);
+  // 上传是异步的：先出现「正在上传」，完成后变成缩略图条目
+  await page.waitForSelector('.as-ev-item', { timeout: 10000 });
+  check('凭证真上传并显示缩略图', (await page.locator('.as-ev-item .as-ev-thumb').count()) === 1);
   await page.locator('.as-submit').click();
   await page.waitForTimeout(1800);
 
@@ -269,7 +274,7 @@ try {
   check('售后记录含类型 / 原因 / 说明',
     /退货退款/.test(asText) && /运输破损/.test(asText) && /外箱破损/.test(asText));
   check('售后记录含处理说明', /处理说明：/.test(asText) && /客服会在 24 小时内/.test(asText));
-  check('售后记录含凭证文件名', /proof-1\.png/.test(asText));
+  check('售后记录凭证渲染成缩略图', (await page.locator('.od-as-ev-img').count()) === 1);
   check('售后中不再显示申请入口',
     (await page.locator('.od-line-btn', { hasText: '申请退款' }).count()) === 0);
   check('售后中仍能看到履约进度（四步走完）',
@@ -279,11 +284,12 @@ try {
   check('服务端订单已置 refunding', Boolean(serverAfterAs) && serverAfterAs.status === 'refunding',
     serverAfterAs ? serverAfterAs.status : '');
   const asRecords = (serverAfterAs && serverAfterAs.aftersales) || [];
-  check('服务端售后单已落库（类型/原因/说明/凭证）',
+  check('服务端售后单已落库（类型/原因/说明/凭证对象键）',
     asRecords.length === 1 && asRecords[0].type === 'return'
       && asRecords[0].reason === 'damaged'
       && asRecords[0].note === '外箱破损，笔身有划痕'
-      && asRecords[0].evidence.length === 1,
+      && asRecords[0].evidence.length === 1
+      && /^evidence\/\d{4}\/\d{2}\//.test((asRecords[0].evidence[0] || {}).key || ''),
     asRecords.length ? JSON.stringify(asRecords[0].evidence) : '0 条');
 
   /* 8) 刷新后售后记录仍在（服务端权威，不靠本地缓存） */

@@ -11,7 +11,7 @@
 // 审核动作直接改订单状态（退款入终态、换货重发货、驳回退回去），
 // 所以每次操作后整页重新拉一次列表，不局部改那一张卡片——
 // 卡片上显示的订单状态是从工单里带的，改完不重载会显示旧的。
-import { api } from './api.js';
+import { api, mediaUrl } from './api.js';
 import { el, fmtPrice, loading, openModal, toast } from './ui.js';
 import { navigate } from './router.js';
 import { AFTERSALE_STATUS_TEXT, REFUNDABLE_TYPES } from './store/aftersaleStore.js';
@@ -301,6 +301,77 @@ function statusPill(status) {
     AFTERSALE_STATUS_TEXT[status] || status || '—');
 }
 
+/**
+ * 凭证缩略图：有 url 的渲染成图（点击放大），只有文件名的退回文字。
+ * 旧工单没有对象键，是升级前提交的——当时确实没传图，不假装有。
+ */
+function evidenceStrip(list) {
+  if (!Array.isArray(list) || !list.length) return null;
+  const kids = list.map((f) => (f && f.url
+    ? el('button', {
+      class: 'adm-ev-thumb',
+      type: 'button',
+      'aria-label': `查看凭证 ${f.name || ''}`,
+      onclick: () => openModal((modal, close) => {
+        const wrap = el('div', { class: 'adm-ev-view' }, [
+          el('img', { src: mediaUrl(f.url), alt: f.name || '凭证' }),
+          el('p', { class: 'adm-ev-name' }, f.name || ''),
+          el('div', { class: 'as-actions' }, [
+            el('button', { class: 'adm-line-btn', type: 'button', onclick: close }, '关闭'),
+          ]),
+        ]);
+        modal.appendChild(wrap);
+      }),
+    }, el('img', { src: mediaUrl(f.url), alt: '' }))
+    : el('span', { class: 'adm-ev-tag' }, f.name || '凭证')));
+  return el('div', { class: 'adm-ev-strip' }, kids);
+}
+
+/**
+ * 打款状态条：只有退款类且已同意才出现。
+ * 承诺（审核同意退款 ¥N）与事实（钱出去了）在账本上是两条记录，界面上也分开。
+ */
+function payoutBlock(record, reload) {
+  if (!REFUNDABLE_TYPES.includes(record.type) || record.refundAmount == null) return null;
+  const payout = record.payout;
+  const amount = payout ? payout.amount : record.refundAmount;
+
+  if (payout && payout.status === 'settled') {
+    return el('div', { class: 'adm-payout is-settled' }, [
+      el('span', {}, `打款 ${fmtPrice(amount)} · 已确认`),
+      payout.settledAt ? el('span', { class: 'adm-payout-meta' }, fmtDate(payout.settledAt)) : null,
+    ]);
+  }
+
+  const btn = el('button', {
+    class: 'adm-line-btn',
+    type: 'button',
+    onclick: async () => {
+      if (!payout || !payout.ledgerId) return;
+      btn.disabled = true;
+      btn.textContent = '确认中…';
+      try {
+        await api(`/api/ledger/refunds/${encodeURIComponent(payout.ledgerId)}/settle`, {
+          method: 'POST',
+          headers: adminHeaders(),
+          retries: 0,
+        });
+        toast('已确认打款', 'ok');
+        reload();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '确认已打款';
+        toast((e && e.message) || '操作失败，请重试', 'warn');
+      }
+    },
+  }, '确认已打款');
+
+  return el('div', { class: 'adm-payout is-pending' }, [
+    el('span', {}, `打款 ${fmtPrice(amount)} · 待打款`),
+    btn,
+  ]);
+}
+
 function recordCard(record, { reload }) {
   const children = [
     el('div', { class: 'adm-card-head' }, [
@@ -319,9 +390,7 @@ function recordCard(record, { reload }) {
       el('span', {}, record.reasonLabel),
     ]),
     record.note ? el('p', { class: 'adm-note' }, record.note) : null,
-    record.evidence && record.evidence.length
-      ? el('p', { class: 'adm-ev' }, `凭证 ${record.evidence.length} 份：${record.evidence.map((f) => f.name).join('、')}`)
-      : null,
+    evidenceStrip(record.evidence),
     el('p', { class: 'adm-meta' }, `提交于 ${fmtDate(record.createdAt)}`),
   ];
 
@@ -359,6 +428,10 @@ function recordCard(record, { reload }) {
       el('span', { class: 'adm-verdict-main' }, bits.filter(Boolean).join(' · ')),
       record.reviewNote ? el('span', { class: 'adm-verdict-note' }, `意见：${record.reviewNote}`) : null,
     ]));
+    // 打款确认挂在同意卡片的底部：审核是承诺「该退」，打款是事实「退了」，
+    // 两件事在账本上分两条记录，界面上也分开两行。
+    const payout = payoutBlock(record, reload);
+    if (payout) children.push(payout);
   }
 
   return el('article', { class: `adm-card is-${record.status}`, 'data-aftersale': record.id }, children);

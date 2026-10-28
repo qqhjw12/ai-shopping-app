@@ -91,7 +91,8 @@
 | `users` / `addresses` | 演示用户与收货地址（下单时自动为新用户建档 + **三张体验优惠券**，避免新访客卡包为空导致优惠券区永远显示「暂无可用」）。地址按 `user_id` 隔离存在服务端，同一账号换设备登录即跟随；迁移 v8 补齐 `province` / `city` / `postal` / `updated_at`，老数据按 `region` 空格自动回填省市 |
 | `orders` / `order_items` | 订单与订单项（含物流公司、运单号、状态机、金额拆分、配送/支付方式快照、`shipped_at` / `completed_at` 履约时间戳；`idempotency_key` + `(user_id, idempotency_key)` 部分唯一索引防重复下单） |
 | `order_logistics_events` | 物流事件流水（`code` / `title` / `detail` / `happened_at` / `seq`，一次揽收、一次中转、一次派送、一次签收各一行）。时间线靠它渲染；`seq` 单独存是因为 mock 时同一分钟可能发生两件事，只按时间排会颠倒 |
-| `aftersales` | 售后单（`type` 仅退款/退货退款/换货、`reason`、`note`、`evidence` 凭证文件名 JSON、`status` 待处理/已同意/已驳回、`handle_note` 处理说明、`origin_status` 申请时的订单状态、`refund_amount` 退款金额（换货为 NULL）、`review_note` / `reviewer` / `reviewed_at` 审核留痕）。`(order_id) WHERE status='reviewing'` 部分唯一索引保证同一订单只有一条待处理申请 |
+| `aftersales` | 售后单（`type` 仅退款/退货退款/换货、`reason`、`note`、`evidence` 凭证 JSON（`{name,size,key}`，`key` 是对象存储键，旧数据只有文件名）、`status` 待处理/已同意/已驳回、`handle_note` 处理说明、`origin_status` 申请时的订单状态、`refund_amount` 退款金额（换货为 NULL）、`review_note` / `reviewer` / `reviewed_at` 审核留痕）。`(order_id) WHERE status='reviewing'` 部分唯一索引保证同一订单只有一条待处理申请 |
+| `order_ledger` | 资金流水（`kind` payment/refund、`amount`、`channel`、`status` pending/settled、`aftersale_id` 关联工单、`settled_at` / `settled_by` 打款确认）。收款在支付时落、退款在审核同意时落（pending），运营点「确认已打款」才转 settled——承诺（该退）与事实（退了）是两条记录 |
 | `reviews` | 商品评价（**768 条，覆盖全部 256 款**，每款 3 条带作者与星级，供问答引用口碑）。迁移 v6 起支持 `parent_id`（追评）/ `images`（买家秀）/ `sku_spec` / `source` |
 | `review_votes` | 有用投票：主键 `(review_id, user_id)`，天然幂等——同一用户重复请求在「赞 / 取消」间切换 |
 | `cart_items` | 购物车（服务端持久化，按 user+sku 唯一，重复加购累加） |
@@ -327,7 +328,14 @@ CREATE UNIQUE INDEX idx_orders_idem ON orders(user_id, idempotency_key)
 - 默认停在「待处理」，筛选与分页都走路由（`?status=&page=`），刷新与前进后退都停在同一处；
 - 「处理记录」标签只看已处理的工单，且**按处理时间倒序**：操作记录要回答的是「最近处理了什么」，按提交时间排会把一早提交、下午才处理的工单混在三天前那批里；
 - 顶部总览（待处理 / 已同意 / 已驳回 / 退款合计）是**全库**的，不跟着筛选变——切标签是换视角，不是换账本。当前视图的条数单独写作「当前 N 条」，免得和旁边的全库数字打架；
+- 卡片上能看到**凭证原图**（点开放大）与**打款状态**：审核同意只是「该退」，点「确认已打款」才在账本上记「退了」——两件事在账本上是两条记录，界面上也分开两行；
 - 网关不可达 / 密钥被拒时给空态与重试，或退回密钥门，不白屏。
+
+三条曾经的遗留在这里闭环：
+
+- **资金流**：`order_ledger` 流水表。支付落收款、审核同意落退款（pending），运营确认打款才转 settled。退款上限是**剩余可退额度**（实付 − 已退合计）而不是实付——换货同意会让订单回到可申请售后的状态，按实付夹就能退两遍。演示站没有真实支付渠道，这本账是记账性质的，但账是真的、可对账（每单实付/已退/可退一目了然）；
+- **凭证入对象存储**：售后弹层真上传（压缩 → `POST /api/aftersale/evidence` → 对象键），与买家秀共用 `reviews|evidence` 双前缀的存储门面与孤儿清理；工单与详情页都渲染缩略图，旧工单（升级前只有文件名）照旧显示文件名，不假装有图；
+- **快递 webhook**：`POST /api/webhooks/logistics`，HMAC-SHA256 每渠道一密钥 + 时间戳防重放，事件去重靠库层唯一索引。签收推进 `completed`，时间取快递给的而不是服务器收包时间。坏数据（签收早于下单、事件在未来）**收下 200 但不落地**——返回 4xx 快递会无限重推，重推一万次坏数据还是坏的。
 
 **署名的边界要说清楚**：`X-Admin-Actor` 是客户端自报的，能发请求的人就能把它写成任何名字，所以它回答的只是「谁说自己做的」。服务端另外按钥匙本身算了 sha256 短指纹写进日志（`aftersale.reviewed` 的 `keyFp` 字段），这个改不动——能追责的是它。想让名字变得可信，正确做法是给每个运营发一把不同的 `ADMIN_API_KEY`，而不是继续在这个自报字段上加校验。
 
@@ -437,7 +445,7 @@ CREATE UNIQUE INDEX idx_orders_idem ON orders(user_id, idempotency_key)
 │                            #          logistics(物流阶段词表·时间线推导) / aftersale(售后单本地仓)
 ├── ai-gateway/              # Node.js 后端网关（local / docker 双模式）
 │   ├── src/
-│   │   ├── db/              # SQLite：connection / schema(版本迁移 v1-v15) / seedDb(种子)
+│   │   ├── db/              # SQLite：connection / schema(版本迁移 v1-v16) / seedDb(种子)
 │   │   ├── repositories/    # 仓储层：product / order / conversation / track
 │   │   │                    #          cart(购物车) / user(收藏·券·地址)
 │   │   ├── storage/         # 买家秀对象存储：s3Client(SigV4 手写) / index(驱动门面+签名解析)
@@ -633,7 +641,11 @@ bash scripts/setup-https-proxy.sh
 | POST | `/api/orders/:id/complete?userId=` | **演示**：模拟签收 `shipped → completed`，追加派送中/已签收两条事件，幂等。`DEMO_ACTIONS=false` 时 403 |
 | POST | `/api/orders/:id/aftersale` | 申请售后 `{ userId, type, reason, note?, evidence? }`（**单事务**：落售后单 + 订单置 `refunding`）。仅已发货 / 已完成可申请，同一订单已有待处理申请返回 409 |
 | GET  | `/api/aftersales?status=&reviewed=&page=&size=` | **运营侧**工单列表（需 `X-Admin-Key`）。待处理排最前，组内按 `COALESCE(reviewed_at, created_at)` 倒序（待处理用提交时间、已处理用处理时间）；带订单实付与商品摘要（一次 IN 查询取回，不做 N+1）。`reviewed=1` 只看已处理、`=0` 只看待处理。`total` / `page` / `size` 用于分页，size 上限 50；另返回全库 `summary`（待处理 / 已同意 / 已驳回 / 退款合计与笔数），**不随筛选变化** |
-| PATCH | `/api/aftersales/:id` | **运营侧审核**（需 `X-Admin-Key`）`{ action: approve\|reject, note, refundAmount? }`。**单事务**：工单改状态 + 订单落位。同意退款 → `refunded`（金额默认实付、上限实付）；同意换货 → `shipped`（换新运单号并追加事件、清空签收时间）；驳回 → 退回申请时的状态。已处理过 409、订单不在售后中 409、驳回不写理由 400 |
+| PATCH | `/api/aftersales/:id` | **运营侧审核**（需 `X-Admin-Key`）`{ action: approve\|reject, note, refundAmount? }`。**单事务**：工单改状态 + 订单落位 + 退款落账本。同意退款 → `refunded`（金额上限是**剩余可退额度** = 实付 − 已退合计，不是实付）；同意换货 → `shipped`（换新运单号并**追加**事件、清空签收时间，新事件下限 = 最后一条事件 + 1 分钟，同日换货不倒流也不撞去重索引）；驳回 → 退回申请时的状态。已处理过 409、订单不在售后中 409、驳回不写理由 400 |
+| POST | `/api/aftersale/evidence` | 售后凭证上传 `{ data(dataURL) }`，真入对象存储（local 落 `data/uploads/`，s3 走桶），返回 `evidence/YYYY/MM/<uuid>.<ext>` 对象键。魔数嗅探只收图片，与买家秀同一套频控 |
+| GET  | `/api/ledger/pending?page=&size=` | **运营侧**待打款退款清单（需 `X-Admin-Key`），带全库 summary（待打款笔数与合计） |
+| POST | `/api/ledger/refunds/:id/settle` | **运营侧**确认已打款（需 `X-Admin-Key`）：pending → settled，记操作人与时间；重复确认 409 |
+| POST | `/api/webhooks/logistics` | **快递回调**（HMAC-SHA256 验签：`X-Carrier` / `X-Timestamp` / `X-Signature`，密钥按渠道配在 `LOGISTICS_WEBHOOK_KEYS`）。时间戳超容差 401 防重放；事件去重靠 `(order_id, code, happened_at)` 唯一索引；签收早于下单/未来时间的坏事件**收下 200 但不落地**（返回 4xx 快递会无限重推）；签收推进 `completed`，时间取快递给的 |
 | GET  | `/api/config` | 运营配置（配送方式与运费、支付方式、券返还顺延规则），公开读，未登录的结算页也要用 |
 | PUT  | `/api/config` | 改运营配置，需请求头 `X-Admin-Key`（`ADMIN_API_KEY`，留空则 403）；只接受白名单字段并逐项校验范围 |
 | GET  | `/api/favorites?userId=` | 收藏列表 |
@@ -936,6 +948,8 @@ node scripts/e2e-order-tx.mjs   # 下单事务核销 + 取消返还 + 运营配�
 node scripts/e2e-idempotency.mjs # 下单幂等键 + 支付方式配置 + 券目录写入（真网关，独立临时库）
 node scripts/e2e-fulfillment.mjs # 付款→发货→签收→售后全链路 + 演示开关（真网关，独立临时库）
 node scripts/e2e-aftersale-review.mjs # 售后审核闭环：同意退款/换货 + 驳回 + 鉴权守卫（真网关，独立临时库）
+node scripts/e2e-ledger.mjs # 资金流水账本：收款/退款落账、可退额度守卫、打款确认 + 凭证真上传（真网关 + 浏览器）
+node scripts/e2e-logistics-webhook.mjs # 快递 webhook：HMAC 验签、防重放、事件去重、签收推进 + 时区口径（真网关）
 ```
 
 > `e2e-sync.mjs` 与 `e2e-order-tx.mjs` 会拉起真网关（其余跑纯静态模式）。`e2e-sync` 验「另一台设备也认账」：

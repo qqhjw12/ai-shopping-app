@@ -54,6 +54,23 @@ export const config = {
   demoActions: env.DEMO_ACTIONS !== 'false',
   // 若 Gateway 前置了反向代理（如 nginx），从 X-Forwarded-For 取真实客户端 IP
   trustProxy: env.TRUST_PROXY === 'true',
+  // 快递物流推送（webhook）：carrier → 密钥，格式 'sf:xxx,yd:yyy'。
+  // 每家一把：共用一把的话，泄露一次全部渠道都要换，且分不清是谁发来的。
+  // 未配置某家 → 该家的推送一律 401（端点公开，没配密钥就是没开通，不是免验证）。
+  logisticsWebhook: (() => {
+    const keys = new Map();
+    for (const part of String(env.LOGISTICS_WEBHOOK_KEYS || '').split(',')) {
+      const [carrier, secret] = part.split(':');
+      const c = String(carrier || '').trim().toLowerCase();
+      const s = String(secret || '').trim();
+      if (c && s) keys.set(c, s);
+    }
+    return {
+      keys,
+      // 时间戳容差（秒）：超出窗口的推送一律拒，防止把抓到的旧请求重放一遍
+      toleranceSec: Number(env.LOGISTICS_WEBHOOK_TOLERANCE_SEC || 300),
+    };
+  })(),
   // 买家秀上传加固：单请求重（base64 可达 6MB），需独立的频率 / 并发 / 配额约束
   upload: {
     // 单张原始字节上限（base64 解码后的图片大小）

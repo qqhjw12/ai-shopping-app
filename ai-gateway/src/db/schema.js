@@ -506,6 +506,56 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_as_status ON aftersales(status, created_at DESC);
     `,
   },
+  {
+    version: 16,
+    name: 'ledger-evidence-webhook',
+    sql: `
+      -- 资金流水账本：订单维度的收款 / 退款记录。
+      --
+      -- 之前退款只是 aftersales 上的一个数字，账算不出来：一笔订单到底收了多少、
+      -- 退了多少、还剩多少能退，要翻工单自己加。金额一律存正数，方向由 kind 决定
+      -- （payment 入账 / refund 出账），不存负数——负数求和时符号写反就是两倍的账。
+      CREATE TABLE IF NOT EXISTS order_ledger (
+        id           TEXT PRIMARY KEY,
+        order_id     TEXT NOT NULL,
+        kind         TEXT NOT NULL,            -- payment / refund
+        amount       REAL NOT NULL,            -- 正数，方向看 kind
+        channel      TEXT NOT NULL DEFAULT 'manual',  -- online / cod / manual
+        status       TEXT NOT NULL DEFAULT 'settled', -- settled / pending（退款待打款）
+        aftersale_id TEXT,                     -- 退款来源工单，收款为 NULL
+        note         TEXT NOT NULL DEFAULT '',
+        created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+        settled_at   TEXT,
+        settled_by   TEXT NOT NULL DEFAULT ''
+      );
+      CREATE INDEX IF NOT EXISTS idx_ledger_order ON order_ledger(order_id, created_at);
+      -- 待打款的退款是运营每天要看的清单，单独建部分索引；全表按状态扫描没必要
+      CREATE INDEX IF NOT EXISTS idx_ledger_pending
+        ON order_ledger(created_at) WHERE status = 'pending';
+
+      -- 存量补收款流水：迁移前支付的订单在账本上没有入账记录，
+      -- 会导致「已退款但从未收款」的对账黑洞（余额算出来是负的）。
+      -- 只补有 paid_at 的（真的付过钱），渠道按订单原支付方式，认不出的记 manual。
+      INSERT OR IGNORE INTO order_ledger
+        (id, order_id, kind, amount, channel, status, note, created_at, settled_at)
+      SELECT
+        'LG' || lower(hex(randomblob(8))), o.id, 'payment', o.total_amount,
+        COALESCE(NULLIF(o.payment_method_id, ''), 'manual'), 'settled',
+        '迁移补记', o.paid_at, o.paid_at
+      FROM orders o
+      WHERE o.paid_at IS NOT NULL AND o.total_amount > 0;
+
+      -- 物流事件去重：webhook 会重推，网络抖动时同一条能到三次。
+      -- (order_id, code, happened_at) 三元组唯一 → 重复推送直接 INSERT OR IGNORE，
+      -- 不靠「先查一遍再插」（那两步之间有窗口，并发下照样插重）。
+      DELETE FROM order_logistics_events WHERE rowid NOT IN (
+        SELECT MIN(rowid) FROM order_logistics_events
+        GROUP BY order_id, code, happened_at
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_evt_dedup
+        ON order_logistics_events(order_id, code, happened_at);
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

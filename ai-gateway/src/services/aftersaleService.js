@@ -13,7 +13,9 @@
 //   驳回     → 订单退回 origin_status（申请那一刻的状态，单独存了一列）。
 // 三步都在同一个事务里：只改售后单不改订单，详情页会「工单显示已退款、顶部还挂着售后中」。
 import { getDb } from '../db/connection.js';
-import { appendEvents, dbTime, newShipment } from './logisticsService.js';
+import { appendEvents, dbTime, lastEventMs, newShipment } from './logisticsService.js';
+import { refundableBalance, recordRefund } from './ledgerService.js';
+import { isObjectKey, resolveMedia } from '../storage/index.js';
 
 export const AFTERSALE_TYPES = [
   { code: 'refund', label: '仅退款' },
@@ -76,16 +78,27 @@ function makeAftersaleId(db) {
 }
 
 /**
- * 凭证只存文件名与大小，不存图片内容。
- * 演示环境没有对象存储，也没有人真的去看图；存个名字足以表达「这里有一份凭证」，
- * 同时避免把几 MB 的 base64 塞进业务表（买家秀那条路已经证明这会把库撑大）。
+ * 凭证：存对象键，不存图片内容。
+ *
+ * 只存 {name,size} 的前一代已经暴露了问题：对账时要拿它看图，而它只有文件名。
+ * 现在存 key（图片本体在对象存储里，local 或 s3 由 STORAGE_DRIVER 决定）。
+ *
+ * key 必须是本系统签发的合法对象键，不信客户端传来的任何字符串——
+ * 否则一句话就能让工单指向别人买家秀的图片。认不出的 key 直接丢掉，
+ * 宁可这份凭证没有图，也不让库里存一个指向未知位置的指针。
  */
 function normalizeEvidence(raw) {
   const list = Array.isArray(raw) ? raw : [];
-  return list.slice(0, MAX_EVIDENCE).map((f) => ({
-    name: String((f && f.name) || '凭证').slice(0, 60),
-    size: Math.max(0, Number((f && f.size) || 0)),
-  }));
+  return list.slice(0, MAX_EVIDENCE)
+    .map((f) => {
+      const key = f && typeof f === 'object' && isObjectKey(f.key) ? String(f.key) : '';
+      return {
+        name: String((f && f.name) || '凭证').slice(0, 60),
+        size: Math.max(0, Number((f && f.size) || 0)),
+        key,
+      };
+    })
+    .filter((f) => f.name || f.key);
 }
 
 function money(n) {
@@ -93,13 +106,35 @@ function money(n) {
   return `¥${v.toFixed(2)}`;
 }
 
-function mapRow(row) {
-  let evidence = [];
+/**
+ * 凭证卡片：把对象键解析成可访问地址，键缺失时只留文件名。
+ *
+ * url 是**现签**的，不落库：s3 的预签名 URL 默认 15 分钟有效，
+ * 存下来第二天点开就是一片死图。旧工单只有 {name,size} 没有 key，
+ * 照旧只显示文件名——它们是升级前提交的，当时确实没上传图片。
+ */
+function evidenceCards(row) {
+  let list = [];
   try {
-    evidence = JSON.parse(row.evidence || '[]');
+    list = JSON.parse(row.evidence || '[]');
   } catch {
-    evidence = [];
+    list = [];
   }
+  if (!Array.isArray(list)) return [];
+  return list.map((f) => {
+    const key = (f && typeof f === 'object' && isObjectKey(f.key)) ? f.key : '';
+    return {
+      name: String((f && f.name) || '凭证').slice(0, 60),
+      size: Math.max(0, Number((f && f.size) || 0)),
+      key,
+      // 无 key 时给空串而不是假 URL：前端据此显示「仅文件名」而不是一张裂图
+      url: key ? resolveMedia(key) : '',
+    };
+  });
+}
+
+function mapRow(row) {
+  const evidence = evidenceCards(row);
   return {
     id: row.id,
     orderId: row.order_id,
@@ -208,6 +243,26 @@ export function listForAdmin({ status = '', reviewed = null, page = 1, size = 20
     `)
     .get();
 
+  // 打款状态一次 IN 查询带出：审核台的每张退款卡都要回答「钱出去了没有」，
+  // 逐单再查一次就是 N+1（与订单列表、商品摘要同理）。
+  const asIds = rows.map((r) => r.id);
+  const payoutByAs = new Map();
+  if (asIds.length) {
+    const payouts = db
+      .prepare(`
+        SELECT aftersale_id, id, amount, status, settled_at
+        FROM order_ledger
+        WHERE kind = 'refund' AND aftersale_id IN (${asIds.map(() => '?').join(',')})
+      `)
+      .all(...asIds);
+    payouts.forEach((p) => payoutByAs.set(p.aftersale_id, {
+      ledgerId: p.id,
+      amount: Number(p.amount),
+      status: p.status,
+      settledAt: p.settled_at || null,
+    }));
+  }
+
   return {
     total,
     page: Math.max(1, Number(page) || 1),
@@ -229,6 +284,7 @@ export function listForAdmin({ status = '', reviewed = null, page = 1, size = 20
         // 只带前两件：审核台要的是「这单买的是什么」，不是完整清单
         items: goods.slice(0, 2),
         itemCount: goods.reduce((n, i) => n + Number(i.qty || 0), 0),
+        payout: payoutByAs.get(r.id) || null,
       };
     }),
   };
@@ -354,7 +410,10 @@ export function reviewAftersale({ id, action, note = '', refundAmount = null, by
         // 换货：新货重新发一趟。运单号换成新的，已签收的时间清掉——
         // 留着旧的会让详情页显示「已签收」，而新货其实刚从仓库出来。
         // 时间线是**追加**而不是改写：上一趟的物流是既成事实，擦掉它等于篡改历史。
-        const shipment = newShipment();
+        // 新事件的下限是「最后一条事件 + 1 分钟」：同日换货时若简单用「现在」，
+        // 揽收可能落在原签收之前（时间线倒流），同一秒还会撞去重唯一索引。
+        const base = Math.max(Date.now(), (lastEventMs(db, order.id) || 0) + 60000);
+        const shipment = newShipment(new Date(base));
         db
           .prepare(`
             UPDATE orders
@@ -369,10 +428,22 @@ export function reviewAftersale({ id, action, note = '', refundAmount = null, by
         const paid = Number(order.total_amount || 0);
         const raw = refundAmount == null || refundAmount === '' ? paid : Number(refundAmount);
         if (!Number.isFinite(raw) || raw < 0) throw bad('退款金额不合法');
-        // 只允许少退，不允许多退
-        amount = Math.round(Math.min(raw, paid) * 100) / 100;
+        // 上限是「剩余可退额度」而不是实付：退款后订单进 refunded 终态，目前确实
+        // 到不了「同一单退两次」的路径，但换货同意会让订单回到 shipped 从而允许
+        // 再申请一次——那时按实付夹就能退两遍。额度从账本算，不靠「终态挡着」这种
+        // 依赖别处不改动才能成立的推理。
+        const room = refundableBalance(order.id, paid, db);
+        amount = Math.round(Math.min(raw, room) * 100) / 100;
+        if (amount <= 0 && raw > 0) throw bad('这笔订单的可退额度已经用完了', 409);
         db.prepare('UPDATE orders SET status = ? WHERE id = ?').run('refunded', order.id);
-        handleNote = `已同意${typeLabel}，退款 ${money(amount)} 将在 3 个工作日内退回原支付账户`;
+        // 退款流水与工单、订单同事务：账上没有这条，月末对账就会平白少一笔支出
+        recordRefund({
+          orderId: order.id,
+          aftersaleId: id,
+          amount,
+          note: `${typeLabel}退款`,
+        }, db);
+        handleNote = `已同意${typeLabel}，退款 ${money(amount)} 待财务打款，到账后订单会更新为已处理`;
       }
     }
 

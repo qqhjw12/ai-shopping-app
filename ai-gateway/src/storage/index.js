@@ -14,8 +14,14 @@ import * as s3 from './s3Client.js';
 
 const LOCAL_DIR = resolvePath(process.cwd(), 'data/uploads');
 const LEGACY_PREFIX = '/api/uploads/';
-// 对象键格式：reviews/2026/10/<uuid>.jpg（按年月分目录，便于后续生命周期策略）
-const KEY_RE = /^reviews\/\d{4}\/\d{2}\/[A-Za-z0-9-]{1,64}\.(jpg|jpeg|png|webp|gif)$/;
+/**
+ * 对象键命名空间：reviews 是买家秀，evidence 是售后凭证。
+ * 两者必须分开——孤儿清理按「评价引用了哪些键」来判定，凭证图不在那个集合里，
+ * 共用前缀会被当成没人引用的孤儿直接删掉（凭证提交后过半小时图片就没了）。
+ */
+export const KEY_NAMESPACES = ['reviews', 'evidence'];
+// 对象键格式：<ns>/2026/10/<uuid>.jpg（按年月分目录，便于后续生命周期策略）
+const KEY_RE = /^(?:reviews|evidence)\/\d{4}\/\d{2}\/[A-Za-z0-9-]{1,64}\.(?:jpg|jpeg|png|webp|gif)$/;
 
 export const isObjectKey = (value) => typeof value === 'string' && KEY_RE.test(value);
 export const isLegacyUpload = (value) => typeof value === 'string' && value.startsWith(LEGACY_PREFIX);
@@ -55,20 +61,20 @@ export function storageInfo() {
   };
 }
 
-function buildKey(ext) {
+function buildKey(ext, ns = 'reviews') {
   const now = new Date();
   const yyyy = now.getUTCFullYear();
   const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-  return `reviews/${yyyy}/${mm}/${randomUUID()}${ext}`;
+  return `${ns}/${yyyy}/${mm}/${randomUUID()}${ext}`;
 }
 
 /**
  * 存一个对象。
- * @param {{buffer: Buffer, ext: string, contentType: string}} input
+ * @param {{buffer: Buffer, ext: string, contentType: string, ns?: string}} input
  * @returns {Promise<{key: string, url: string, driver: string}>} url 是可直接渲染的地址
  */
-export async function saveObject({ buffer, ext, contentType }) {
-  const key = buildKey(ext);
+export async function saveObject({ buffer, ext, contentType, ns = 'reviews' }) {
+  const key = buildKey(ext, KEY_NAMESPACES.includes(ns) ? ns : 'reviews');
   if (config.storage.driver === 's3') {
     await s3.putObject(config.storage, key, buffer, contentType);
     return { key, url: resolveMedia(key), driver: 's3' };
@@ -126,16 +132,20 @@ export async function sweepOrphans(referencedKeys, { logger } = {}) {
   const referenced = new Set([...(Array.isArray(referencedKeys) ? referencedKeys : referencedKeys.keys?.() || [])]);
   let removed = 0;
   if (config.storage.driver === 's3') {
-    let keys = [];
-    try {
-      keys = await s3.listObjects(config.storage, 'reviews/');
-    } catch (err) {
-      logger?.warn?.({ event: 'storage.sweep_list_failed', err: err.message });
-      return 0;
-    }
-    for (const k of keys) {
-      if (!referenced.has(k)) {
-        if (await removeObject(k)) removed += 1;
+    // 两个命名空间都要扫：只扫 reviews 的话，凭证图永远扫不到，
+    // 用户删掉工单后就变成没人付钱的死对象（账单上是真金白银）。
+    for (const ns of KEY_NAMESPACES) {
+      let keys = [];
+      try {
+        keys = await s3.listObjects(config.storage, `${ns}/`);
+      } catch (err) {
+        logger?.warn?.({ event: 'storage.sweep_list_failed', ns, err: err.message });
+        continue;
+      }
+      for (const k of keys) {
+        if (!referenced.has(k)) {
+          if (await removeObject(k)) removed += 1;
+        }
       }
     }
   } else {

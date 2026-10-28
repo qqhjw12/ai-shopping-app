@@ -9,7 +9,7 @@
 //   2) 本地镜像 → 服务端不可达时的兜底（断网也要能看自己刚下的单）；
 //   3) 都没有 → 「没有找到这笔订单」。
 // 拿到服务端结果后顺手写回本地镜像，下一次断网打开还是完整的。
-import { api, isMissingEndpoint } from './api.js';
+import { api, isMissingEndpoint, mediaUrl } from './api.js';
 import { el, fmtPrice, loading, toast, openModal, productThumb } from './ui.js';
 import { navigate } from './router.js';
 import { getCurrentUser } from './user.js';
@@ -22,6 +22,7 @@ import {
   AFTERSALE_REASONS, AFTERSALE_TYPES, MAX_EVIDENCE, MAX_NOTE, REFUNDABLE_TYPES,
   canApply, listByOrder, mergeAftersales, saveAftersale, validateAftersale,
 } from './store/aftersaleStore.js';
+import { uploadEvidence } from './imgUpload.js';
 import { refundCouponsByOrder, syncWallet } from './store/couponStore.js';
 
 /** 服务端订单：单号前缀 SO，或本地镜像上带 remote 标记 */
@@ -315,7 +316,8 @@ function orderDetailCard(o, { user, repaint } = {}) {
       ]),
     ]),
 
-    aftersaleBlock(aftersales),
+    aftersaleBlock(aftersales, o.ledger || []),
+    ledgerBlock(o),
     actionsBlock(o, { user, repaint }),
     demoBlock(o, { user, repaint }),
   ]);
@@ -398,7 +400,7 @@ function logisticsBlock(logi, o) {
  * 有结论后先给结论（同意 / 驳回 + 退款金额 + 时间），再给审核意见与处理说明：
  * 用户最想知道的是「我的钱什么时候回来」，理由排在第二位。
  */
-function aftersaleBlock(list) {
+function aftersaleBlock(list, ledger = []) {
   if (!list.length) return null;
   return el('section', { class: 'od-as' }, [
     el('div', { class: 'od-sec-head' }, [
@@ -424,14 +426,95 @@ function aftersaleBlock(list) {
           ])
           : null,
         r.note ? el('p', { class: 'od-as-note' }, r.note) : null,
-        r.evidence && r.evidence.length
-          ? el('p', { class: 'od-as-ev' }, `凭证 ${r.evidence.length} 份：${r.evidence.map((f) => f.name).join('、')}`)
-          : null,
+        evidenceBlock(r.evidence),
         r.reviewNote ? el('p', { class: 'od-as-review' }, `审核意见：${r.reviewNote}`) : null,
         el('p', { class: 'od-as-handle' }, `处理说明：${r.handleNote || '客服处理中'}`),
+        // 打款进度：工单说「退款 ¥100」只是承诺，用户真正等的是钱到账
+        payoutBlock(r, ledger),
         el('p', { class: 'od-as-meta' }, `申请单 ${r.id} · ${fmtDate(r.createdAt)}`),
       ]);
     }),
+  ]);
+}
+
+/**
+ * 资金流水。
+ *
+ * 只有出现退款时才渲染：一笔正常完成的订单显示「收款 ¥100」没有任何信息量，
+ * 用户关心的是「我退了多少、还有多少没到账」。
+ */
+function ledgerBlock(o) {
+  const ledger = Array.isArray(o.ledger) ? o.ledger : [];
+  const refunds = ledger.filter((l) => l.kind === 'refund');
+  if (!refunds.length) return null;
+  const bal = o.balance || {};
+
+  return el('section', { class: 'od-ledger' }, [
+    el('div', { class: 'od-sec-head' }, [
+      el('h3', {}, '退款进度'),
+      el('span', { class: 'od-sec-meta' }, `${refunds.length} 笔`),
+    ]),
+    el('div', { class: 'od-ledger-sum' }, [
+      el('div', { class: 'od-ledger-cell' }, [
+        el('span', { class: 'od-ledger-label' }, '订单实付'),
+        el('span', { class: 'od-ledger-value num' }, fmtPrice(bal.paid || 0)),
+      ]),
+      el('div', { class: 'od-ledger-cell' }, [
+        el('span', { class: 'od-ledger-label' }, '已退'),
+        el('span', { class: 'od-ledger-value num' }, fmtPrice(bal.refunded || 0)),
+      ]),
+      el('div', { class: 'od-ledger-cell' }, [
+        el('span', { class: 'od-ledger-label' }, '可退额度'),
+        el('span', { class: 'od-ledger-value num' }, fmtPrice(bal.refundable || 0)),
+      ]),
+    ]),
+    ...refunds.map((l) => el('div', { class: `od-ledger-row${l.status === 'pending' ? ' is-pending' : ''}` }, [
+      el('span', { class: 'od-ledger-kind' }, l.kindLabel),
+      el('span', { class: 'od-ledger-amount num' }, `- ${fmtPrice(l.amount)}`),
+      el('span', { class: `od-ledger-status s-${l.status}` }, l.statusLabel),
+      el('span', { class: 'od-ledger-time' }, fmtDate(l.settledAt || l.createdAt)),
+    ])),
+    // 待打款的说清楚这笔钱还在路上，别让用户以为退款流程卡住了
+    refunds.some((l) => l.status === 'pending')
+      ? el('p', { class: 'od-ledger-tip' }, '已受理的退款会在财务打款后更新为已打款。')
+      : null,
+  ]);
+}
+
+/**
+ * 凭证展示：有对象键的渲染成缩略图，只有文件名的退回文字。
+ *
+ * 两种形态会长期共存：升级前的工单只有文件名（当时确实没存图），
+ * 显示成裂图或者干脆不显示都不对——退回一行文字，至少用户知道自己交过。
+ */
+function evidenceBlock(list) {
+  if (!Array.isArray(list) || !list.length) return null;
+  const thumbs = list.map((f) => (f.url
+    ? el('img', { class: 'od-as-ev-img', src: mediaUrl(f.url), alt: f.name, loading: 'lazy' })
+    : el('span', { class: 'od-as-ev-file' }, f.name)));
+  return el('div', { class: 'od-as-ev' }, [
+    el('span', { class: 'od-as-ev-label' }, `凭证 ${list.length} 份`),
+    el('div', { class: 'od-as-ev-row' }, thumbs),
+  ]);
+}
+
+/**
+ * 打款进度条。
+ *
+ * 只给退款类工单显示，且只有拿到流水时才显示——工单上有 refundAmount 但账本
+ * 还没同步（离线镜像）时，宁可不显示也不要显示「待打款」这种可能是错的状态。
+ */
+function payoutBlock(r, ledger) {
+  if (!REFUNDABLE_TYPES.includes(r.type) || r.refundAmount == null) return null;
+  if (!Array.isArray(ledger)) return null;
+  const refund = ledger.find((l) => l.kind === 'refund' && l.aftersaleId === r.id);
+  if (!refund) return null;
+  const settled = refund.status === 'settled';
+  return el('p', { class: `od-as-payout${settled ? ' is-settled' : ''}` }, [
+    el('span', { class: 'od-as-payout-label' }, settled ? '已打款' : '待打款'),
+    el('span', { class: 'od-as-payout-text' }, settled
+      ? `退款 ${fmtPrice(refund.amount)} 已转出${refund.settledAt ? `（${fmtDate(refund.settledAt)}）` : ''}`
+      : `退款 ${fmtPrice(refund.amount)} 已受理，等待财务打款`),
   ]);
 }
 
@@ -555,10 +638,11 @@ function demoBlock(o, { user, repaint }) {
 /* ---------------- 售后弹层 ---------------- */
 
 /**
- * 售后申请弹层：类型 / 原因 / 说明 / 凭证占位。
+ * 售后申请弹层：类型 / 原因 / 说明 / 凭证（真上传）。
  *
- * 凭证只记文件名不传图：这个演示站没有对象存储与审核后台，
- * 假装上传只会让人以为图真的到了客服那边。输入框下面的提示直接说明这一点。
+ * 凭证是真图：压缩后传到服务端，落对象存储（local 或 s3），工单里只存对象键。
+ * 前一代只记文件名，理由是「没有对象存储，假装上传只会让人以为图真到了客服那边」——
+ * 现在存储有了，这条理由就不成立了，留着它就是把一个占位功能说成设计选择。
  */
 function openAftersaleSheet({ order, user, onDone }) {
   openModal((modal, close) => {
@@ -602,12 +686,60 @@ function openAftersaleSheet({ order, user, onDone }) {
       accept: 'image/*',
       multiple: 'multiple',
     });
-    fileInput.addEventListener('change', () => {
-      const picked = [...fileInput.files].map((f) => ({ name: f.name, size: f.size }));
-      evidence = [...evidence, ...picked].slice(0, MAX_EVIDENCE);
+    let uploading = 0;
+
+    function paintEvidence() {
       evList.innerHTML = '';
-      evidence.forEach((f) => evList.appendChild(el('span', { class: 'as-ev-tag' }, f.name)));
-      if (picked.length && evidence.length >= MAX_EVIDENCE) toast(`最多 ${MAX_EVIDENCE} 份凭证`, 'warn');
+      if (uploading > 0) {
+        evList.appendChild(el('p', { class: 'as-ev-loading' }, `正在上传 ${uploading} 张…`));
+      }
+      evidence.forEach((f, idx) => {
+        const del = el('button', {
+          class: 'as-ev-del',
+          type: 'button',
+          'aria-label': `删除 ${f.name}`,
+          onclick: () => {
+            evidence.splice(idx, 1);
+            paintEvidence();
+          },
+        }, '×');
+        evList.appendChild(el('div', { class: 'as-ev-item', 'data-ev': String(idx + 1) }, [
+          f.url
+            ? el('img', { class: 'as-ev-thumb', src: f.url, alt: f.name })
+            : el('span', { class: 'as-ev-thumb is-text', 'aria-hidden': 'true' }, '图'),
+          el('span', { class: 'as-ev-name' }, f.name),
+          del,
+        ]));
+      });
+    }
+
+    /**
+     * 选完文件先压缩再上传，拿到对象键。
+     *
+     * 一张失败不拖累其它几张：用户挑了三张照片，有一张格式不对就该只报那一张，
+     * 而不是整个「上传凭证」环节失败。
+     */
+    fileInput.addEventListener('change', async () => {
+      const files = [...(fileInput.files || [])];
+      fileInput.value = ''; // 清掉，否则再选同一张不触发 change
+      if (!files.length) return;
+      const room = MAX_EVIDENCE - evidence.length;
+      if (files.length > room) toast(`最多 ${MAX_EVIDENCE} 份凭证`, 'warn');
+      const take = files.slice(0, Math.max(0, room));
+      if (!take.length) return;
+
+      uploading += take.length;
+      paintEvidence();
+      for (const f of take) {
+        try {
+          evidence.push(await uploadEvidence(f));
+        } catch (e) {
+          toast(`「${f.name}」上传失败，可重新选择`, 'warn');
+        } finally {
+          uploading -= 1;
+          paintEvidence();
+        }
+      }
     });
 
     const errorNode = el('p', { class: 'as-error', role: 'alert' });
@@ -624,7 +756,8 @@ function openAftersaleSheet({ order, user, onDone }) {
       note,
       el('label', { class: 'as-label' }, '上传凭证'),
       fileInput,
-      el('p', { class: 'as-hint' }, `演示环境不上传图片，只记录文件名（最多 ${MAX_EVIDENCE} 份）。`),
+      // 提示说的是真的：图片会压缩后传到服务端，客服那边看得到原图
+      el('p', { class: 'as-hint' }, `最少 0 份、最多 ${MAX_EVIDENCE} 份，会先压缩再上传（JPG / PNG / WebP / GIF）。`),
       evList,
       errorNode,
       el('div', { class: 'as-actions' }, [
