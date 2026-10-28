@@ -3,6 +3,8 @@ import { el, updateCartBadge } from './ui.js';
 import { renderHome, renderProducts, renderSearch, renderCartDrawer, renderProductDetail, openProductDetail } from './views.js';
 import { renderCategories } from './categories.js';
 import { renderCheckout } from './checkout.js';
+import { renderCart } from './cart.js';
+import { renderOrderSuccess } from './orderSuccess.js';
 import { renderOrders, renderFavorites } from './account.js';
 import { renderAccount, renderOrderDetail } from './accountCenter.js';
 import { renderLogin } from './login.js';
@@ -110,7 +112,11 @@ function dispatch({ path, query }) {
   else if (path.startsWith('/product/')) renderProductDetail(view, decodeURIComponent(path.slice('/product/'.length)), query.from);
   else if (path === '/tools') renderTools(view);
   else if (path.startsWith('/analytics')) renderAnalytics(view);
+  else if (path === '/cart') renderCart(view);
   else if (path === '/checkout') renderCheckout(view);
+  else if (path.startsWith('/order-success/')) {
+    renderOrderSuccess(view, decodeURIComponent(path.slice('/order-success/'.length)));
+  }
   else if (path === '/orders') renderOrders(view);
   else if (path === '/favorites') renderFavorites(view);
   else renderNotFound(view);

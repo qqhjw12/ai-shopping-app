@@ -6,7 +6,6 @@ import {
   revealCards, emptyEditorial,
 } from './ui.js';
 import { addToCart, setQty, removeFromCart, clearCart, getUserId, getCart, restoreCartItem } from './state.js';
-import { summarize } from './store/checkoutStore.js';
 import { askGuide, askProductQA } from './assistant.js';
 import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
@@ -2293,15 +2292,12 @@ export function buildCartPanel() {
     const cart = getCart();
     if (!cart.length) return;
     const productAmount = cart.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 0), 0);
-    const sum = summarize(productAmount); // 与网关同规则：满 ¥99 包邮，否则 ¥10
     const row = (label, value, cls = '') =>
       el('div', { class: `cart-sum-row ${cls}`.trim() }, [el('span', {}, label), el('span', { class: 'cart-sum-val' }, value)]);
-    sumBox.appendChild(row('商品小计', fmtPrice(sum.productAmount)));
-    sumBox.appendChild(row('运费', sum.shippingFee ? fmtPrice(sum.shippingFee) : '免运费'));
-    if (sum.shippingFee && sum.freeShippingGap) {
-      sumBox.appendChild(el('div', { class: 'cart-ship-hint' }, `再买 ${fmtPrice(sum.freeShippingGap)} 即可包邮`));
-    }
-    sumBox.appendChild(row('合计', fmtPrice(sum.payAmount), 'cart-sum-total'));
+    // 运费与优惠券在结算页按「配送方式 / 抵扣」确定，抽屉里只报商品金额，避免两个数字打架
+    sumBox.appendChild(row('商品小计', fmtPrice(productAmount)));
+    sumBox.appendChild(row('运费', '结算页计算'));
+    sumBox.appendChild(row('合计', fmtPrice(productAmount), 'cart-sum-total'));
   }
 
   function paintFoot() {
@@ -2331,6 +2327,15 @@ export function buildCartPanel() {
       },
     }, `去结算 · ${count} 件`);
     footBox.appendChild(btn);
+    // 抽屉是「顺手看一眼」，整页才是改数量 / 核对的正式入口；
+    // 结算页的「返回购物袋修改」也指回这一页，两个入口必须能互相到达。
+    footBox.appendChild(
+      el('a', {
+        class: 'cart-full-link',
+        href: '#/cart',
+        onclick: () => closeDrawer(),
+      }, '打开购物袋整页'),
+    );
   }
 
   function paintClear() {

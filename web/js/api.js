@@ -49,6 +49,44 @@ export class ApiError extends Error {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * 是否「这个部署压根没有后端」。
+ * 静态托管（GitHub Pages / 纯前端预览）对 /api/* 一律回 404（或 405/501），
+ * 这与「接口在、但这次请求被业务拒绝」是两回事：前者应降级到本地存储，
+ * 后者才该把服务端文案抛给用户。只在明确无该端点时返回 true。
+ */
+export function isMissingEndpoint(e) {
+  return Boolean(e) && (e.status === 404 || e.status === 405 || e.status === 501);
+}
+
+/**
+ * 「这个部署没有网关」的会话级记忆。
+ * 只在同源（未用 ?api= 显式指定网关）时启用：显式指定网关却拿到 404，
+ * 那是路由写错或版本不匹配，应该继续报错，不能被记成「没有后端」。
+ */
+const NO_BACKEND_KEY = 'maison_no_backend';
+let backendMissingMemo = false;
+
+function backendKnownMissing() {
+  if (backendMissingMemo) return true;
+  try {
+    return sessionStorage.getItem(NO_BACKEND_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markBackendMissing(path) {
+  if (!String(path || '').startsWith('/api/')) return;
+  if (new URLSearchParams(location.search).get('api')) return;
+  backendMissingMemo = true;
+  try {
+    sessionStorage.setItem(NO_BACKEND_KEY, '1');
+  } catch {
+    /* 隐私模式下写不了 sessionStorage，内存标记也够本次会话用了 */
+  }
+}
+
+/**
  * @param {string} path  相对路径，如 /api/products
  * @param {{method?: string, body?: any, retries?: number}} [opts]
  */
@@ -61,6 +99,11 @@ export async function api(path, opts = {}) {
   const method = String(opts.method || (opts.body ? 'POST' : 'GET')).toUpperCase();
   let attempt = 0;
   let refreshed = false;
+  // 已经确认这个部署没有后端（静态演示站）：别再发请求，直接按「离线」降级。
+  // 否则每翻一页都会在控制台刷一串 /api 404，看着像坏了，其实只是演示模式。
+  if (backendKnownMissing()) {
+    throw new ApiError('本地演示模式：未连接网关', 'offline');
+  }
   while (true) {
     try {
       const headers = { 'Content-Type': 'application/json' };
@@ -86,6 +129,9 @@ export async function api(path, opts = {}) {
         } catch {}
         if (resp.status === 401) msg = '服务需要鉴权，请检查 API Key 配置';
         if (resp.status === 429) msg = '请求过于频繁，请稍后再试';
+        // 404/405/501 打在 /api/* 上 = 这个部署没有网关（静态托管）。
+        // 记一次会话标记，后续请求直接走本地降级，避免 404 刷屏。
+        if (isMissingEndpoint({ status: resp.status })) markBackendMissing(path);
         throw new ApiError(msg, 'client', resp.status);
       }
       if (resp.status >= 500 && attempt < retries) {

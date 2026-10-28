@@ -4,7 +4,9 @@
 // 各写一份迟早会漂移成「拦截到 /checkout，登录后回到 /account」这种错位。
 
 /** 受保护路径（前缀匹配，含子路由如 /account/order/xxx） */
-const PROTECTED = ['/account', '/checkout', '/orders', '/favorites'];
+// 说明：/order-success 也在列——订单成功页要按当前账户取订单，
+// 未登录进去只会看到「没有找到这笔订单」，体验上不如直接去登录。
+const PROTECTED = ['/account', '/checkout', '/orders', '/favorites', '/order-success'];
 
 export function isProtectedPath(path) {
   const p = String(path || '/').split('?')[0];

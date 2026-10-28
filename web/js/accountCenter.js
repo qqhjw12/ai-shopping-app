@@ -17,11 +17,9 @@ import {
   PROVINCES, getDefaultAddress, hydrateAddresses, listAddresses, removeAddress,
   saveAddress, setDefaultAddress, validateAddress,
 } from './store/addressStore.js';
-
-const STATUS_TEXT = {
-  pending: '待支付', paid: '已支付', shipped: '已发货',
-  completed: '已完成', refunding: '退款中', closed: '已关闭',
-};
+import {
+  getOrder, listOrders, mergeOrders, normalizeRemote, statusText,
+} from './store/orderStore.js';
 
 const TABS = [
   { key: 'orders', label: '我的订单' },
@@ -188,34 +186,34 @@ async function paintOrders(box, user, bento) {
   box.innerHTML = '';
   loading(box, '正在取回订单…');
 
-  let orders = null;
+  // 本地订单（本步骤的结算链路落地在 localStorage）先读，网关联通时再合并远端订单。
+  // 顺序很关键：断网时也必须能看到自己刚下的单，否则「下了单却看不到」会被当成丢单。
+  const local = listOrders(user.id);
+  let remote = null;
   try {
     const d = await api(`/api/orders?userId=${encodeURIComponent(user.id)}`, { retries: 0 });
-    orders = Array.isArray(d && d.orders) ? d.orders : [];
+    remote = (Array.isArray(d && d.orders) ? d.orders : []).map(normalizeRemote);
   } catch {
-    orders = null;
+    remote = null;
   }
-  if (bento && bento.setOrders) bento.setOrders(orders ? orders.length : 0);
+  const orders = remote ? mergeOrders(local, remote) : local;
+  if (bento && bento.setOrders) bento.setOrders(orders.length);
 
   box.innerHTML = '';
-  if (orders === null) {
-    box.appendChild(emptyCard({
-      title: '订单暂时取不回来',
-      text: '网关未连通或响应异常。演示静态站点没有后端，连着网关部署后即可查看真实订单。',
-      primary: '重试',
-      onPrimary: () => paintOrders(box, user, bento),
-      secondary: '去逛逛',
-      onSecondary: () => navigate('#/products'),
-    }));
-    return;
-  }
   if (!orders.length) {
-    box.appendChild(emptyCard({
-      title: '还没有订单',
-      text: '挑一件喜欢的东西下单，订单会自动归到这个账户名下。',
-      primary: '去选购',
-      onPrimary: () => navigate('#/products'),
-    }));
+    box.appendChild(remote === null
+      ? emptyCard({
+          title: '还没有订单',
+          text: '本机还没有下单记录，网关也没连通。挑件喜欢的东西结算一次，订单会归到这个账户名下。',
+          primary: '去选购',
+          onPrimary: () => navigate('#/products'),
+        })
+      : emptyCard({
+          title: '还没有订单',
+          text: '挑一件喜欢的东西下单，订单会自动归到这个账户名下。',
+          primary: '去选购',
+          onPrimary: () => navigate('#/products'),
+        }));
     return;
   }
 
@@ -232,13 +230,14 @@ function orderCard(o) {
   const items = Array.isArray(o.items) ? o.items : [];
   const thumbs = items.slice(0, 4);
   const qty = items.reduce((n, i) => n + (Number(i.qty) || 0), 0);
-  const open = () => navigate(`#/account/order/${encodeURIComponent(o.orderId)}`);
+  const open = () => navigate(`#/account/order/${encodeURIComponent(o.id)}`);
+  const pay = (o.amounts && o.amounts.payAmount) ?? o.payAmount ?? 0;
 
   return el('article', { class: 'acct-order', onclick: open, role: 'button', tabindex: '0' }, [
     el('div', { class: 'acct-order-head' }, [
-      el('span', { class: 'acct-order-id' }, `订单号 ${o.orderId}`),
+      el('span', { class: 'acct-order-id' }, `订单号 ${o.id}`),
       el('span', { class: 'acct-order-date' }, fmtDate(o.createdAt)),
-      el('span', { class: `acct-status s-${o.status}` }, STATUS_TEXT[o.status] || o.status),
+      el('span', { class: `acct-status s-${o.status}` }, statusText(o.status)),
     ]),
     el('div', { class: 'acct-order-body' }, [
       el('div', { class: 'acct-order-thumbs' }, thumbs.map((i) => el('div', { class: 'acct-thumb' },
@@ -248,8 +247,8 @@ function orderCard(o) {
         el('div', { class: 'acct-order-sub' }, items.length > 1 ? `等 ${items.length} 种商品 · 共 ${qty} 件` : `共 ${qty} 件`),
       ]),
       el('div', { class: 'acct-order-amount' }, [
-        el('span', { class: 'acct-order-amount-label' }, '实付'),
-        el('b', {}, fmtPrice(o.payAmount)),
+        el('span', { class: 'acct-order-amount-label' }, '应付'),
+        el('b', { class: 'num' }, fmtPrice(pay)),
       ]),
       el('span', { class: 'acct-order-arrow', 'aria-hidden': 'true' }, '→'),
     ]),
@@ -496,30 +495,121 @@ function paintCoupons(box) {
 }
 
 /* ============================================================
-   订单详情占位（#/account/order/:id）
+   订单详情（#/account/order/:id）
    ============================================================ */
 
-export function renderOrderDetail(view, orderId) {
+/**
+ * 订单详情：本地订单优先（结算页刚下的单就在这儿），查不到再问网关。
+ * 成功页 →「查看订单」的落点就是这里，所以不能是占位页。
+ */
+export async function renderOrderDetail(view, orderId) {
   const user = getCurrentUser();
+  const id = decodeURIComponent(String(orderId || ''));
   if (!user) {
-    navigate(`#/login?redirect=${encodeURIComponent(`/account/order/${orderId}`)}`);
+    navigate(`#/login?redirect=${encodeURIComponent(`/account/order/${id}`)}`);
     return;
   }
   view.innerHTML = '';
+  const host = el('div', { class: 'od-host' });
   view.appendChild(el('section', { class: 'acct-page' }, [
     el('div', { class: 'acct-crumb' }, [
       el('a', { href: '#/account?tab=orders' }, '← 返回我的订单'),
     ]),
-    el('article', { class: 'acct-detail' }, [
-      el('span', { class: 'eyebrow' }, 'ORDER DETAIL'),
-      el('h1', { class: 'acct-detail-id' }, `订单 ${orderId}`),
-      el('p', { class: 'acct-detail-note' }, '订单详情页正在建设中：这里将承载物流轨迹、发票、售后与评价入口。'),
-      el('div', { class: 'acct-detail-actions' }, [
-        el('a', { class: 'acct-save', href: '#/account?tab=orders' }, '回到订单列表'),
-        el('a', { class: 'acct-cancel', href: '#/orders' }, '打开完整订单页'),
+    host,
+  ]));
+  loading(host, '正在取回订单…');
+
+  let order = getOrder(user.id, id);
+  if (!order) {
+    try {
+      const d = await api(`/api/orders?userId=${encodeURIComponent(user.id)}`, { retries: 0 });
+      const hit = (Array.isArray(d && d.orders) ? d.orders : [])
+        .find((o) => String(o.orderId || o.id) === id);
+      if (hit) order = normalizeRemote(hit);
+    } catch {
+      /* 网关不可达：下面走「找不到订单」分支 */
+    }
+  }
+
+  host.innerHTML = '';
+  if (!order) {
+    host.appendChild(emptyCard({
+      title: '没有找到这笔订单',
+      text: `订单号 ${id || '（空）'} 不属于当前账户，或已被清理。`,
+      primary: '回到订单列表',
+      onPrimary: () => navigate('#/account?tab=orders'),
+      secondary: '继续购物',
+      onSecondary: () => navigate('#/products'),
+    }));
+    return;
+  }
+  host.appendChild(orderDetailCard(order));
+}
+
+function orderDetailCard(o) {
+  const addr = o.address;
+  const a = o.amounts || {};
+  const infoRow = (label, value) => el('div', { class: 'od-info-row' }, [
+    el('span', { class: 'od-info-label' }, label),
+    el('span', { class: 'od-info-value' }, value || '—'),
+  ]);
+
+  const items = el('div', { class: 'od-items' });
+  (o.items || []).forEach((it) => {
+    items.appendChild(el('div', { class: 'od-item' }, [
+      el('div', { class: 'od-item-thumb' }, productThumb({ id: it.productId, name: it.name, coverColor: it.coverColor, pic: it.pic }, { fade: false })),
+      el('div', { class: 'od-item-info' }, [
+        el('div', { class: 'od-item-name' }, it.name),
+        el('div', { class: 'od-item-sku' }, it.spec ? `SKU：${it.spec}` : 'SKU：默认规格'),
+        el('div', { class: 'od-item-price num' }, `${fmtPrice(it.price)} × ${it.qty}`),
+      ]),
+      el('span', { class: 'od-item-sub num' }, fmtPrice(Number(it.price || 0) * Number(it.qty || 0))),
+    ]));
+  });
+
+  const sumRows = [
+    ['商品总额', fmtPrice(a.productAmount)],
+    ['运费', a.shippingFee ? fmtPrice(a.shippingFee) : '免运费'],
+    ['优惠券抵扣', a.couponDiscount ? `- ${fmtPrice(a.couponDiscount)}` : '- ¥0'],
+  ];
+
+  return el('article', { class: 'od-card' }, [
+    el('div', { class: 'od-head' }, [
+      el('div', {}, [
+        el('span', { class: 'eyebrow' }, 'ORDER DETAIL'),
+        el('h1', { class: 'od-id num' }, o.id),
+      ]),
+      el('span', { class: `acct-status s-${o.status}` }, statusText(o.status)),
+    ]),
+    el('p', { class: 'od-date' }, `下单时间 ${fmtDate(o.createdAt) || '—'}`),
+    items,
+    el('div', { class: 'od-grid' }, [
+      el('div', { class: 'od-block' }, [
+        el('h3', {}, '收货信息'),
+        infoRow('收货人', addr ? `${addr.receiver || ''}${addr.phone ? ` · ${addr.phone}` : ''}` : ''),
+        infoRow('地址', addr ? `${addr.region || ''} ${addr.detail || ''}`.trim() : ''),
+        infoRow('邮编', addr ? addr.postal : ''),
+      ]),
+      el('div', { class: 'od-block' }, [
+        el('h3', {}, '配送与支付'),
+        infoRow('配送方式', `${o.shippingMethod.name} · ${o.shippingMethod.eta || ''}`.trim()),
+        infoRow('支付方式', o.paymentMethod.name),
+        infoRow('订单备注', o.remark),
       ]),
     ]),
-  ]));
+    el('div', { class: 'od-amounts' }, sumRows.map(([k, v]) => el('div', { class: 'od-sum-row' }, [
+      el('span', {}, k), el('span', { class: 'num' }, v),
+    ])).concat([
+      el('div', { class: 'od-sum-row is-total' }, [
+        el('span', {}, '应付金额'),
+        el('span', { class: 'num od-total' }, fmtPrice(a.payAmount)),
+      ]),
+    ])),
+    el('div', { class: 'od-actions' }, [
+      el('a', { class: 'acct-save', href: '#/account?tab=orders' }, '回到订单列表'),
+      el('a', { class: 'acct-cancel', href: '#/products' }, '继续购物'),
+    ]),
+  ]);
 }
 
 /* ============================================================

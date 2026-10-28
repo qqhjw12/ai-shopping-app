@@ -9,7 +9,7 @@
 // 缓存 key 与结算页共用（maison_addresses_v1 = { userId: [...] }），
 // 避免「账户中心加了地址、结算页看不到」。
 import { getCurrentUser } from '../user.js';
-import { api } from '../api.js';
+import { api, isMissingEndpoint } from '../api.js';
 
 const BOOK_KEY = 'maison_addresses_v1';
 const MAX_PER_USER = 20;
@@ -95,6 +95,9 @@ function fromServer(a = {}) {
 /** 判断一次失败是否来自「网关不可达」（而非用户输入错误） */
 function unreachable(e) {
   if (!e) return true;
+  // 静态托管没有 /api/addresses（404/405/501）：这不是业务拒绝，应降级落本地，
+  // 否则演示站点上「新增地址」会一直报错、结算页永远提交不了。
+  if (isMissingEndpoint(e)) return true;
   if (e.kind === 'network' || e.kind === 'offline' || e.kind === 'server') return true;
   return !e.status; // 拿不到 HTTP 状态码 = 没连上
 }

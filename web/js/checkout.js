@@ -1,43 +1,36 @@
-// 结算页：购物车 → 收货信息 → 优惠券 → 金额明细 → 提交订单（并可继续支付）。
+// 结算页（#/checkout）：购物袋 → 收货地址 → 配送方式 → 支付方式 → 备注 → 提交订单。
 //
-// 本轮迭代点：
-//   1. 收货地址不再只能「选」——新增/保存走网关 POST /api/addresses，离线时落本地，保证演示链路不断
-//   2. 商品清单内可直接改数量、删除（旧版必须退回购物袋抽屉），改完即时刷新金额与预览
-//   3. 优惠券自动选中「省得最多」的那张，不可用券明确给出「差 ¥X 可用」
-//   4. 金额明细补充包邮差额提示；提交按钮防重复点击
-// 金额规则一律来自 store/checkoutStore.js，页面不另写一份，避免与网关算得不一样。
-import { api } from './api.js';
-import { el, fmtPrice, loading, banner, toast, updateCartBadge, productThumb } from './ui.js';
-import { getCart, getUserId, clearCart, setQty, removeFromCart } from './state.js';
+// 本步骤的链路约定：
+//   1) 地址来自「步骤 2」的地址簿（store/addressStore.js，服务端为准 + 本地缓存），
+//     所以个人中心里维护的默认地址，进结算页就是已选中的那一条；
+//   2) 金额只在 store/orderStore.js 里算一次，页面不再另写一套，避免「预览一个价、下单另一个价」；
+//   3) 提交后订单写入 orderStore（localStorage，按 userId 隔离），并清掉已结算的商品，
+//      然后跳 #/order-success/:id —— 成功页只认这个 id，刷新也能靠本地订单复原。
+//
+// 未登录由 app.js 的路由守卫拦下并带 redirect；这里再兜一次，防止被直接调用绕过。
+import { el, fmtPrice, toast, updateCartBadge, productThumb } from './ui.js';
+import { getCart, removeFromCart } from './state.js';
 import { navigate } from './router.js';
-import { isDemoMode, setDemoMode } from './demo.js';
-import { maxQty } from './views.js';
+import { getCurrentUser } from './user.js';
 import {
-  loadAddresses,
-  saveAddress,
-  validateAddress,
-  loadCoupons,
-  pickBestCoupon,
-  couponGap,
-  estimatePreview,
-  isUnreachable,
-} from './store/checkoutStore.js';
-
-const STATUS_TEXT = {
-  pending: '待支付', paid: '已支付', shipped: '已发货',
-  completed: '已完成', refunding: '退款中', closed: '已关闭',
-};
+  PAYMENT_METHODS, SHIPPING_METHODS, computeAmounts, createOrder, paymentById, shippingById,
+} from './store/orderStore.js';
+import {
+  getAddress, hydrateAddresses, listAddresses, saveAddress, validateAddress,
+} from './store/addressStore.js';
 
 export async function renderCheckout(view) {
+  const user = getCurrentUser();
+  if (!user) {
+    navigate(`#/login?redirect=${encodeURIComponent('/checkout')}`);
+    return;
+  }
+
   view.innerHTML = '';
-  view.appendChild(el('a', { class: 'back-link', href: '#/products' }, '← 继续购物'));
-  const wrap = el('div', { class: 'checkout' });
-  view.appendChild(wrap);
-  loading(wrap, '正在准备结算…');
+  view.appendChild(el('a', { class: 'back-link', href: '#/cart' }, '← 返回购物袋'));
 
   if (!getCart().length) {
-    wrap.innerHTML = '';
-    wrap.appendChild(
+    view.appendChild(
       el('div', { class: 'empty-page' }, [
         el('div', { class: 'empty-mark' }, 'M'),
         el('p', { class: 'empty-title-sm' }, '购物袋是空的'),
@@ -48,371 +41,381 @@ export async function renderCheckout(view) {
     return;
   }
 
-  const userId = getUserId();
-  const addrBox = el('div', { class: 'panel' });
-  const couponBox = el('div', { class: 'panel' });
-  const itemsBox = el('div', { class: 'panel' });
-  const sumBox = el('div', { class: 'panel sum' });
-  const remarkInput = el('input', { placeholder: '备注：如「工作日送达」', class: 'remark' });
-
   const state = {
-    addresses: [],
-    coupons: [],
+    addresses: listAddresses(user.id),
     addressId: null,
-    couponId: null,
-    autoCouponId: null,   // 自动选中的最优券，用于打「已为你选最优」标
-    preview: null,
+    shippingId: SHIPPING_METHODS[0].id,
+    paymentId: PAYMENT_METHODS[0].id,
+    remark: '',
     submitting: false,
-    showAddrForm: false,
+    showForm: false,
+    error: '',
   };
+  // 默认地址预选：没有默认地址时退化为第一条（订单必须挂一个真实地址）
+  const def = state.addresses.find((a) => a.isDefault) || state.addresses[0] || null;
+  state.addressId = def ? def.id : null;
 
-  const selectedCoupon = () => state.coupons.find((c) => c.couponId === state.couponId) || null;
-  const selectedAddress = () => state.addresses.find((a) => a.id === state.addressId) || state.addresses[0] || null;
+  /* ---------------- 骨架 ---------------- */
+  const heading = el('header', { class: 'co2-heading' }, [
+    el('div', {}, [
+      el('span', { class: 'eyebrow' }, 'CHECKOUT'),
+      el('h1', { class: 'page-display' }, '确认订单'),
+    ]),
+    el('p', { class: 'co2-heading-note' }, '核对收货信息与商品，确认后提交订单'),
+  ]);
 
-  /** 本地口径的商品小计（用于在请求服务端报价前先加载优惠券） */
-  const localProductAmount = () =>
-    getCart().reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 0), 0);
+  const addrCard = el('section', { class: 'co2-card' });
+  const shipCard = el('section', { class: 'co2-card' });
+  const payCard = el('section', { class: 'co2-card' });
+  const itemCard = el('section', { class: 'co2-card' });
+  const remarkCard = el('section', { class: 'co2-card' });
+  const sumCard = el('aside', { class: 'co2-card co2-sum' });
 
-  /* ---------------- 商品清单（支持行内改数量 / 删除） ---------------- */
-  function paintItems() {
-    itemsBox.innerHTML = '';
-    const cart = getCart();
-    if (!cart.length) {
-      itemsBox.appendChild(el('div', { class: 'cart-empty' }, '购物袋已清空。'));
-      return;
-    }
-    itemsBox.appendChild(el('h3', {}, `商品清单（${cart.length} 种）`));
-    cart.forEach((it) => {
-      const key = it.__key || it.id;
-      const max = maxQty(it);
-      const step = (delta) => {
-        const cur = getCart().find((x) => (x.__key || x.id) === key);
-        if (!cur) return;
-        const next = Math.min(maxQty(cur), Math.max(1, cur.qty + delta));
-        if (next === cur.qty) return;
-        setQty(key, next);
-        updateCartBadge();
-        paintItems();
-        refreshPreview(); // 数量变化直接影响运费与优惠，必须重算金额
-      };
-      itemsBox.appendChild(
-        el('div', { class: 'co-item' + (it.insufficient ? ' is-insufficient' : '') }, [
-          el('div', { class: 'thumb' }, productThumb(it)),
-          el('div', { class: 'info' }, [
-            el('div', { class: 'nm' }, it.name),
-            it.spec ? el('div', { class: 'spec' }, it.spec) : null,
-            el('div', { class: 'price-line' }, [el('span', {}, fmtPrice(it.price)), el('span', { class: 'cnt' }, `× ${it.qty}`)]),
-            it.insufficient ? el('div', { class: 'warn-line' }, `库存不足，仅剩 ${it.stock} 件`) : null,
-            el('div', { class: 'co-qty' }, [
-              el('button', { class: 'cart-step', type: 'button', 'aria-label': '减少数量', disabled: it.qty <= 1, onclick: () => step(-1) }, '−'),
-              el('span', { class: 'cart-qty-num' }, String(it.qty)),
-              el('button', { class: 'cart-step', type: 'button', 'aria-label': '增加数量', disabled: it.qty >= max, onclick: () => step(1) }, '+'),
-              el('button', {
-                class: 'ghost cart-del',
-                type: 'button',
-                onclick: () => {
-                  removeFromCart(key);
-                  updateCartBadge();
-                  paintItems();
-                  refreshPreview();
-                },
-              }, '删除'),
-            ]),
-          ]),
-          el('div', { class: 'subtotal' }, fmtPrice(Number(it.price || 0) * Number(it.qty || 0))),
-        ]),
-      );
-    });
-  }
+  const grid = el('div', { class: 'co2-grid' }, [
+    el('div', { class: 'co2-main' }, [addrCard, shipCard, payCard, itemCard, remarkCard]),
+    el('div', { class: 'co2-side' }, [sumCard]),
+  ]);
 
-  /* ---------------- 收货地址（可选、可新增） ---------------- */
-  function paintAddresses() {
-    addrBox.innerHTML = '';
-    addrBox.appendChild(el('h3', {}, '收货信息'));
-    if (!state.addresses.length) {
-      addrBox.appendChild(el('div', { class: 'cart-empty' }, '还没有收货地址，请新增一个以便配送'));
-    }
-    state.addresses.forEach((a) => {
-      addrBox.appendChild(
-        el('div', {
-          class: 'addr' + (a.id === state.addressId ? ' active' : ''),
-          onclick: () => { state.addressId = a.id; paintAddresses(); refreshPreview(); },
-        }, [
-          el('div', {}, [el('b', {}, a.receiver), el('span', { class: 'cnt' }, ` ${a.phone || '—'}`)]),
-          el('div', { class: 'cnt' }, `${a.region} ${a.detail || ''}`),
-          el('div', { class: 'addr-tags' }, [
-            a.isDefault ? el('span', { class: 'badge-def' }, '默认') : null,
-            a.demo ? el('span', { class: 'badge-demo' }, '演示地址') : null,
-            a.local ? el('span', { class: 'badge-demo' }, '离线保存') : null,
-          ]),
-        ]),
-      );
-    });
+  view.appendChild(el('div', { class: 'co2' }, [heading, grid]));
 
-    const toggle = el('button', {
-      class: 'ghost addr-add-toggle',
-      type: 'button',
-      onclick: () => { state.showAddrForm = !state.showAddrForm; paintAddresses(); },
-    }, state.showAddrForm ? '取消新增' : '＋ 新增收货地址');
-    addrBox.appendChild(toggle);
-    if (state.showAddrForm) addrBox.appendChild(buildAddressForm());
-  }
+  const selectedAddress = () => getAddress(user.id, state.addressId);
+  const productAmount = () => getCart().reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 0), 0);
+  const amounts = () => computeAmounts({
+    productAmount: productAmount(),
+    shippingFee: shippingById(state.shippingId).fee,
+    couponDiscount: 0, // 优惠券抵扣占位：本步恒为 0
+  });
 
-  function buildAddressForm() {
-    const fReceiver = el('input', { placeholder: '收货人姓名', class: 'addr-input' });
-    const fPhone = el('input', { placeholder: '手机号（选填）', class: 'addr-input' });
-    const fRegion = el('input', { placeholder: '所在地区，如「上海市 浦东新区」', class: 'addr-input' });
-    const fDetail = el('input', { placeholder: '详细地址', class: 'addr-input' });
-    const fDefault = el('input', { type: 'checkbox', class: 'addr-check' });
-
-    return el('div', { class: 'addr-form' }, [
-      fReceiver, fPhone, fRegion, fDetail,
-      el('label', { class: 'addr-check-row' }, [fDefault, '设为默认地址']),
-      el('div', { class: 'addr-form-actions' }, [
-        el('button', {
-          class: 'buy',
-          type: 'button',
-          onclick: async () => {
-            const payload = {
-              receiver: fReceiver.value, phone: fPhone.value,
-              region: fRegion.value, detail: fDetail.value, isDefault: !!fDefault.checked,
-            };
-            const err = validateAddress(payload);
-            if (err) { toast(err, 'warn'); return; }
-            try {
-              const res = await saveAddress(userId, payload);
-              state.addresses = res.addresses;
-              state.addressId = res.id || state.addressId;
-              state.showAddrForm = false;
-              toast(res.online ? '收货地址已保存' : '演示模式：地址已保存在本机', 'ok');
-              paintAddresses();
-              refreshPreview();
-            } catch (e) {
-              toast(e.message || '地址保存失败', 'err');
-            }
-          },
-        }, '保存并使用'),
-      ]),
+  function cardHead(title, hint) {
+    return el('div', { class: 'co2-card-head' }, [
+      el('h2', {}, title),
+      hint ? el('span', { class: 'co2-card-hint' }, hint) : null,
     ]);
   }
 
-  /* ---------------- 优惠券 ---------------- */
-  function paintCoupons() {
-    couponBox.innerHTML = '';
-    couponBox.appendChild(el('h3', {}, '优惠券'));
-    if (!state.coupons.length) {
-      couponBox.appendChild(el('div', { class: 'cnt' }, '暂无可用优惠券'));
-      return;
-    }
-    const amount = localProductAmount();
-    const mk = (c) => {
-      const gap = couponGap(c, amount);
-      return el('div', {
-        class: 'coupon' + (c.couponId === state.couponId ? ' active' : '') + (c.usable ? '' : ' disabled'),
-        onclick: () => {
-          if (!c.usable) { toast(`还差 ${fmtPrice(gap)} 可用`, 'warn'); return; }
-          state.couponId = state.couponId === c.couponId ? null : c.couponId;
-          paintCoupons();
-          refreshPreview();
-        },
-      }, [
-        el('div', { class: 'cp-left' }, [
-          el('div', { class: 'cp-amt' }, c.kind === 'discount' ? `${c.amount}% OFF` : `¥${c.amount}`),
-          el('div', { class: 'cnt' }, c.threshold ? `满 ${c.threshold} 可用` : '无门槛'),
-        ]),
-        el('div', { class: 'cp-right' }, [
-          el('div', {}, [
-            c.title,
-            c.demo ? el('span', { class: 'badge-demo' }, '演示券') : null,
-          ]),
-          el('div', { class: 'cnt' }, c.usable ? `可省 ¥${c.worth}` : (gap ? `差 ${fmtPrice(gap)} 可用` : '当前不可用')),
-          c.usable && c.couponId === state.autoCouponId
-            ? el('span', { class: 'cp-auto' }, '已自动为你选最优')
-            : null,
-        ]),
-      ]);
-    };
-    state.coupons.filter((c) => c.usable).forEach((c) => couponBox.appendChild(mk(c)));
-    state.coupons.filter((c) => !c.usable).forEach((c) => couponBox.appendChild(mk(c)));
-  }
+  /* ---------------- 1. 收货地址 ---------------- */
+  function paintAddress() {
+    addrCard.innerHTML = '';
+    addrCard.appendChild(cardHead('收货地址', state.addresses.length ? `${state.addresses.length} 个可选` : '还没有地址'));
+    const listBox = el('div', { class: 'co2-addr-list' });
 
-  /* ---------------- 金额预览 ---------------- */
-  async function refreshPreview() {
-    const cart = getCart();
-    if (!cart.length) {
-      sumBox.innerHTML = '';
-      sumBox.appendChild(el('h3', {}, '金额明细'));
-      sumBox.appendChild(el('div', { class: 'cart-empty' }, '购物袋已清空。'));
-      state.preview = null;
-      return;
-    }
-    const body = {
-      userId,
-      items: cart.map((i) => ({ productId: i.productId, skuId: i.skuId, qty: i.qty })),
-      addressId: state.addressId,
-      couponId: state.couponId,
-    };
-    try {
-      state.preview = await api('/api/orders/preview', { method: 'POST', body });
-    } catch (e) {
-      // 网关不可达：本地按同规则估算，保证「金额明细 + 提交按钮」都在，
-      // 否则用户会卡在「商品有价却看不到合计、也没有下单入口」的死路上。
-      if (isUnreachable(e)) setDemoMode(true);
-      // 服务端校验失败（如库存不足）也要给出本地估算，让用户能改数量重试
-      state.preview = estimatePreview(cart, selectedCoupon(), selectedAddress());
-      if (!isUnreachable(e)) banner(sumBox, e.message || '服务端报价失败，以下为本地估算', 'warn');
-    }
-    paintSum();
-  }
-
-  function paintSum() {
-    sumBox.innerHTML = '';
-    sumBox.appendChild(el('h3', {}, '金额明细'));
-    if (!state.preview) return;
-    const p = state.preview;
-    const rows = [
-      ['商品小计', fmtPrice(p.productAmount)],
-      ['优惠减免', p.discountAmount ? `- ${fmtPrice(p.discountAmount)}` : fmtPrice(0)],
-      ['运费', p.shippingFee ? fmtPrice(p.shippingFee) : '免运费'],
-    ];
-    rows.forEach(([k, v]) => sumBox.appendChild(el('div', { class: 'sum-row' }, [el('span', {}, k), el('span', {}, v)])));
-    if (p.freeShippingGap) {
-      sumBox.appendChild(el('div', { class: 'cart-ship-hint' }, `再买 ${fmtPrice(p.freeShippingGap)} 即可包邮`));
-    }
-    sumBox.appendChild(
-      el('div', { class: 'sum-row total' }, [
-        el('span', {}, '应付总额'),
-        el('span', { class: 'money' }, fmtPrice(p.payAmount)),
-      ]),
-    );
-    const submitBtn = el('button', {
-      class: 'buy submit',
-      type: 'button',
-      disabled: state.submitting,
-      onclick: submit,
-    }, state.submitting ? '提交中…' : `提交订单 · ${fmtPrice(p.payAmount)}`);
-    sumBox.appendChild(submitBtn);
-    if (isDemoMode()) {
-      sumBox.appendChild(
-        el('div', { class: 'demo-note' },
-          p.local
-            ? '演示模式：金额为本地估算（满 ¥99 包邮，否则 ¥10 运费）；提交后模拟下单，不产生真实交易'
-            : '演示模式：提交后将模拟下单，不产生真实交易'),
+    if (!state.addresses.length) {
+      listBox.appendChild(
+        el('p', { class: 'co2-empty' }, '还没有收货地址，先新增一个才能提交订单。'),
       );
     }
+
+    state.addresses.forEach((a) => {
+      const on = String(a.id) === String(state.addressId);
+      listBox.appendChild(
+        el('button', {
+          class: `co2-addr${on ? ' is-on' : ''}`,
+          type: 'button',
+          role: 'radio',
+          'aria-checked': on ? 'true' : 'false',
+          onclick: () => {
+            state.addressId = a.id;
+            state.error = '';
+            paintAddress();
+            paintSum();
+          },
+        }, [
+          el('span', { class: 'co2-addr-dot', 'aria-hidden': 'true' }),
+          el('span', { class: 'co2-addr-body' }, [
+            el('span', { class: 'co2-addr-line' }, [
+              el('b', {}, a.receiver || '未填写'),
+              a.phone ? el('span', { class: 'co2-addr-phone' }, a.phone) : null,
+              a.isDefault ? el('span', { class: 'co2-tag' }, '默认') : null,
+              a.pending ? el('span', { class: 'co2-tag is-soft' }, '仅本机') : null,
+            ]),
+            el('span', { class: 'co2-addr-line sub' }, `${a.region || ''} ${a.detail || ''}`.trim() || '地址信息不完整'),
+          ]),
+        ]),
+      );
+    });
+    addrCard.appendChild(listBox);
+
+    addrCard.appendChild(
+      el('button', {
+        class: 'co2-addr-add',
+        type: 'button',
+        onclick: () => {
+          state.showForm = !state.showForm;
+          paintAddress();
+        },
+      }, state.showForm ? '取消新增' : '＋ 新增收货地址'),
+    );
+
+    if (state.showForm) addrCard.appendChild(buildAddressForm());
   }
 
-  /* ---------------- 提交订单 ---------------- */
-  async function submit() {
-    if (state.submitting || !state.preview) {
-      toast('请稍候，结算信息尚未就绪', 'warn');
-      return;
-    }
-    const cart = getCart();
-    const payload = {
-      userId,
-      items: cart.map((i) => ({ productId: i.productId, skuId: i.skuId, qty: i.qty })),
-      addressId: state.addressId || (selectedAddress() && selectedAddress().id) || null,
-      couponId: state.couponId,
-      remark: remarkInput.value.trim(),
+  function buildAddressForm() {
+    const f = {
+      receiver: el('input', { class: 'co2-input f-receiver', type: 'text', placeholder: '收货人姓名' }),
+      phone: el('input', { class: 'co2-input f-phone', type: 'tel', placeholder: '手机号（选填）', inputmode: 'numeric' }),
+      region: el('input', { class: 'co2-input f-region', type: 'text', placeholder: '省 / 市 / 区，如「上海市 浦东新区」' }),
+      detail: el('input', { class: 'co2-input f-detail', type: 'text', placeholder: '详细地址：街道、门牌、楼层房号' }),
+      postal: el('input', { class: 'co2-input f-postal', type: 'text', placeholder: '邮编（选填）', maxlength: '6', inputmode: 'numeric' }),
+      isDefault: el('input', { class: 'co2-check f-default', type: 'checkbox', checked: state.addresses.length === 0 }),
     };
-    state.submitting = true;  // 防重复下单：同一份单据被点两次会生成两个订单
-    paintSum();
-    let order;
-    try {
-      const d = await api('/api/orders', { method: 'POST', body: payload });
-      order = d.order;
-      clearCart();
-      updateCartBadge();
-    } catch (e) {
-      if (!isUnreachable(e) && !isDemoMode()) {
-        state.submitting = false;
-        paintSum();
-        toast(e.message || '下单失败', 'err');
+    const err = el('p', { class: 'co2-form-err', hidden: true });
+    const saveBtn = el('button', { class: 'co2-save', type: 'submit' }, '保存并使用');
+
+    const form = el('form', { class: 'co2-addr-form', novalidate: 'novalidate' }, [
+      el('div', { class: 'co2-form-grid' }, [
+        f.receiver, f.phone, f.region, f.detail, f.postal,
+      ]),
+      el('label', { class: 'co2-check-row' }, [f.isDefault, '设为默认地址']),
+      err,
+      el('div', { class: 'co2-form-actions' }, [saveBtn]),
+    ]);
+
+    form.addEventListener('submit', async (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      const payload = {
+        receiver: String(f.receiver.value || '').trim(),
+        phone: String(f.phone.value || '').trim(),
+        region: String(f.region.value || '').trim(),
+        detail: String(f.detail.value || '').trim(),
+        postal: String(f.postal.value || '').trim(),
+        isDefault: Boolean(f.isDefault.checked),
+      };
+      const invalid = validateAddress(payload);
+      if (invalid) {
+        err.textContent = invalid;
+        err.removeAttribute('hidden');
         return;
       }
-      setDemoMode(true);
-      order = {
-        orderId: 'SO' + Date.now(),
-        status: 'pending',
-        payAmount: state.preview.payAmount,
-        productAmount: state.preview.productAmount,
-        shippingFee: state.preview.shippingFee,
-        discountAmount: state.preview.discountAmount,
-        items: cart.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
-        address: selectedAddress() ? `${selectedAddress().region} ${selectedAddress().detail || ''}` : '',
-      };
-      clearCart();
-      updateCartBadge();
-    }
-    renderResult(order);
+      saveBtn.disabled = true;
+      const res = await saveAddress(user.id, payload);
+      saveBtn.disabled = false;
+      if (!res.ok) {
+        err.textContent = res.error || '保存失败';
+        err.removeAttribute('hidden');
+        return;
+      }
+      err.setAttribute('hidden', '');
+      state.addresses = res.addresses && res.addresses.length ? res.addresses : listAddresses(user.id);
+      const createdId = (res.address && res.address.id) || (res.id || '');
+      const pick = state.addresses.find((a) => String(a.id) === String(createdId))
+        || state.addresses.find((a) => a.receiver === payload.receiver && a.region === payload.region)
+        || state.addresses[state.addresses.length - 1];
+      state.addressId = pick ? pick.id : state.addressId;
+      state.showForm = false;
+      state.error = '';
+      toast(res.online === false ? '地址已保存（仅本机，联网后自动同步）' : '地址已保存并选中', 'ok');
+      paintAddress();
+      paintSum();
+    });
+
+    return form;
   }
 
-  function renderResult(order) {
-    wrap.innerHTML = '';
-    wrap.appendChild(
-      el('div', { class: 'result' }, [
-        el('div', { class: 'ok-icon' }, 'M'),
-        el('span', { class: 'eyebrow' }, 'THE ORDER IS PLACED'),
-        el('h2', {}, order.status === 'pending' ? '订单已提交' : '支付成功'),
-        el('div', { class: 'cnt' }, `订单号 ${order.orderId}`),
-        el('div', { class: 'result-amount' }, fmtPrice(order.payAmount)),
-        el('div', { class: 'cnt' }, `收货地址：${order.address || '默认地址'}`),
-        el('div', { class: 'result-actions' }, [
-          order.status === 'pending'
-            ? el('button', { class: 'buy', onclick: () => payNow(order) }, '立即支付')
-            : null,
-          el('button', { class: 'ghost', onclick: () => navigate('#/orders') }, '查看我的订单'),
-          el('button', { class: 'ghost', onclick: () => navigate('#/products') }, '继续购物'),
+  /* ---------------- 2. 配送方式 ---------------- */
+  function paintShipping() {
+    shipCard.innerHTML = '';
+    shipCard.appendChild(cardHead('配送方式', '运费与时效为演示数据'));
+    const box = el('div', { class: 'co2-picks' });
+    SHIPPING_METHODS.forEach((m) => {
+      const on = m.id === state.shippingId;
+      box.appendChild(
+        el('button', {
+          class: `co2-pick${on ? ' is-on' : ''}`,
+          type: 'button',
+          role: 'radio',
+          'aria-checked': on ? 'true' : 'false',
+          onclick: () => {
+            state.shippingId = m.id;
+            paintShipping();
+            paintSum();
+          },
+        }, [
+          el('span', { class: 'co2-pick-dot', 'aria-hidden': 'true' }),
+          el('span', { class: 'co2-pick-body' }, [
+            el('span', { class: 'co2-pick-title' }, m.name),
+            el('span', { class: 'co2-pick-note' }, `${m.eta} · ${m.note}`),
+          ]),
+          el('span', { class: 'co2-pick-fee num' }, m.fee ? fmtPrice(m.fee) : '免运费'),
         ]),
-      ]),
+      );
+    });
+    shipCard.appendChild(box);
+  }
+
+  /* ---------------- 3. 支付方式 ---------------- */
+  function paintPayment() {
+    payCard.innerHTML = '';
+    payCard.appendChild(cardHead('支付方式', 'mock 支付，不会真实扣款'));
+    const box = el('div', { class: 'co2-picks' });
+    PAYMENT_METHODS.forEach((m) => {
+      const on = m.id === state.paymentId;
+      box.appendChild(
+        el('button', {
+          class: `co2-pick${on ? ' is-on' : ''}`,
+          type: 'button',
+          role: 'radio',
+          'aria-checked': on ? 'true' : 'false',
+          onclick: () => {
+            state.paymentId = m.id;
+            paintPayment();
+            paintSum();
+          },
+        }, [
+          el('span', { class: 'co2-pick-dot', 'aria-hidden': 'true' }),
+          el('span', { class: 'co2-pick-body' }, [
+            el('span', { class: 'co2-pick-title' }, m.name),
+            el('span', { class: 'co2-pick-note' }, m.note),
+          ]),
+        ]),
+      );
+    });
+    payCard.appendChild(box);
+  }
+
+  /* ---------------- 4. 商品清单 ---------------- */
+  function paintItems() {
+    itemCard.innerHTML = '';
+    const cart = getCart();
+    itemCard.appendChild(cardHead('商品清单', `${cart.reduce((n, i) => n + (Number(i.qty) || 0), 0)} 件`));
+    cart.forEach((it) => {
+      itemCard.appendChild(
+        el('div', { class: 'co2-item' }, [
+          el('div', { class: 'co2-item-thumb' }, productThumb(it)),
+          el('div', { class: 'co2-item-info' }, [
+            el('div', { class: 'co2-item-name' }, it.name),
+            el('div', { class: 'co2-item-sku' }, it.spec ? `SKU：${it.spec}` : 'SKU：默认规格'),
+            el('div', { class: 'co2-item-price num' }, `${fmtPrice(it.price)} × ${it.qty}`),
+          ]),
+          el('div', { class: 'co2-item-sub num' }, fmtPrice(Number(it.price || 0) * Number(it.qty || 0))),
+        ]),
+      );
+    });
+    itemCard.appendChild(
+      el('a', { class: 'co2-item-edit', href: '#/cart' }, '返回购物袋修改数量 →'),
     );
   }
 
-  async function payNow(order) {
+  /* ---------------- 5. 订单备注 ---------------- */
+  function paintRemark() {
+    remarkCard.innerHTML = '';
+    remarkCard.appendChild(cardHead('订单备注', '选填'));
+    const input = el('textarea', {
+      class: 'co2-remark',
+      rows: '2',
+      maxlength: '120',
+      placeholder: '如「工作日送达」「放在门口即可」',
+    });
+    input.value = state.remark;
+    input.addEventListener('input', () => {
+      state.remark = input.value;
+    });
+    remarkCard.appendChild(input);
+  }
+
+  /* ---------------- 6. 金额汇总 + 提交 ---------------- */
+  function paintSum() {
+    sumCard.innerHTML = '';
+    const a = amounts();
+    const shipping = shippingById(state.shippingId);
+
+    sumCard.appendChild(cardHead('金额汇总'));
+    const row = (label, value, extra = '') =>
+      el('div', { class: `co2-sum-row${extra ? ` ${extra}` : ''}` }, [
+        el('span', {}, label),
+        el('span', { class: 'num' }, value),
+      ]);
+
+    sumCard.appendChild(row('商品总额', fmtPrice(a.productAmount)));
+    sumCard.appendChild(row('运费', a.shippingFee ? fmtPrice(a.shippingFee) : '免运费'));
+    sumCard.appendChild(el('div', { class: 'co2-sum-row' }, [
+      el('span', {}, ['优惠券抵扣', el('span', { class: 'co2-sum-soon' }, '占位')]),
+      el('span', { class: 'num' }, a.couponDiscount ? `- ${fmtPrice(a.couponDiscount)}` : '- ¥0'),
+    ]));
+    sumCard.appendChild(
+      el('div', { class: 'co2-sum-row is-total' }, [
+        el('span', {}, '应付金额'),
+        el('span', { class: 'num co2-sum-money' }, fmtPrice(a.payAmount)),
+      ]),
+    );
+    sumCard.appendChild(
+      el('p', { class: 'co2-sum-note' }, `${shipping.name} · ${shipping.eta} · ${paymentById(state.paymentId).name}`),
+    );
+
+    const noAddress = !selectedAddress();
+    if (noAddress) {
+      sumCard.appendChild(el('p', { class: 'co2-sum-hint' }, '请先选择或新增收货地址'));
+    }
+    if (state.error) sumCard.appendChild(el('p', { class: 'co2-sum-error' }, state.error));
+
+    sumCard.appendChild(
+      el('button', {
+        class: 'co2-submit',
+        type: 'button',
+        disabled: noAddress || state.submitting,
+        onclick: submit,
+      }, state.submitting ? '提交中…' : '提交订单'),
+    );
+    sumCard.appendChild(el('p', { class: 'co2-terms' }, '提交即表示同意《服务条款》与《隐私政策》（演示文案）'));
+  }
+
+  /* ---------------- 7. 提交 ---------------- */
+  function submit() {
+    if (state.submitting) return;
+    const cart = getCart();
+    if (!cart.length) {
+      toast('购物袋是空的', 'warn');
+      navigate('#/cart');
+      return;
+    }
+    const address = selectedAddress();
+    if (!address) {
+      state.error = '请先选择收货地址';
+      paintSum();
+      toast('请先选择收货地址', 'warn');
+      return;
+    }
+    state.submitting = true;
+    state.error = '';
+    paintSum();
     try {
-      await api(`/api/orders/${order.orderId}/pay?userId=${encodeURIComponent(userId)}`, { method: 'POST' });
-      toast('支付成功', 'ok');
-      navigate('#/orders');
+      const order = createOrder(user.id, {
+        items: cart,
+        address,
+        shippingMethod: shippingById(state.shippingId),
+        paymentMethod: paymentById(state.paymentId),
+        remark: state.remark,
+        amounts: amounts(),
+      });
+      // 只清掉已结算的商品：结算期间在别处新加的东西不该被一起清空
+      cart.forEach((i) => removeFromCart(i.__key || i.id));
+      updateCartBadge();
+      toast(`订单 ${order.id} 已提交`, 'ok');
+      navigate(`#/order-success/${encodeURIComponent(order.id)}`);
     } catch (e) {
-      if (isDemoMode()) {
-        toast('演示模式：已模拟支付成功', 'ok');
-        navigate('#/orders');
-      } else {
-        toast(e.message || '支付失败', 'err');
-      }
+      state.submitting = false;
+      state.error = e.message || '提交失败，请重试';
+      paintSum();
     }
   }
 
-  /* ---------------- 初始加载 ---------------- */
-  const productAmount = localProductAmount();
-  const [addrRes, couponRes] = await Promise.all([
-    loadAddresses(userId),
-    loadCoupons(userId, productAmount),
-  ]);
-  state.addresses = addrRes.addresses;
-  state.coupons = couponRes.coupons;
-  const def = state.addresses.find((a) => a.isDefault) || state.addresses[0];
-  if (def) state.addressId = def.id;
-  // 自动选中省得最多的那张；用户随后的选择会覆盖它，对应的「已为你选最优」标记也会消失
-  const best = pickBestCoupon(state.coupons);
-  if (best) {
-    state.couponId = best.couponId;
-    state.autoCouponId = best.couponId;
-  }
-
-  wrap.innerHTML = '';
-  wrap.appendChild(el('div', { class: 'checkout-heading' }, [
-    el('span', { class: 'eyebrow' }, 'CHECKOUT'),
-    el('h1', { class: 'page-display' }, '确认订单'),
-  ]));
-  wrap.appendChild(el('div', { class: 'co-grid' }, [el('div', {}, [addrBox, itemsBox]), el('div', {}, [couponBox, sumBox])]));
-  wrap.appendChild(el('div', { class: 'panel' }, [el('h3', {}, '订单备注'), remarkInput]));
-
+  paintAddress();
+  paintShipping();
+  paintPayment();
   paintItems();
-  paintAddresses();
-  paintCoupons();
-  await refreshPreview();
-}
+  paintRemark();
+  paintSum();
 
-export { STATUS_TEXT };
+  // 服务端校准地址簿：缓存先出（秒开），拉回最新后再刷一次，不打断正在填的表单
+  hydrateAddresses(user.id).then(({ addresses }) => {
+    if (!addresses || !addresses.length) return;
+    state.addresses = addresses;
+    if (!selectedAddress()) {
+      const next = addresses.find((x) => x.isDefault) || addresses[0];
+      state.addressId = next ? next.id : null;
+    }
+    if (!state.showForm) paintAddress();
+    paintSum();
+  }).catch((e) => {
+    console.warn('[checkout] 地址校准失败', e && e.message);
+  });
+}
