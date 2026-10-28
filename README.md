@@ -60,7 +60,7 @@
 | 🛒 商品列表 | `#/products` | 共享检索引擎：品类/子类/品牌 **多选**、价格区间多选（档位左闭右开不重不漏）、颜色/规格属性（从 SKU 规格自动归一）、仅看有货；排序「综合 / 价格升降 / 销量 / 上新」下拉；已选条件胶囊行（单个移除 + 清空全部）；结果数、继续浏览分批、无结果安静空态；全部条件走 hash URL，刷新/分享还原，移动端筛选收进底部弹层 |
 | 🛒 购物车 | 顶栏抽屉 + `#/cart` | 服务端持久化，换设备/清缓存不丢；数量增减（受库存夹逼，边界置灰）、行内小计、删除后可撤销、库存不足拦截结算；抽屉与整页互通，运费/券统一在结算页确认 |
 | 🎟️ 优惠券中心 | `#/coupons` + `#/account?tab=coupons` | 可领取券列表（面额 / 门槛 / 有效期 / 适用范围，票券卡带齿孔虚线），已领取按钮置灰、重复领取被拒；未登录点领取跳登录并回跳。我的券包分**未使用 / 已使用 / 已过期**三 Tab（状态由到期时间实时推导），未使用的可直接「去使用」，已使用的标注订单号。**券包与网关卡包双向同步**：换设备登录同一手机号即看到同一份券，核销/返还顺延以服务端为准，离线领的券联网后补推 |
-| 🧾 结算下单 | `#/checkout` | 左右两栏（移动端单栏）：收货地址（**与个人中心共用同一份地址簿，可新增**，未选地址禁提交）+ 配送方式（**运费与时效来自运营配置** `GET /api/config`，默认标准免运费 / 加急 ¥18）+ 支付方式（在线支付 / 货到付款 mock）+ **优惠券（自动选最优，随金额实时重算；可手动更换/取消，未达门槛显示差额）** + 订单备注 + 商品清单（**行内 −/+ 改数量（库存夹逼）/ 删除**，也可返回购物袋修改）+ 金额汇总（`tabular-nums`，券名与抵扣实时联动）；提交香槟金按钮防重复点击，**下单走 `POST /api/orders` 由服务端事务完成建单与核销**（无网关时降级本地单 + 发件箱补推） |
+| 🧾 结算下单 | `#/checkout` | 左右两栏（移动端单栏）：收货地址（**与个人中心共用同一份地址簿，可新增**，未选地址禁提交）+ 配送方式（**运费与时效来自运营配置** `GET /api/config`，默认标准免运费 / 加急 ¥18）+ 支付方式（**来自运营配置** `GET /api/config`，默认在线支付 / 货到付款 mock）+ **优惠券（自动选最优，随金额实时重算；可手动更换/取消，未达门槛显示差额）** + 订单备注 + 商品清单（**行内 −/+ 改数量（库存夹逼）/ 删除**，也可返回购物袋修改）+ 金额汇总（`tabular-nums`，券名与抵扣实时联动）；提交香槟金按钮防重复点击，**下单走 `POST /api/orders` 由服务端事务完成建单与核销**（无网关时降级本地单 + 发件箱补推） |
 | 🎉 订单成功 | `#/order-success/:id` | 订单号 + 应付金额 + 订单要素（状态 / 时间 / 配送 / 支付 / 收货），「查看订单」进详情、「继续购物」回商城；刷新不丢（本地订单簿兜底） |
 | 📦 我的订单 | `#/orders` + `#/account?tab=orders` | 本地订单簿与网关订单合并展示；待付款 / 已付款 / 已发货 / 已完成状态机，演示模式可模拟支付，再次购买、物流信息；订单详情 `#/account/order/:id` 还原商品 / 地址 / 配送 / 金额 |
 | ❤️ 我的收藏 | `#/favorites` | 服务端收藏夹，详情页「♡ 收藏」同步，可取消 |
@@ -87,12 +87,12 @@
 | `products` | 商品主数据（256 款示例；可经 `db:ingest` 追加真实开放数据商品，含品牌 / 现价 / 原价 / 标签 / 评分 / 销量 / 封面渐变色 / 一句话卖点 / 服务承诺 / **二级类目** / 真实商品图 URL `image_url`） |
 | `product_skus` | 规格变体与库存（150 个 SKU，按阶梯定价） |
 | `users` / `addresses` | 演示用户与收货地址（下单时自动为新用户建档 + **三张体验优惠券**，避免新访客卡包为空导致优惠券区永远显示「暂无可用」）。地址按 `user_id` 隔离存在服务端，同一账号换设备登录即跟随；迁移 v8 补齐 `province` / `city` / `postal` / `updated_at`，老数据按 `region` 空格自动回填省市 |
-| `orders` / `order_items` | 订单与订单项（含物流公司、运单号、状态机、金额拆分） |
+| `orders` / `order_items` | 订单与订单项（含物流公司、运单号、状态机、金额拆分、配送/支付方式快照；`idempotency_key` + `(user_id, idempotency_key)` 部分唯一索引防重复下单） |
 | `reviews` | 商品评价（**768 条，覆盖全部 256 款**，每款 3 条带作者与星级，供问答引用口碑）。迁移 v6 起支持 `parent_id`（追评）/ `images`（买家秀）/ `sku_spec` / `source` |
 | `review_votes` | 有用投票：主键 `(review_id, user_id)`，天然幂等——同一用户重复请求在「赞 / 取消」间切换 |
 | `cart_items` | 购物车（服务端持久化，按 user+sku 唯一，重复加购累加） |
 | `favorites` | 收藏夹 |
-| `app_settings` | 运营配置（`shipping` 配送方式与运费 / `coupon` 券顺延规则），JSON 文本 + 更新时间与操作人。迁移 v11 建表；表空则用代码里的默认值 |
+| `app_settings` | 运营配置（`shipping` 配送方式与运费 / `payment` 支付方式 / `coupon` 券顺延规则），JSON 文本 + 更新时间与操作人。迁移 v11 建表；表空则用代码里的默认值 |
 | `coupons` / `user_coupons` | 优惠券模板与用户卡包（满减 / 折扣，领用核销）。迁移 v10 给券实例补了 `expires_at`（落库而不是各端现算，返还顺延才有唯一真源）与 `extension_count`；券模板补 `scope_text`，并把 id 与前端券目录对齐 |
 | `faqs` / `policies` | 客服 FAQ 与退换货 / 物流 / 质保 / 发票 / 支付政策 |
 | `conversations` / `messages` | 会话与消息（多轮上下文、可回放，重启不丢） |
@@ -178,7 +178,34 @@
 - **键 `maison_coupons::<userId>`**：换账号即换键；券包只存已领取的实例，券模板永远从目录读，改文案不用迁移数据。
 - **开户只送 3 张体验券**（`STARTER_COUPON_IDS`），其余要用户到券中心自己领——全量自动发放会让「领取」在服务端根本不存在，跨设备同步也就没有可同步的东西。
 
-### 运营配置（运费 / 配送方式 / 券顺延规则）
+### 券目录运营写入（`PUT /api/coupons/catalog`）
+
+券目录是「模板」，改一个数字会立刻改变**已经发出去**的券能抵扣多少——`worth` 是按目录现算的，不冻结在领取时。所以写入接口比读接口严得多：
+
+| 规则 | 原因 |
+|---|---|
+| 只 upsert，不删除 | 删一张券会让已发出的实例变孤儿（外键级联会连带删掉用户卡包里的券），运营点错一下就是用户券消失。要下线一张券，改成 `amount: 0` 或换 title 说明停用，可追溯 |
+| 整批校验通过才写 | 不做「部分成功」，否则运营拿到 200 却不知道哪几张没进去 |
+| 改 `kind / threshold / amount` 且该券有未使用实例 → 409 | 这三项决定用户实际能抵多少钱。响应里写明每张券影响了多少张，确认后带 `force: true` 重试 |
+| 改 `title / scopeText / expireDays` 不拦 | 前两个是话术；`expireDays` 只作用于之后领取的新券（`expires_at` 在领取时就落库了） |
+| 需要 `X-Admin-Key` | 与 `/api/config` 同一把钥匙；未配置 `ADMIN_API_KEY` 时一律 403——「忘了配环境变量」不该变成「谁都能改券面额」 |
+
+```bash
+# 新增/修改一张券（不需要 force：文案与有效天数随便改）
+curl -s -X PUT localhost:8080/api/coupons/catalog \
+  -H 'content-type: application/json' -H "x-admin-key: $ADMIN_API_KEY" \
+  -d '{"coupon":{"id":"cp-summer","title":"夏日专场 · 满 299 减 40","kind":"cash","threshold":299,"amount":40,"expireDays":20,"scopeText":"全场通用"}}'
+
+# 改已发出券的面额：先被 409 拦一次，看清楚影响面再 force
+curl -s -X PUT localhost:8080/api/coupons/catalog \
+  -H 'content-type: application/json' -H "x-admin-key: $ADMIN_API_KEY" \
+  -d '{"coupon":{"id":"cp-summer","title":"夏日专场 · 满 299 减 40","kind":"cash","threshold":299,"amount":50},"force":true}'
+```
+
+折扣券的 `amount` 是**减免百分比**（`10` = 减 10% = 9 折），与 `worth = floor(商品额 × amount / 100)` 和前端 `10 - amount/10 折` 的展示口径一致；写接口对两类券分别校验区间（满减 1–100000，折扣 1–95），混在一起校验会放过「折扣券直减 300 元」这种一眼错的配置。
+
+
+### 运营配置（运费 / 配送方式 / 支付方式 / 券顺延规则）
 
 这些参数以前写死在代码里（服务端一份、前端一份），改一个数字要发版，还必然出现「服务端改了前端没改」的错位——同一张券在两台设备上显示不同到期日。现在收敛成一张表 + 一个接口：
 
@@ -186,6 +213,8 @@
 |---|---|---|
 | `shipping.methods[]` | 标准配送 ¥0（全场包邮）/ 加急配送 ¥18 | 1–5 项；`id` 小写字母开头且唯一；`fee` 0–999 整数；`freeOver` 为 `null` 或 0–100000 |
 | `shipping.fallbackId` | `standard` | 必须是某个配送方式的 `id` |
+| `payment.methods[]` | 在线支付 / 货到付款 | 1–5 项；`id` 规则同上；`name` ≤20 字、`note` ≤40 字。**不参与算钱**，只决定结算页选项与订单快照 |
+| `payment.fallbackId` | `online` | 必须是某个支付方式的 `id` |
 | `coupon.refundGraceDays` | `7` | 0–90 整数（配 0 = 返还但不顺延） |
 | `coupon.maxExtensions` | `3` | 0–10 整数（0 = 不允许顺延） |
 
@@ -197,6 +226,11 @@ curl -s localhost:8080/api/config
 curl -s -X PUT localhost:8080/api/config \
   -H 'content-type: application/json' -H "x-admin-key: $ADMIN_API_KEY" \
   -d '{"coupon":{"refundGraceDays":10,"maxExtensions":2}}'
+
+# 大促只保留在线支付
+curl -s -X PUT localhost:8080/api/config \
+  -H 'content-type: application/json' -H "x-admin-key: $ADMIN_API_KEY" \
+  -d '{"payment":{"methods":[{"id":"online","name":"在线支付"}]}}'
 ```
 
 设计要点：
@@ -205,7 +239,9 @@ curl -s -X PUT localhost:8080/api/config \
 - **写接口只收白名单字段并逐项校验**：`refundGraceDay`（少个 s）会直接报错而不是静默忽略——配置错了一样能算出负运费、零元订单。
 - **读路径缓存 30 秒 + 写后失效**：本进程立刻看到新值，多实例部署最多等一个 TTL。库里某一项被手工改坏时只降级那一项并告警，不让结算页 500（收不了钱比算错钱更糟）。
 - **结算页强制刷新配置**（`loadRuntimeConfig({ force: true })`）：这一页是「按下单金额收钱」的地方，多一个 GET 换「展示的运费就是实收的运费」很值——缓存里的旧运费会让用户看到 104、实际被收 114。
+- **配置变了要无条件重绘**：配送方式与支付方式两块列表在拿到新配置后都重绘，而不是「只修选中项失效」。运营**新增**一个支付方式时选中项仍然有效，只修失效项的话页面还显示旧选项——「配置改了页面没变」和「配置没生效」在用户眼里是同一件事。
 - **服务端与前端同公式**：`shippingFeeOf` 在两侧实现一致，包邮门槛按**券后商品金额**判断（先看商品总额会让用券把总额压到门槛以下的订单仍免运费，等于券抵了两次）。
+
 
 ### 订单事务：建单与核销同生共死
 
@@ -216,6 +252,26 @@ curl -s -X PUT localhost:8080/api/config \
 前端因此不再自己发核销请求：结算页只调 `POST /api/orders`，成功后落一份本地镜像（编号/金额/状态全用服务端返回值）并 `syncWallet` 拉回券状态。`e2e-order-tx.mjs` 专门断言「全程没有 `POST /api/coupons/use`」——只要还能看到这条请求，就说明又退回两条腿走路了。
 
 **降级路径**：无网关（纯静态托管 / 离线）时本地下单 + 券核销进发件箱补推；业务拒绝（库存不足 409、券不可用 400）必须如实显示，不偷偷改成本地单——否则用户以为下了一单，服务端其实没有。
+
+### 下单幂等：同一次结算只可能生成一单
+
+服务端事务保住了「建单与核销原子」，但保不住「响应丢包」。网络在「服务端已提交、响应没回到浏览器」的瞬间断掉时，用户看到的是失败，再点一次就是**第二张真实订单**，库存也扣两次。
+
+`POST /api/orders` 因此接受幂等键：
+
+- 客户端进结算页时生成一个键（`crypto.randomUUID` 去掉短横，退化为时间戳 + 随机），**整次结算会话恒定**，随请求体 `idempotencyKey` 或标准头 `Idempotency-Key` 提交。
+- 服务端在事务内先查 `(user_id, idempotency_key)`：命中就把那一单原样返回并标 `replayed: true`，不再扣库存、不再清购物车、不再核销券。
+- 并发抢跑撞唯一索引（两人几乎同时提交同一个键）→ 回滚后重查，返回先插进去的那一单。用户视角这就是「同一次提交」。
+- 键不合法（太短/含非法字符）当作**没传**，退化成原有行为而不是报错——老客户端不传键不该直接下不了单。
+
+```sql
+-- 迁移 v13：部分唯一索引，历史订单 key 为 NULL 不参与约束
+CREATE UNIQUE INDEX idx_orders_idem ON orders(user_id, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
+```
+
+前端对失败的处置也随之改了：**网络异常（可能已到达服务端）不再降级本地单**，而是带同一个键自动重放一次；重放仍失败才提示「订单可能已提交成功，请到『我的订单』确认」。只有 404/405/501（这个部署没有后端）与真离线才走本地降级——这两种情况下请求肯定没发出去，不会重复。`e2e-idempotency.mjs` 用 `page.route` 掐断第一次请求，断言两次提交携带同一个键且服务端只有一单。
+
 
 ### 对话引擎（`src/services/chatEngine.js`）
 
@@ -323,6 +379,7 @@ curl -s -X PUT localhost:8080/api/config \
 │   │   ├── services/        # chatEngine(对话引擎) / llmClient(可选大模型)
 │   │   │                    #          orderService(下单事务·金额·库存·取消)
 │   │   │                    #          settingsService(运营配置) / couponRules(券状态·顺延)
+│   │   │                    #          couponCatalogService(券目录运营写入·影响面校验)
 │   │   ├── data/catalog.js  # 商品目录种子（256 款 / 16 一级类目 / 48 二级 / 556 SKU / 768 评价）
 │   │   └── server / config / middleware / search / copywrite / aftersale …
 │   ├── data/shop.db         # 本地数据库（gitignore，可 db:reset 重建）
@@ -464,7 +521,7 @@ bash scripts/setup-https-proxy.sh
 | `DIFY_*_API_KEY` | 各 AI 模块的 Dify App Key（配置后启用真实流式） |
 | `CORS_ORIGINS` | 显式允许来源，**生产严禁 `*`**；留空仅放行本地演示来源 |
 | `AI_GATEWAY_API_KEY` | 设置后所有业务接口需 `X-API-Key`；留空则对外开放（仅限演示） |
-| `ADMIN_API_KEY` | `PUT /api/config` 的 `X-Admin-Key`（运营改运费/券顺延规则）；**留空则配置接口只读**。生产务必设置，勿用示例值 |
+| `ADMIN_API_KEY` | 管理写接口的 `X-Admin-Key`：`PUT /api/config`（运费/支付方式/券顺延）与 `PUT /api/coupons/catalog`（券目录）；**留空则两个写接口一律 403**。生产务必设置，勿用示例值 |
 | `RATE_LIMIT_PER_MIN` | 每 IP 每分钟限流（0 = 不限流） |
 | `UPLOAD_MAX_BYTES` / `UPLOAD_RATE_PER_MIN` / `UPLOAD_DAILY_QUOTA` / `UPLOAD_MAX_CONCURRENT` | 上传加固：单张字节上限 / 每用户每分钟次数 / 每用户 24h 配额 / 全局并发上限 |
 | `AUTH_JWT_SECRET` | 访问令牌 HS256 密钥，**生产必须配置**；local 留空会生成临时密钥（重启后令牌失效） |
@@ -499,17 +556,18 @@ bash scripts/setup-https-proxy.sh
 | PATCH | `/api/cart` | 改数量 `{ userId, itemId, qty }`（≤0 视为移除） |
 | DELETE | `/api/cart` | 带 `itemId` 删单项，否则清空 |
 | POST | `/api/orders/preview` | 结算预览（不算钱不写库）：商品小计 / 运费 / 优惠 / 实付 |
-| POST | `/api/orders` | 下单（**单事务**：校验库存→扣库存→建单→清购物车→核销券，任一失败全回滚）。前端结算页走的就是它，不再自己补核销请求 |
+| POST | `/api/orders` | 下单（**单事务**：校验库存→扣库存→建单→清购物车→核销券，任一失败全回滚）。接受 `idempotencyKey`（或 `Idempotency-Key` 头）：同键只建一单，命中返回原单并标 `replayed:true` |
 | GET  | `/api/orders?userId=` | 我的订单列表 |
 | GET  | `/api/orders/:id?userId=` | 订单详情（按用户隔离） |
 | POST | `/api/orders/:id/pay?userId=` | 支付（演示：pending → paid，幂等） |
 | POST | `/api/orders/:id/cancel?userId=` | 取消订单（**单事务**：置 closed + 券返还并顺延有效期），幂等；已发货返回 409 |
-| GET  | `/api/config` | 运营配置（配送方式与运费、券返还顺延规则），公开读，未登录的结算页也要用 |
-| PUT  | `/api/config` | 改运营配置，需请求头 `X-Admin-Key`（`ADMIN_API_KEY`，留空则只读）；只接受白名单字段并逐项校验范围 |
+| GET  | `/api/config` | 运营配置（配送方式与运费、支付方式、券返还顺延规则），公开读，未登录的结算页也要用 |
+| PUT  | `/api/config` | 改运营配置，需请求头 `X-Admin-Key`（`ADMIN_API_KEY`，留空则 403）；只接受白名单字段并逐项校验范围 |
 | GET  | `/api/favorites?userId=` | 收藏列表 |
 | POST | `/api/favorites` | 收藏切换 `{ userId, productId }`，返回 `favorited` |
 | DELETE | `/api/favorites` | 取消收藏 `?userId=&productId=` |
 | GET  | `/api/coupons/catalog` | 券目录（`couponId / title / kind / threshold / amount / validDays / scopeText`），前端离线时用内置同构目录兜底 |
+| PUT  | `/api/coupons/catalog` | 券目录写入 `{ coupon \| coupons, force? }`，需 `X-Admin-Key`；按 id upsert、不删除；改面额/门槛/类型且券有持券人时返回 409，带 `force: true` 才通过 |
 | GET  | `/api/coupons?userId=&amount=&all=1` | 卡券包（标注可用性与可省金额）；`all=1` 返回全部状态含已用/已过期，跨设备同步要靠它 |
 | POST | `/api/coupons` | 领券 `{ userId, couponId }`，重复领取 409，返回服务端实例（含 `expiresAt`） |
 | POST | `/api/coupons/use` | 核销 `{ userId, couponId, orderId }`，幂等（同单重复调用返回 `already:true`） |
@@ -802,6 +860,7 @@ node scripts/e2e-checkout.mjs   # 交易闭环
 node scripts/e2e-search.mjs     # 搜索 / 筛选 / 排序 / URL 往返
 node scripts/e2e-pdp.mjs        # 详情页评价与问答
 node scripts/e2e-order-tx.mjs   # 下单事务核销 + 取消返还 + 运营配置生效（真网关）
+node scripts/e2e-idempotency.mjs # 下单幂等键 + 支付方式配置 + 券目录写入（真网关，独立临时库）
 ```
 
 > `e2e-sync.mjs` 与 `e2e-order-tx.mjs` 会拉起真网关（其余跑纯静态模式）。`e2e-sync` 验「另一台设备也认账」：
@@ -811,6 +870,10 @@ node scripts/e2e-order-tx.mjs   # 下单事务核销 + 取消返还 + 运营配�
 > `e2e-order-tx.mjs` 验的是「钱与券不会再分家」：下单走 `POST /api/orders` 且**全程没有
 > `POST /api/coupons/use`**（核销在服务端事务里）、取消订单服务端事务关单+顺延、
 > 改 `PUT /api/config` 后页面运费与实收一起变、下单失败（库存不足/券已用）不落单也不动券。
+>
+> `e2e-idempotency.mjs` 用 `--db` 独立的临时库（跑完删库），因此可以放心往券目录里写测试券——
+> 券目录只做 upsert、不提供删除，跑在开发库上会永久留一张「探针券」在券中心里。
+> 它用 `page.route` 掐断第一次下单请求，断言前端**带着同一个幂等键重放**且服务端只有一单。
 
 ---
 

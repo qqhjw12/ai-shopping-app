@@ -123,8 +123,17 @@ try {
 } catch {
   /* Node 自带只读 navigator */
 }
-// 默认无后端：这样能顺带验证「演示模式」不会在加载期抛错
-globalThis.fetch = async () => ({ ok: false, status: 0, headers: { get: () => '' }, json: async () => ({}), text: async () => '' });
+// 默认无后端：模拟静态托管对 /api/* 一律 404，顺带验证「演示模式」不会在加载期抛错。
+// 用 404 而不是 status 0：真实浏览器里 fetch 不会返回 status 0（除非 opaque 响应），
+// 静态托管的真实表现就是 404。而 status 0 会把「没有后端」和「网络不确定」混成一件事，
+// 结算页的防双单逻辑恰好依赖这两条路径分开——前者降级本地单，后者带幂等键重放。
+globalThis.fetch = async () => ({
+  ok: false,
+  status: 404,
+  headers: { get: () => 'application/json' },
+  json: async () => ({ error: 'not found' }),
+  text: async () => '{"error":"not found"}',
+});
 
 /* ---------------- 逐个真实加载 ---------------- */
 const files = readdirSync(WEB_DIR).filter((f) => f.endsWith('.js')).sort();
@@ -758,6 +767,9 @@ if (failed === 0) {
   } catch (e) {
     failed++;
     console.log(`  FAIL 交易闭环断言异常: ${String(e.message).split('\n')[0]}`);
+    // 断言脚本里的异常几乎都是「某步操作没产生预期 DOM」导致后续链式取值炸掉，
+    // 只打 message 定位不到是哪一步，把调用栈打出来能省一次重跑。
+    console.log(String(e.stack).split('\n').slice(1, 4).join('\n'));
   }
 }
 
@@ -1069,13 +1081,38 @@ if (failed === 0) {
     /* 6) 注入新配置后立刻生效——证明读的是运行时值，不是写死的常量 */
     cfg.__setRuntimeConfigForTest({
       shipping: { methods: [{ id: 'only', name: '唯一', fee: 8, eta: '当天送达' }], fallbackId: 'only' },
+      payment: { methods: [{ id: 'wallet', name: '余额支付', note: '演示' }], fallbackId: 'wallet' },
       coupon: { refundGraceDays: 11, maxExtensions: 5 },
     });
     const injected = cfg.refundRules().refundGraceDays === 11
       && cfg.refundRules().maxExtensions === 5
       && cfg.shippingMethods().length === 1
       && cfg.shippingMethods()[0].fee === 8;
+
+    /* 7) 支付方式也是配置：注入后立刻生效，未知 id 回落 fallback，缺段回落内置默认 */
+    const paymentInjected = cfg.paymentMethods().length === 1
+      && cfg.paymentMethods()[0].id === 'wallet'
+      && cfg.findPayment('no-such-id').id === 'wallet';
     cfg.__setRuntimeConfigForTest(cfg.DEFAULT_CONFIG); // 还原，别影响后面的块
+    const paymentDefaults = cfg.paymentMethods().length === cfg.DEFAULT_CONFIG.payment.methods.length
+      && cfg.paymentMethods().some((m) => m.id === 'cod')
+      && cfg.findPayment(null).id === cfg.getConfig().payment.fallbackId;
+    // 脏支付配置：重复 id 只留一个、空列表回落默认、字段缺失不会出现 undefined 名称
+    const paymentDirty = cfg.normalizeConfig({
+      payment: { methods: [{ id: 'a', name: '' }, { id: 'a', name: '重复' }, { name: '没有 id' }] },
+    }).payment;
+    const paymentSafe = paymentDirty.methods.length === 1
+      && paymentDirty.methods[0].name === 'a'
+      && cfg.normalizeConfig({ payment: { methods: [] } }).payment.methods.length
+        === cfg.DEFAULT_CONFIG.payment.methods.length;
+
+    /* 8) 下单幂等键：格式合法（服务端 ^[A-Za-z0-9_-]{8,64}$）+ 每次不同 */
+    const co = await import(dir('checkout.js'));
+    const idemA = co.newIdempotencyKey();
+    const idemB = co.newIdempotencyKey();
+    const idemOk = /^[A-Za-z0-9_-]{8,64}$/.test(idemA)
+      && /^[A-Za-z0-9_-]{8,64}$/.test(idemB)
+      && idemA !== idemB;
 
     const cases = [
       ['内置默认配置完整（配送 ≥2 种、券规则有值）', defaultsOk],
@@ -1085,6 +1122,10 @@ if (failed === 0) {
       ['负运费夹到 0', feeFloor],
       ['未知配送方式回落到 fallback', fallbackOk],
       ['注入配置后立即生效（非本地写死）', injected],
+      ['支付方式同样来自配置（注入即生效）', paymentInjected],
+      ['支付方式兜底完整（缺段回落默认 / 未知 id 用 fallback）', paymentDefaults],
+      ['脏支付配置被清洗（去重 / 补名 / 空列表回落）', paymentSafe],
+      ['下单幂等键格式合法且每次不同', idemOk],
     ];
     const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'}  运行时配置${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);

@@ -38,7 +38,7 @@ export function applyCors(req, res) {
     // X-Admin-Key / X-Admin-Actor 是运营后台改配置用的自定义头：自定义头必须显式允许，
     // 否则浏览器预检直接失败（表现为「Failed to fetch」，且看服务端日志一条请求都没有）。
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key, X-Admin-Key, X-Admin-Actor');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key, X-Admin-Key, X-Admin-Actor, Idempotency-Key');
     if (allow !== '*') {
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }

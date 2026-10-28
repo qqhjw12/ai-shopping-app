@@ -29,6 +29,7 @@ import * as cartRepo from './repositories/cartRepo.js';
 import * as userRepo from './repositories/userRepo.js';
 import * as orderService from './services/orderService.js';
 import * as settingsService from './services/settingsService.js';
+import * as couponCatalogService from './services/couponCatalogService.js';
 import * as reviewRepo from './repositories/reviewRepo.js';
 import * as storage from './storage/index.js';
 import * as authService from './auth/service.js';
@@ -103,6 +104,36 @@ function safeEqual(a, b) {
   const right = Buffer.from(String(b == null ? '' : b));
   if (!left.length || left.length !== right.length) return false;
   return timingSafeEqual(left, right);
+}
+
+/**
+ * 管理接口鉴权（运营配置写入、券目录写入）。
+ *
+ * 未配置 ADMIN_API_KEY 时一律 403 而不是放行：写接口的默认姿态必须是关闭的，
+ * 「忘了配环境变量」不能变成「谁都能改运费和券面额」。
+ * 已配置则要求请求头 X-Admin-Key 完全一致（常量时间比较）。
+ * X-Admin-Actor 只用于日志追溯，不参与鉴权——它不是身份，别把它当 RBAC。
+ *
+ * @returns {boolean} 通过返回 true；已写好错误响应返回 false
+ */
+function requireAdmin(req, res) {
+  const expected = config.adminApiKey;
+  const path = (req.url || '').split('?')[0];
+  if (!expected) {
+    sendError(res, 403, '管理写入未启用：服务端未设置 ADMIN_API_KEY', req.reqId);
+    return false;
+  }
+  if (!safeEqual(req.headers['x-admin-key'], expected)) {
+    log.warn('admin.denied', { reqId: req.reqId, ip: req.ip, path });
+    sendError(res, 401, '管理员密钥不正确', req.reqId);
+    return false;
+  }
+  return true;
+}
+
+/** 管理操作的执行人（只进日志与审计字段，不参与鉴权） */
+function adminActor(req) {
+  return String(req.headers['x-admin-actor'] || 'admin').slice(0, 40);
 }
 
 // ===== 买家秀上传 =====
@@ -341,7 +372,7 @@ async function route(req, res, url) {
     }
   };
 
-  // ===== 运营配置：运费/配送方式 + 券返还顺延规则 =====
+  // ===== 运营配置：运费/配送方式 + 支付方式 + 券返还顺延规则 =====
   // 读：公开（未登录的结算页也要显示运费）；写：需 X-Admin-Key（env ADMIN_API_KEY，未设置则只读）。
   // 做成运行时配置而不是编译期常量：这类参数按大促节奏调整，改一个数字不该发一次版，
   // 更不该出现「服务端改了、前端没改」的错位（同一张券在两台设备上算出不同到期日）。
@@ -350,17 +381,12 @@ async function route(req, res, url) {
       return guarded(() => ({ settings: settingsService.getSettings() }));
     }
     if (req.method === 'PUT' || req.method === 'POST') {
-      const expected = config.adminApiKey;
-      if (!expected) return sendError(res, 403, '配置写入未启用：未设置 ADMIN_API_KEY', req.reqId);
-      if (!safeEqual(req.headers['x-admin-key'], expected)) {
-        log.warn('config.write_denied', { reqId: req.reqId, ip: req.ip });
-        return sendError(res, 401, '管理员密钥不正确', req.reqId);
-      }
+      if (!requireAdmin(req, res)) return;
       const parsed = await readJson(req);
       if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
       // 允许 { settings: {...} } 或直接 {...}，两种写法都常见，少一次踩坑
       const patch = parsed.settings && typeof parsed.settings === 'object' ? parsed.settings : parsed;
-      const actor = String(req.headers['x-admin-actor'] || 'admin').slice(0, 40);
+      const actor = adminActor(req);
       return guarded(() => {
         const next = settingsService.updateSettings(patch, { by: actor });
         log.info('config.updated', { reqId: req.reqId, actor, sections: Object.keys(patch).join(',') });
@@ -459,6 +485,9 @@ async function route(req, res, url) {
           remark: parsed.remark || '',
           shippingMethodId: parsed.shippingMethodId || null,
           paymentMethodId: parsed.paymentMethodId || null,
+          // 幂等键：客户端一次结算会话一个，重试复用同一个 → 服务端只建一单。
+          // 也接受标准头 Idempotency-Key，方便非浏览器客户端按惯例接入。
+          idempotencyKey: parsed.idempotencyKey || req.headers['idempotency-key'] || null,
         });
         return { order: { ...order, _preview: undefined } };
       }, 201);
@@ -526,8 +555,32 @@ async function route(req, res, url) {
   }
 
   // 券目录：券中心渲染用。前端内置同一份做离线兜底，联网时以这里为准。
-  if (url.pathname === '/api/coupons/catalog' && req.method === 'GET') {
-    return guarded(() => ({ coupons: userRepo.listCouponCatalog() }));
+  // 读公开；写需 X-Admin-Key（与 /api/config 同一把钥匙）。
+  if (url.pathname === '/api/coupons/catalog') {
+    if (req.method === 'GET') {
+      return guarded(() => ({ coupons: userRepo.listCouponCatalog() }));
+    }
+    if (req.method === 'PUT' || req.method === 'POST') {
+      if (!requireAdmin(req, res)) return;
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      // 支持单张 { coupon: {...} } 与批量 { coupons: [...] }；force 允许改动已发出的券
+      const input = parsed.coupon !== undefined
+        ? parsed.coupon
+        : (parsed.coupons !== undefined ? parsed.coupons : parsed);
+      const force = parsed.force === true;
+      const actor = adminActor(req);
+      return guarded(() => {
+        const result = couponCatalogService.upsertCouponCatalog(input, { force, by: actor });
+        log.info('coupon.catalog_updated', {
+          reqId: req.reqId,
+          actor,
+          force,
+          changes: result.changes.map((c) => `${c.id}:${c.action}`).join(','),
+        });
+        return result;
+      });
+    }
   }
 
   if (url.pathname === '/api/coupons') {
@@ -1017,13 +1070,14 @@ async function route(req, res, url) {
         'GET /api/brands (可按 category 过滤)',
         'GET /api/stats (商品/SKU/类目/品牌规模)',
         'GET|POST|PATCH|DELETE /api/cart?userId= (购物车：增删改查，服务端持久化)',
-        'GET|PUT /api/config (运营配置：配送/运费 + 券返还顺延；写入需 X-Admin-Key)',
-        'POST /api/orders/preview {userId, items?, addressId?, couponId?, shippingMethodId?} (结算预览)',
-        'GET /api/orders?userId= · POST /api/orders {userId, items, addressId?, couponId?, shippingMethodId?, paymentMethodId?}',
+        'GET|PUT /api/config (运营配置：配送/运费 + 支付方式 + 券返还顺延；写入需 X-Admin-Key)',
+        'POST /api/orders/preview {userId, items?, addressId?, couponId?, shippingMethodId?, paymentMethodId?} (结算预览)',
+        'GET /api/orders?userId= · POST /api/orders {userId, items, addressId?, couponId?, shippingMethodId?, paymentMethodId?, idempotencyKey?}',
         'GET /api/orders/:id?userId= · POST /api/orders/:id/pay?userId=',
         'POST /api/orders/:id/cancel?userId= (取消订单事务：关单 + 券返还顺延)',
         'GET|POST|DELETE /api/favorites?userId= (收藏夹：POST 为切换)',
         'GET /api/coupons/catalog (券目录，前端离线兜底同构)',
+        'PUT /api/coupons/catalog {coupon|coupons, force?} (券目录 upsert，需 X-Admin-Key)',
         'GET /api/coupons?userId=&amount=&all=1 (卡包；all=1 含已用/已过期)',
         'POST /api/coupons {userId, couponId} (领券，重复领取 409)',
         'POST /api/coupons/use {userId, couponId, orderId} (核销，幂等)',

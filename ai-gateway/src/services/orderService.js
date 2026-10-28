@@ -11,7 +11,7 @@ import { getDb } from '../db/connection.js';
 import * as cartRepo from '../repositories/cartRepo.js';
 import * as userRepo from '../repositories/userRepo.js';
 import { listCart } from '../repositories/cartRepo.js';
-import { shippingById, shippingFeeOf } from './settingsService.js';
+import { normalizePaymentId, paymentMethods, shippingById, shippingFeeOf } from './settingsService.js';
 
 /** 已废弃：运费改由运营配置（app_settings.shipping）决定。保留导出仅为不打断外部引用。 */
 export const SHIPPING_FREE_THRESHOLD = 99;
@@ -26,6 +26,34 @@ function makeOrderId(db) {
     if (!exists.get(id)) return id;
   }
   throw new Error('生成订单号失败，请重试');
+}
+
+/* ---------------- 幂等键 ---------------- */
+
+const IDEM_KEY_RE = /^[A-Za-z0-9_-]{8,64}$/;
+
+/**
+ * 幂等键归一化：合法则原样返回，不合法当作「没传」。
+ *
+ * 为什么非法值不报错：幂等键是客户端为了自保加的东西，服务端把它当强约束会
+ * 让「客户端版本旧、不传 key」直接下单失败。所以非法/缺失 = 不启用幂等，
+ * 退化成原来的行为；合法才享受「同 key 只建一单」。
+ */
+function normalizeIdemKey(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  return IDEM_KEY_RE.test(s) ? s : null;
+}
+
+/** 该 key 已经建过的订单（幂等命中） */
+function findByIdemKey(db, userId, key) {
+  if (!key) return null;
+  return db.prepare('SELECT id FROM orders WHERE user_id = ? AND idempotency_key = ?').get(userId, key) || null;
+}
+
+/** 唯一索引冲突 = 并发下另一个请求刚插进去（同一个 key 抢跑），去重查即可 */
+function isUniqueViolation(e) {
+  const msg = String((e && e.message) || '');
+  return msg.includes('UNIQUE constraint failed') || (e && e.code === 'SQLITE_CONSTRAINT_UNIQUE');
 }
 
 /**
@@ -121,12 +149,13 @@ export function previewOrder({ userId, items, addressId, couponId, shippingMetho
   };
 }
 
-/** 支付方式白名单：只记录选择，不接真实支付网关 */
-export const PAYMENT_METHOD_IDS = ['online', 'cod'];
-
-function normalizePaymentId(id) {
-  const s = String(id || 'online');
-  return PAYMENT_METHOD_IDS.includes(s) ? s : 'online';
+/**
+ * 支付方式：**不再是本模块的常量**，改由运营配置（app_settings.payment）决定，
+ * 与结算页展示同一份。本模块只负责把传入 id 归一化到配置里存在的某一项。
+ * @deprecated 用 settingsService.paymentMethods() —— 保留导出仅为不打断外部引用
+ */
+export function paymentMethodIds() {
+  return paymentMethods().map((m) => m.id);
 }
 
 /**
@@ -136,13 +165,30 @@ function normalizePaymentId(id) {
  * 建单失败不会白扣一张券，核销失败（券过期/已被别处用掉）则整单回滚，
  * 用户看到的是「优惠券不可用」而不是「下单成功但券没了」。
  *
- * @returns {{orderId, status, payAmount, ... }} 完整订单
+ * 幂等：带 idempotencyKey 时，同一个 key 在同一个用户下只会建一单。
+ *   - 命中已有订单 → 直接返回那一单（replayed: true），不再扣库存、不再清购物车、不再销券；
+ *   - 并发抢跑撞唯一索引 → 回滚后重查，返回先插进去的那一单；
+ *   - 没带 key（老客户端 / 直接调接口）→ 行为与以前完全一致。
+ * 这一层挡的是「服务端已建单、响应在网络上丢了，用户以为失败又点一次」——
+ * 没有它，用户会真的被收两次钱，而且两单的库存也扣了两次。
+ *
+ * @returns {{orderId, status, payAmount, ... }} 完整订单，幂等命中时附带 replayed: true
  */
-export function createOrder({ userId, items, addressId, couponId, remark = '', shippingMethodId, paymentMethodId }) {
+export function createOrder({ userId, items, addressId, couponId, remark = '', shippingMethodId, paymentMethodId, idempotencyKey }) {
   const db = getDb();
+  const idemKey = normalizeIdemKey(idempotencyKey);
 
   db.exec('BEGIN');
   try {
+    // 幂等查询必须在事务内、在建单之前：并发请求会串行拿到写锁，
+    // 第一个提交后第二个才读到，读到就返回，不会走到建单。
+    const hit = findByIdemKey(db, userId, idemKey);
+    if (hit) {
+      const existing = getOrder(hit.id, userId);
+      db.exec('COMMIT');
+      return { ...existing, replayed: true };
+    }
+
     const draft = previewOrder({ userId, items, addressId, couponId, shippingMethodId, paymentMethodId });
     const orderId = makeOrderId(db);
 
@@ -150,13 +196,13 @@ export function createOrder({ userId, items, addressId, couponId, remark = '', s
       INSERT INTO orders
         (id, user_id, status, total_amount, product_amount, shipping_fee, discount_amount,
          coupon_id, address_id, remark, shipping_method_id, payment_method_id, shipping_eta,
-         created_at, paid_at)
-      VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), NULL)
+         idempotency_key, created_at, paid_at)
+      VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), NULL)
     `).run(
       orderId, userId, draft.payAmount, draft.productAmount,
       draft.shippingFee, draft.discountAmount, couponId || null,
       draft.address.id, String(remark).slice(0, 120),
-      draft.shipping.id, draft.paymentMethodId, draft.shipping.eta,
+      draft.shipping.id, draft.paymentMethodId, draft.shipping.eta, idemKey,
     );
 
     const insItem = db.prepare(`
@@ -190,6 +236,13 @@ export function createOrder({ userId, items, addressId, couponId, remark = '', s
       db.exec('ROLLBACK');
     } catch {
       /* 不掩盖原始错误 */
+    }
+    // 并发抢跑：另一个请求刚用同一个 key 建完单（它先拿到写锁并提交），
+    // 本请求的查询发生在它提交之前、插入时撞唯一索引。回滚后重查并返回那一单——
+    // 用户视角这就是「同一次提交」，拿到订单才是对的，抛冲突反而让他以为没下成。
+    if (idemKey && isUniqueViolation(e)) {
+      const raced = findByIdemKey(db, userId, idemKey);
+      if (raced) return { ...getOrder(raced.id, userId), replayed: true };
     }
     throw e;
   }

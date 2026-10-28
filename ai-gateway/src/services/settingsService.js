@@ -38,6 +38,16 @@ export const DEFAULT_SETTINGS = {
     // 配送方式列表为空 / 传入未知 id 时的兜底项
     fallbackId: 'standard',
   },
+  payment: {
+    // 支付方式只记录用户的选择，不接真实支付网关（演示环境不产生扣款）。
+    // 但「有哪些支付方式、叫什么名字」属于运营话术（大促时关掉货到付款是常规操作），
+    // 所以和配送方式一样进配置，而不是写死在前端常量里。
+    methods: [
+      { id: 'online', name: '在线支付', note: '微信 / 支付宝（演示环境不产生真实扣款）' },
+      { id: 'cod', name: '货到付款', note: '签收时向配送员付款' },
+    ],
+    fallbackId: 'online',
+  },
   coupon: {
     // 取消订单返还时有效期顺延的天数
     refundGraceDays: 7,
@@ -76,7 +86,6 @@ function textIn(value, max, label) {
 }
 
 const SHIPPING_ID_RE = /^[a-z][a-z0-9_-]{1,23}$/;
-
 /** 配送方式：数组 1–5 项，id 唯一，运费 0–999，freeOver 为 null 或 0–100000 */
 export function validateShippingMethods(input) {
   if (!Array.isArray(input) || !input.length) throw new SettingError('shipping.methods 必须是非空数组');
@@ -102,17 +111,43 @@ export function validateShippingMethods(input) {
 }
 
 /**
+ * 支付方式：数组 1–5 项，id 唯一。
+ * 没有价格字段——支付方式不参与算钱，只决定订单上记什么、结算页显示什么。
+ * 正因如此它最容易被误认为「前端常量无所谓」，但它同时出现在订单快照里，
+ * 前端改了名字而服务端订单还记着旧 id，历史订单就会显示成「未知方式」。
+ */
+export function validatePaymentMethods(input) {
+  if (!Array.isArray(input) || !input.length) throw new SettingError('payment.methods 必须是非空数组');
+  if (input.length > 5) throw new SettingError('payment.methods 最多 5 项');
+  const seen = new Set();
+  return input.map((m, i) => {
+    const label = `payment.methods[${i}]`;
+    if (!isPlainObject(m)) throw new SettingError(`${label} 必须是对象`);
+    const id = String(m.id || '');
+    if (!SHIPPING_ID_RE.test(id)) throw new SettingError(`${label}.id 只能是小写字母开头的字母数字/下划线/短横`);
+    if (seen.has(id)) throw new SettingError(`${label}.id 重复：${id}`);
+    seen.add(id);
+    return {
+      id,
+      name: textIn(m.name, 20, `${label}.name`),
+      note: String(m.note == null ? '' : m.note).trim().slice(0, 40),
+    };
+  });
+}
+
+/**
  * 深合并 + 校验：只接受白名单字段，未提到的字段保持原值。
  * 拒绝未知字段而不是静默丢弃——运营把 `refundGraceDay` 少写一个 s 时，
  * 静默忽略会让人以为「配置生效了但其实没生效」。
  */
 export function mergeSettings(base, patch) {
   if (!isPlainObject(patch)) throw new SettingError('配置必须是对象');
-  const unknown = Object.keys(patch).filter((k) => k !== 'shipping' && k !== 'coupon');
+  const unknown = Object.keys(patch).filter((k) => k !== 'shipping' && k !== 'payment' && k !== 'coupon');
   if (unknown.length) throw new SettingError(`不支持的配置项：${unknown.join(', ')}`);
 
   const next = {
     shipping: { ...base.shipping, methods: base.shipping.methods.map((m) => ({ ...m })) },
+    payment: { ...base.payment, methods: base.payment.methods.map((m) => ({ ...m })) },
     coupon: { ...base.coupon },
   };
 
@@ -125,8 +160,22 @@ export function mergeSettings(base, patch) {
     }
     if (patch.shipping.fallbackId !== undefined) {
       const fid = String(patch.shipping.fallbackId);
-      if (!next.shipping.methods.some((m) => m.id === fid)) throw new SettingError('fallbackId 必须是某个配送方式的 id');
+      if (!next.shipping.methods.some((m) => m.id === fid)) throw new SettingError('shipping.fallbackId 必须是某个配送方式的 id');
       next.shipping.fallbackId = fid;
+    }
+  }
+
+  if (patch.payment !== undefined) {
+    if (!isPlainObject(patch.payment)) throw new SettingError('payment 必须是对象');
+    const badPayment = Object.keys(patch.payment).filter((k) => k !== 'methods' && k !== 'fallbackId');
+    if (badPayment.length) throw new SettingError(`不支持的 payment 配置项：${badPayment.join(', ')}`);
+    if (patch.payment.methods !== undefined) {
+      next.payment.methods = validatePaymentMethods(patch.payment.methods);
+    }
+    if (patch.payment.fallbackId !== undefined) {
+      const fid = String(patch.payment.fallbackId);
+      if (!next.payment.methods.some((m) => m.id === fid)) throw new SettingError('payment.fallbackId 必须是某个支付方式的 id');
+      next.payment.fallbackId = fid;
     }
   }
 
@@ -142,9 +191,12 @@ export function mergeSettings(base, patch) {
     }
   }
 
-  // 兜底配送方式必须存在于最终列表里（可能被同一次 patch 换掉了）
+  // 兜底项必须存在于最终列表里（可能被同一次 patch 换掉了）
   if (!next.shipping.methods.some((m) => m.id === next.shipping.fallbackId)) {
     next.shipping.fallbackId = next.shipping.methods[0].id;
+  }
+  if (!next.payment.methods.some((m) => m.id === next.payment.fallbackId)) {
+    next.payment.fallbackId = next.payment.methods[0].id;
   }
   return next;
 }
@@ -174,7 +226,7 @@ export function getSettings() {
   if (cache && now - cache.at < CACHE_TTL_MS) return structuredClone(cache.data);
   const rows = readRows(getDb());
   let data = structuredClone(DEFAULT_SETTINGS);
-  for (const section of ['shipping', 'coupon']) {
+  for (const section of ['shipping', 'payment', 'coupon']) {
     if (rows[section] === undefined) continue;
     try {
       data = mergeSettings(data, { [section]: rows[section] });
@@ -199,6 +251,7 @@ export function updateSettings(patch, { by = '' } = {}) {
   db.exec('BEGIN');
   try {
     if (patch.shipping !== undefined) upsert.run('shipping', JSON.stringify(next.shipping), by);
+    if (patch.payment !== undefined) upsert.run('payment', JSON.stringify(next.payment), by);
     if (patch.coupon !== undefined) upsert.run('coupon', JSON.stringify(next.coupon), by);
     db.exec('COMMIT');
   } catch (e) {
@@ -248,4 +301,26 @@ export function shippingFeeOf(shipping, goodsAfterDiscount = 0) {
 /** 券返还规则 */
 export function couponRules() {
   return getSettings().coupon;
+}
+
+/** 支付方式列表（含兜底项保证非空） */
+export function paymentMethods() {
+  return getSettings().payment.methods;
+}
+
+/** 按 id 取支付方式；未知 id 落到 fallbackId，再兜底第一项 */
+export function paymentById(id) {
+  const p = getSettings().payment;
+  return p.methods.find((m) => m.id === id)
+    || p.methods.find((m) => m.id === p.fallbackId)
+    || p.methods[0];
+}
+
+/**
+ * 支付方式 id 归一化：未知值落到 fallbackId。
+ * 服务端要这么做而不是直接拒绝——运营删掉某个支付方式后，
+ * 用户手里还开着一个旧结算页（页面里仍是旧 id），宁可落到默认方式也不要让他下不了单。
+ */
+export function normalizePaymentId(id) {
+  return paymentById(String(id || '')).id;
 }

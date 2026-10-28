@@ -142,7 +142,10 @@ export async function api(path, opts = {}) {
         await sleep(300 * attempt);
         continue;
       }
-      if (!resp.ok) throw new ApiError('服务暂时不可用，请稍后重试', 'server', resp.status);
+      // 没有状态码 = 连 HTTP 响应都没拿到（fetch 层失败），归为 network 而不是 server：
+      // 调用方据此判断「请求可能已到达服务端，需要带幂等键重放」还是「服务端明确出错」。
+      // 下单路径上这个区分直接决定会不会重复建单。
+      if (!resp.ok) throw new ApiError('服务暂时不可用，请稍后重试', resp.status ? 'server' : 'network', resp.status);
       return await resp.json();
     } catch (e) {
       if (e instanceof ApiError) throw e;

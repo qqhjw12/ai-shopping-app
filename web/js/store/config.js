@@ -40,6 +40,13 @@ export const DEFAULT_CONFIG = Object.freeze({
     ],
     fallbackId: 'standard',
   },
+  payment: {
+    methods: [
+      { id: 'online', name: '在线支付', note: '微信 / 支付宝（演示环境不产生真实扣款）' },
+      { id: 'cod', name: '货到付款', note: '签收时向配送员付款' },
+    ],
+    fallbackId: 'online',
+  },
   coupon: { refundGraceDays: 7, maxExtensions: 3 },
 });
 
@@ -75,10 +82,39 @@ function normalizeCoupon(raw) {
   };
 }
 
+/**
+ * 支付方式：与配送方式同一套归一化逻辑（列表非空、id 唯一、兜底项必须存在）。
+ * 支付方式不参与算钱，但它会进订单快照——服务端改了名字而前端还显示旧名字，
+ * 或者运营下线了某个方式而前端还能选中下单，都是从这里没对齐开始的。
+ */
+function normalizePayment(raw) {
+  const base = DEFAULT_CONFIG.payment;
+  const list = Array.isArray(raw && raw.methods) ? raw.methods : [];
+  const seen = new Set();
+  const methods = [];
+  for (const m of list) {
+    if (!m || typeof m.id !== 'string' || !m.id || seen.has(m.id)) continue;
+    seen.add(m.id);
+    methods.push({
+      id: m.id,
+      name: String(m.name || m.id).slice(0, 20),
+      note: String(m.note || '').slice(0, 40),
+    });
+  }
+  if (!methods.length) return { ...base, methods: base.methods.map((m) => ({ ...m })) };
+  const wanted = String((raw && raw.fallbackId) || '');
+  const fallbackId = methods.some((m) => m.id === wanted) ? wanted : methods[0].id;
+  return { methods, fallbackId };
+}
+
 /** 服务端响应 / 缓存 → 完整可用的配置对象（缺项一律回落到默认值） */
 export function normalizeConfig(raw) {
   const src = isObj(raw) ? raw : {};
-  return { shipping: normalizeShipping(src.shipping), coupon: normalizeCoupon(src.coupon) };
+  return {
+    shipping: normalizeShipping(src.shipping),
+    payment: normalizePayment(src.payment),
+    coupon: normalizeCoupon(src.coupon),
+  };
 }
 
 /* ---------------- 缓存 ---------------- */
@@ -121,6 +157,17 @@ export function shippingMethods() {
 /** 按 id 取配送方式；未知 id 落到 fallback，再兜底第一项 */
 export function findShipping(id) {
   const { methods, fallbackId } = runtime.shipping;
+  return methods.find((m) => m.id === id) || methods.find((m) => m.id === fallbackId) || methods[0];
+}
+
+/** 当前支付方式列表（至少一项） */
+export function paymentMethods() {
+  return runtime.payment.methods;
+}
+
+/** 按 id 取支付方式；未知 id 落到 fallback，再兜底第一项 */
+export function findPayment(id) {
+  const { methods, fallbackId } = runtime.payment;
   return methods.find((m) => m.id === id) || methods.find((m) => m.id === fallbackId) || methods[0];
 }
 

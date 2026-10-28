@@ -417,6 +417,21 @@ const MIGRATIONS = [
       ALTER TABLE order_items ADD COLUMN spec TEXT;
     `,
   },
+  {
+    version: 13,
+    name: 'order-idempotency',
+    sql: `
+      -- 下单幂等键：客户端一次结算会话生成一个 key，重试带同一个 key。
+      -- 之前没有它，网络在「服务端已建单、响应没回来」的瞬间断掉时，用户重试就会
+      -- 变成两张真实订单（前端当时还会降级再落一张本地单，最坏三张）。
+      -- 唯一索引落在 (user_id, idempotency_key) 上而不是全局 key 上：
+      -- 不同用户偶然生成同一个 key 不该互相顶掉（虽然 uuid 概率极低，约束也要写对）。
+      -- 用部分索引，历史订单 key 为 NULL，不参与唯一性约束。
+      ALTER TABLE orders ADD COLUMN idempotency_key TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_idem
+        ON orders(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

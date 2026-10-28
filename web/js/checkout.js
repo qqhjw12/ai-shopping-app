@@ -16,7 +16,7 @@ import { navigate } from './router.js';
 import { getCurrentUser } from './user.js';
 import { api, isMissingEndpoint } from './api.js';
 import {
-  PAYMENT_METHODS, computeAmounts, createOrder, getShippingMethods, normalizeRemote, paymentById,
+  computeAmounts, createOrder, getPaymentMethods, getShippingMethods, normalizeRemote, paymentById,
   shippingById,
 } from './store/orderStore.js';
 import { loadRuntimeConfig, shippingFeeOf } from './store/config.js';
@@ -27,6 +27,25 @@ import {
   bestCouponId, decorateMine, fmtCouponValue, hydrateWallet, listWallet, markCouponUsed, sortForCheckout,
   syncWallet,
 } from './store/couponStore.js';
+
+/**
+ * 幂等键：优先 crypto.randomUUID（安全随机，碰撞概率可忽略），
+ * 老浏览器退化为「时间戳 36 进制 + 随机后缀」。两者都满足服务端的
+ * `^[A-Za-z0-9_-]{8,64}$` 约束，非法值服务端会当成「没传」而失去幂等保护。
+ *
+ * 导出是为了让自检能验「格式合法且每次不同」——这两点坏了，
+ * 服务端要么不认这个键，要么所有订单共用一个键（第二单直接被判成重放）。
+ */
+export function newIdempotencyKey() {
+  try {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+      return globalThis.crypto.randomUUID().replace(/-/g, '');
+    }
+  } catch {
+    /* 非安全上下文（http 局域网访问）没有 randomUUID，走下面的兜底 */
+  }
+  return `k${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
 
 export async function renderCheckout(view) {
   const user = getCurrentUser();
@@ -53,13 +72,19 @@ export async function renderCheckout(view) {
   const state = {
     addresses: listAddresses(user.id),
     addressId: null,
-    // 配送方式来自运营配置（服务端 app_settings.shipping，离线用内置默认）
+    // 配送方式与支付方式都来自运营配置（服务端 app_settings，离线用内置默认）
     shippingId: getShippingMethods()[0].id,
-    paymentId: PAYMENT_METHODS[0].id,
+    paymentId: getPaymentMethods()[0].id,
     remark: '',
     submitting: false,
     showForm: false,
     error: '',
+    // 幂等键：一次结算会话一个，重试复用同一个 → 服务端只会建一单。
+    // 生成时机是「进结算页」，不是「点提交」：点提交时再生成，用户连点两次
+    // 就是两个不同的 key，幂等形同虚设。
+    idempotencyKey: newIdempotencyKey(),
+    // 已经因为网络异常重放过一次（避免无限重放）
+    retried: false,
     couponRaw: [], // 我的券包快照（未使用 / 已使用 / 已过期都在里面，可用性按当前金额实时算）
     couponId: null, // 选中的券 couponId；null = 不使用优惠券
     couponAuto: false, // 是否已做过「自动选最优」
@@ -309,7 +334,7 @@ export async function renderCheckout(view) {
     payCard.innerHTML = '';
     payCard.appendChild(cardHead('支付方式', 'mock 支付，不会真实扣款'));
     const box = el('div', { class: 'co2-picks' });
-    PAYMENT_METHODS.forEach((m) => {
+    getPaymentMethods().forEach((m) => {
       const on = m.id === state.paymentId;
       box.appendChild(
         el('button', {
@@ -610,13 +635,16 @@ export async function renderCheckout(view) {
    * 中间只要断一次网，就会出现「单建成了、券还在手里」或者「券花掉了、单没建成」，
    * 而这两件事用户都能感知到。服务端一个事务做完，客户端不再自己动券。
    *
-   * 降级条件只认「这个部署没有后端」（404/405/501）与离线——
-   * 业务拒绝（库存不足 409、券不可用 400）必须如实显示，不能偷偷改成本地单，
-   * 否则用户以为下了一单，服务端其实没有。
+   * 降级条件只认两种「请求肯定没到达服务端」的情况：
+   *   - 这个部署没有后端（404/405/501，静态托管）；
+   *   - 真离线（navigator.onLine=false 或会话已判定无后端）。
+   * 其余网络异常一律不降级——请求可能已经到达并建了单，
+   * 再落一张本地单就是「用户看到两单、库存扣两次」。
    *
-   * 取舍：网络中途断开（请求可能已到达服务端）时也降级本地单，
-   * 理论上可能同时存在一张服务端单和一张本地单。演示站选「宁可重复也不要丢单」，
-   * 真实系统应带幂等键（IDEMPOTENCY-KEY）由服务端去重。
+   * 网络异常的处理方式是带**同一个幂等键**重放一次（不是降级、也不是让用户自己赌）：
+   * 服务端有这单就原样返回，没有就补建，两种结果都恰好一单。
+   * 重放也失败时明确告诉用户「可能已提交，请去我的订单确认」，
+   * 而不是显示「提交失败」诱导他再点一次——再点也是同一个 key，服务端会返回同一单。
    */
   async function placeOrder(cart, address) {
     const amt = amounts();
@@ -632,7 +660,8 @@ export async function renderCheckout(view) {
     try {
       const d = await api('/api/orders', {
         method: 'POST',
-        // 下单不重试：重试可能重复建单（服务端没有幂等去重）
+        // 下单不自动重试：api() 的重试是「原样再发一次」，对下单没用——
+        // 幂等由 idempotencyKey 保证，重试时机由这里的 catch 分支决定。
         retries: 0,
         body: {
           userId: user.id,
@@ -646,6 +675,8 @@ export async function renderCheckout(view) {
           shippingMethodId: state.shippingId,
           paymentMethodId: state.paymentId,
           remark: state.remark,
+          // 幂等键：同一次结算会话恒定，重复提交 / 超时重放都只会对应一张订单
+          idempotencyKey: state.idempotencyKey,
         },
       });
       const remote = normalizeRemote({ ...(d && d.order), userId: user.id });
@@ -675,25 +706,35 @@ export async function renderCheckout(view) {
       }
       finish(mirror);
     } catch (e) {
-      const noBackend = isMissingEndpoint(e) || e.kind === 'offline' || !e.status;
-      if (!noBackend) {
-        state.submitting = false;
-        state.error = (e && e.message) || '提交失败，请重试';
-        paintSum();
+      const noBackend = isMissingEndpoint(e) || e.kind === 'offline';
+      if (noBackend) {
+        // 降级：本地单 + 券核销进发件箱，联网后由 syncWallet 补推
+        try {
+          const order = createOrder(user.id, draft);
+          if (order.amounts && order.amounts.couponId) {
+            markCouponUsed(user.id, order.amounts.couponId, order.id);
+          }
+          finish(order);
+        } catch (err) {
+          state.submitting = false;
+          state.error = (err && err.message) || '提交失败，请重试';
+          paintSum();
+        }
         return;
       }
-      // 降级：本地单 + 券核销进发件箱，联网后由 syncWallet 补推
-      try {
-        const order = createOrder(user.id, draft);
-        if (order.amounts && order.amounts.couponId) {
-          markCouponUsed(user.id, order.amounts.couponId, order.id);
-        }
-        finish(order);
-      } catch (err) {
-        state.submitting = false;
-        state.error = (err && err.message) || '提交失败，请重试';
-        paintSum();
+
+      // 请求可能已到达服务端：带同一幂等键重放一次（不是降级，也不是让用户自己赌）
+      const uncertain = e && (e.kind === 'network' || e.kind === 'server');
+      if (uncertain && !state.retried) {
+        state.retried = true;
+        return placeOrder(cart, address);
       }
+
+      state.submitting = false;
+      state.error = uncertain
+        ? '网络异常，订单可能已提交成功。请到「我的订单」确认，勿重复下单'
+        : (e && e.message) || '提交失败，请重试';
+      paintSum();
     }
   }
 
@@ -742,7 +783,15 @@ export async function renderCheckout(view) {
     if (!getShippingMethods().some((m) => m.id === state.shippingId)) {
       state.shippingId = getShippingMethods()[0].id;
     }
+    // 支付方式同理：运营下线货到付款后，页面不能还留着一个能选中但会被服务端改掉的选项
+    if (!getPaymentMethods().some((m) => m.id === state.paymentId)) {
+      state.paymentId = getPaymentMethods()[0].id;
+    }
+    // 两个列表都必须**无条件重绘**：只修「选中项失效」是不够的，
+    // 运营新增/改名一个方式时选中项仍然有效，但页面上还是旧选项——
+    // 「配置改了页面没变」和「配置没生效」在用户眼里是同一件事。
     paintShipping();
+    paintPayment();
     paintSum();
   }).catch(() => {
     /* 配置拉不到就用离线默认，不打断结算 */

@@ -12,7 +12,7 @@
 // 运费与配送方式不再是本模块的常量：它们是**运营可配参数**，真源在服务端
 // （GET /api/config），本模块只通过 store/config.js 读取，
 // 保证结算页展示、下单请求、订单快照三处拿到的是同一组数字。
-import { findShipping, shippingFeeOf, shippingMethods } from './config.js';
+import { findPayment, findShipping, paymentMethods, shippingFeeOf, shippingMethods } from './config.js';
 
 const KEY_PREFIX = 'maison_orders::';
 
@@ -27,11 +27,17 @@ export function getShippingMethods() {
   return shippingMethods();
 }
 
-/** 支付方式（mock）：只记录选择，不接真实支付。运营不用调价，所以留在前端常量。 */
-export const PAYMENT_METHODS = [
-  { id: 'online', name: '在线支付', note: '微信 / 支付宝（演示环境不产生真实扣款）' },
-  { id: 'cod', name: '货到付款', note: '签收时向配送员付款' },
-];
+/**
+ * 支付方式：同样来自运营配置（app_settings.payment）。
+ *
+ * 它曾被留在这里当常量，理由是「支付方式不参与算钱、运营不用调价」。
+ * 这个理由只对了一半：不参与算钱是对的，但它会进订单快照、会出现在结算页，
+ * 大促时关掉货到付款是常规操作。留成前端常量，服务端就永远不知道
+ * 「这个部署只有在线支付」，用户仍能选一个服务端不认识的方式下单。
+ */
+export function getPaymentMethods() {
+  return paymentMethods();
+}
 
 export const ORDER_STATUS_TEXT = {
   pending: '待付款',
@@ -50,7 +56,7 @@ export function shippingById(id) {
 }
 
 export function paymentById(id) {
-  return PAYMENT_METHODS.find((m) => m.id === id) || PAYMENT_METHODS[0];
+  return findPayment(id);
 }
 
 /* ---------------- 存储读写 ---------------- */
