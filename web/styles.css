@@ -5460,3 +5460,83 @@ body.flt-sheet-open { overflow: hidden; }
   height: 100%;
   object-fit: cover;
 }
+
+/* ---------------- 结算页优惠券 ---------------- */
+.co2-coupons { display: flex; flex-direction: column; gap: 8px; }
+.co2-cp {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.co2-cp:hover { border-color: var(--line-strong); }
+.co2-cp.is-on { border-color: var(--ink); background: rgba(26, 26, 26, 0.015); }
+.co2-cp.is-gap { cursor: default; opacity: 0.62; }
+.co2-cp.is-gap:hover { border-color: var(--line); }
+.co2-cp-worth {
+  flex: none;
+  min-width: 46px;
+  padding: 5px 0;
+  border-right: 1px dashed var(--line-strong);
+  color: var(--gold-deep);
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+.co2-cp-body { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.co2-cp-title { color: var(--ink); font-size: 12px; font-weight: 500; line-height: 1.45; }
+.co2-cp-sub { color: var(--muted); font-size: 10.5px; }
+.co2-cp-check {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--canvas);
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.co2-cp.is-on .co2-cp-check { border-color: var(--ink); background: var(--ink); }
+
+/* ---------------- 清单行内数量步进 ---------------- */
+.co2-item-ops { display: flex; align-items: center; gap: 10px; }
+.co2-item-price { color: var(--body); font-size: 11px; }
+.co2-qty { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: var(--r-pill); overflow: hidden; }
+.co2-step {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+.co2-step:hover:not(:disabled) { background: rgba(26, 26, 26, 0.05); }
+.co2-step:disabled { color: var(--line-strong); cursor: not-allowed; }
+.co2-qty-n {
+  min-width: 26px;
+  color: var(--ink);
+  font-size: 12px;
+  text-align: center;
+}
+.co2-item-del {
+  border: 0;
+  background: transparent;
+  padding: 2px 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.co2-item-del:hover { color: #b4553f; }

@@ -134,10 +134,11 @@ export function nextOrderId(userId, existing = null) {
 
 /**
  * 金额汇总：商品总额 + 运费 − 优惠券抵扣 = 应付金额。
- * 本步骤优惠券只做占位（恒为 0），但字段与计算入口先留好，
- * 后续接 /api/coupons 时只替换 couponDiscount 的来源，不动页面与订单结构。
+ * 金额唯一入口：结算页预览、下单快照、订单详情展示都走这里，
+ * 保证「预览一个价、下单另一个价」在结构上不可能发生。
+ * couponTitle 随金额快照进订单，详情页无需再查券。
  */
-export function computeAmounts({ productAmount = 0, shippingFee = 0, couponDiscount = 0 } = {}) {
+export function computeAmounts({ productAmount = 0, shippingFee = 0, couponDiscount = 0, couponTitle = '' } = {}) {
   const goods = Math.max(0, round(productAmount));
   const ship = Math.max(0, round(shippingFee));
   const discount = Math.min(Math.max(0, round(couponDiscount)), goods);
@@ -146,6 +147,7 @@ export function computeAmounts({ productAmount = 0, shippingFee = 0, couponDisco
     shippingFee: ship,
     couponDiscount: discount,
     payAmount: round(goods + ship - discount),
+    ...(couponTitle ? { couponTitle: String(couponTitle).slice(0, 40) } : {}),
   };
 }
 

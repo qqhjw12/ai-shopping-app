@@ -161,7 +161,13 @@ try {
     && o.shippingMethod && o.paymentMethod && o.amounts && o.status === 'pending' && o.createdAt));
   check('订单状态为待付款', o.status === 'pending', o.status);
   check('备注已写入订单', o.remark === '工作日送达，放前台', o.remark);
-  check('优惠券抵扣占位为 0', (o.amounts || {}).couponDiscount === 0);
+  // 优惠券自动选最优：演示券 9 折（满 199），订单应付 = 商品总额 + 运费 - 折扣
+  const cpDiscount = (o.amounts || {}).couponDiscount;
+  const cpTitle = (o.amounts || {}).couponTitle || '';
+  check('优惠券自动选最优并计入订单',
+    cpDiscount > 0 && cpDiscount === Math.floor((o.amounts.productAmount || 0) * 10 / 100)
+      && o.amounts.payAmount === o.amounts.productAmount + o.amounts.shippingFee - cpDiscount,
+    `券 ${cpTitle} 抵 ${cpDiscount}，应付 ${o.amounts && o.amounts.payAmount}`);
 
   /* 10) 刷新不丢订单 */
   await page.reload({ waitUntil: 'load' });

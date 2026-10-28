@@ -433,6 +433,7 @@ if (failed === 0) {
     const { renderOrderDetail } = await import(dir('accountCenter.js'));
     const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms));
     const click = (node) => node && node.listeners && node.listeners.click && node.listeners.click();
+    const fmt = (n) => `¥${Number(n).toLocaleString()}`;
 
     localStorage.clear();
     userMod.clearCurrentUser();
@@ -504,9 +505,63 @@ if (failed === 0) {
       && /SKU：米白 \/ M/.test(v1.textContent);
     const backToBag = (q('.co2-item-edit')[0] || {}).getAttribute('href') === '#/cart';
     const sumRows = q('.co2-sum-row').length === 4;
-    const couponZero = /优惠券抵扣/.test(v1.textContent) && /- ¥0/.test(v1.textContent);
+    // 演示券自动选最优：总额 820 → 9 折券省 floor(820*10/100)=82（多于满 599 减 80）
+    const EXP_WORTH = Math.floor(820 * 10 / 100);
+    const onCount = () => [...q('.co2-cp')].filter((n) => n.classList.contains('is-on')).length; // 垫片不支持复合选择器
+    const couponAutoOn = /已自动为你选中最优/.test(v1.textContent)
+      && onCount() === 1
+      && new RegExp(`已抵扣 ¥${EXP_WORTH}`).test(v1.textContent);
+    const couponTitleShown = /优惠券（尊享 9 折 · 满 199 可用）/.test(v1.textContent);
     const totalBefore = (q('.co2-sum-money')[0] || {}).textContent || '';
     const remarkBox = q('.co2-remark').length === 1;
+
+    /* 4.2) 券纯函数：worth 公式 / 最优选择 / 门槛差额 */
+    const cp = await import(dir('store/couponStore.js'));
+    const worthOk = cp.worthOf(cp.DEMO_COUPONS[2], 820) === 82 // 9 折
+      && cp.worthOf(cp.DEMO_COUPONS[1], 640) === 80 // 满 599 减 80
+      && cp.worthOf(cp.DEMO_COUPONS[0], 50) === 0; // 未达门槛
+    const bestOk = cp.bestCouponId(cp.decorate(cp.DEMO_COUPONS, 820)) === 'demo-c90' // 82 > 80
+      && cp.bestCouponId(cp.decorate(cp.DEMO_COUPONS, 640)) === 'demo-c80' // 80 > 64，满减反超折扣
+      && cp.bestCouponId(cp.decorate(cp.DEMO_COUPONS, 50)) === null; // 全不可用
+    const gapOk = cp.gapToThreshold(cp.DEMO_COUPONS[0], 50) === 49;
+
+    /* 4.5) 券可切换 / 可取消；清单步进器：数量、库存夹逼、金额联动 */
+    click(q('.co2-cp')[0]); // 切到「满 99 减 30」
+    await tick(0);
+    const switchCouponTotal = (v1.querySelectorAll('.co2-sum-money')[0] || {}).textContent || '';
+    const switchOk = switchCouponTotal === fmt(820 - 30); // 790
+    click(v1.querySelectorAll('.co2-cp')[0]); // 再点一次 = 取消使用
+    await tick(0);
+    const couponOffTotal = (v1.querySelectorAll('.co2-sum-money')[0] || {}).textContent || '';
+    const couponOffOk = couponOffTotal === fmt(820) && onCount() === 0;
+    // 恢复自动最优券
+    const bestBtn = [...v1.querySelectorAll('.co2-cp')].find((n) => /9 折/.test((n.querySelectorAll('.co2-cp-worth')[0] || {}).textContent || ''));
+    click(bestBtn);
+    await tick(0);
+    const restoredBest = (v1.querySelectorAll('.co2-sum-money')[0] || {}).textContent === fmt(820 - EXP_WORTH);
+
+    const stepPlus = () => {
+      const row = v1.querySelectorAll('.co2-item')[0];
+      return (row && row.querySelectorAll('.co2-step')[1]) || null;
+    };
+    const qtyText = () => {
+      const row = v1.querySelectorAll('.co2-item')[0];
+      return ((row && row.querySelectorAll('.co2-qty-n')[0]) || {}).textContent || '';
+    };
+    click(stepPlus()); // 2 → 3
+    await tick(0);
+    const qtyAfterInc = qtyText() === '3';
+    const totalMovedWithQty = (v1.querySelectorAll('.co2-sum-money')[0] || {}).textContent !== totalBefore;
+    // 库存夹逼：co_x stock=5，从 3 连点 + 到 5，按钮应禁用（4 次点击里最后一次无效）
+    for (let i = 0; i < 4; i++) { click(stepPlus()); await tick(0); }
+    const clampedAtStock = qtyText() === '5' && stepPlus().disabled === true;
+    // 恢复 2
+    for (let i = 0; i < 3; i++) {
+      const row = v1.querySelectorAll('.co2-item')[0];
+      click(row && row.querySelectorAll('.co2-step')[0]); // −
+      await tick(0);
+    }
+    const qtyRestored = qtyText() === '2';
 
     /* 5) 切加急配送 → 运费与应付联动；切货到付款 → 选中态跟随 */
     click(q('.co2-pick')[1]);
@@ -517,6 +572,23 @@ if (failed === 0) {
     click(q('.co2-pick')[3]);
     await tick(0);
     const codOn = q('.co2-pick')[3].classList.contains('is-on') && !q('.co2-pick')[2].classList.contains('is-on');
+
+    /* 5.6) 清单删除：新视图里删掉第二件 → 清单 1 行、金额联动；随后恢复购物袋 */
+    const v1b = new El('main');
+    await renderCheckout(v1b);
+    await tick(20);
+    const rowsBeforeDel = v1b.querySelectorAll('.co2-item').length;
+    const delBtn = (() => {
+      const row = v1b.querySelectorAll('.co2-item')[1];
+      return (row && row.querySelectorAll('.co2-item-del')[0]) || null;
+    })();
+    click(delBtn);
+    await tick(0);
+    const afterDelRows = v1b.querySelectorAll('.co2-item').length;
+    const afterDelTotal = (v1b.querySelectorAll('.co2-sum-money')[0] || {}).textContent || '';
+    const delOk = rowsBeforeDel === 2 && afterDelRows === 1 && afterDelTotal === fmt(640 - 80);
+    // 恢复 co_y（结算页删除没有撤销，直接补回购物袋）
+    state.addToCart({ id: 'co_y', name: '结算测试托特包', price: 180, spec: '牛皮 / 大号', stock: 3 }, 1);
 
     /* 6) 备注 + 提交 */
     const remark = q('.co2-remark')[0];
@@ -535,8 +607,9 @@ if (failed === 0) {
       && order.shippingMethod.id === 'express' && order.shippingMethod.fee === 18
       && order.paymentMethod.id === 'cod'
       && order.remark === '工作日送达，放前台'
-      && order.amounts.couponDiscount === 0 && order.amounts.productAmount === 820
-      && order.amounts.shippingFee === 18 && order.amounts.payAmount === 838
+      && order.amounts.couponDiscount === 82 && order.amounts.productAmount === 820
+      && order.amounts.shippingFee === 18 && order.amounts.payAmount === 756
+      && order.amounts.couponTitle === "尊享 9 折 · 满 199 可用"
       && Boolean(order.createdAt);
     const idPattern = Boolean(order) && /^MS\d{8}\d{4}$/.test(order.id);
     const isolatedOrders = orders.listOrders('u_someone_else').length === 0;
@@ -548,7 +621,7 @@ if (failed === 0) {
     renderOrderSuccess(v2, order ? order.id : 'missing');
     const osBtns = v2.querySelectorAll('.os-btn');
     const showsId = Boolean(order) && new RegExp(order.id).test(v2.textContent || '');
-    const showsAmount = /838/.test(v2.textContent || '');
+    const showsAmount = /756/.test(v2.textContent || '');
     const pendingShown = /待付款/.test(v2.textContent || '');
     const detailHref = osBtns[0] && osBtns[0].getAttribute('href') === `#/account/order/${order.id}`;
     const shopHref = osBtns[1] && osBtns[1].getAttribute('href') === '#/products';
@@ -560,7 +633,7 @@ if (failed === 0) {
     const detailOk = v3.querySelectorAll('.od-card').length === 1
       && new RegExp(order.id).test(v3.textContent || '')
       && /结算测试羊毛衫/.test(v3.textContent || '')
-      && /¥838/.test(v3.textContent || '')
+      && /¥756/.test(v3.textContent || '')
       && /加急配送/.test(v3.textContent || '')
       && /工作日送达，放前台/.test(v3.textContent || '');
 
@@ -584,9 +657,22 @@ if (failed === 0) {
       ['配送时效与运费可见', etaShown],
       ['商品清单 2 行', itemCount === 2 && itemDetail],
       ['清单可返回购物袋修改', backToBag],
-      ['金额四行（总额/运费/券/应付）', sumRows && couponZero],
+      ['券纯函数（worth 公式）', worthOk],
+      ['券纯函数（自动选最优可切换满减）', bestOk],
+      ['券纯函数（门槛差额）', gapOk],
+      ['券卡自动选中最优（9 折省 82）', couponAutoOn],
+      ['金额行显示券名', couponTitleShown],
+      ['券可切换为满减券', switchOk],
+      ['券可取消（取消后无抵扣）', couponOffOk],
+      ['券可恢复最优', restoredBest],
+      ['清单行数量可加（2→3）', qtyAfterInc],
+      ['数量联动金额与券', totalMovedWithQty],
+      ['数量受库存夹逼（5 封顶）', clampedAtStock],
+      ['数量可减回', qtyRestored],
+      ['清单可删除且金额/券联动', delOk],
+      ['金额四行（总额/运费/券/应付）', sumRows],
       ['备注输入框存在', remarkBox],
-      ['切加急后应付金额变化', Boolean(totalBefore) && totalBefore !== totalAfterShip && /838/.test(totalAfterShip)],
+      ['切加急后应付金额变化（含券抵扣）', Boolean(totalBefore) && totalBefore !== totalAfterShip && /756/.test(totalAfterShip)],
       ['加急选中态 + 运费展示', expressOn && feeShown],
       ['支付方式切换生效', codOn],
       ['提交后生成 1 笔待付款订单', created],

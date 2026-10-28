@@ -49,6 +49,9 @@ export function renderOrderSuccess(view, orderId) {
     ['下单时间', fmtTime(order.createdAt)],
     ['配送方式', `${order.shippingMethod.name} · ${order.shippingMethod.eta || ''}`.trim()],
     ['支付方式', order.paymentMethod.name],
+    ...(a.couponDiscount
+      ? [['优惠券', `${a.couponTitle ? `${a.couponTitle} ` : ''}- ${fmtPrice(a.couponDiscount)}`]]
+      : []),
     ['收货信息', addr ? `${addr.receiver} ${addr.phone || ''} · ${addr.region} ${addr.detail || ''}` : '—'],
     ['商品件数', `${order.items.reduce((n, i) => n + (Number(i.qty) || 0), 0)} 件`],
   ];

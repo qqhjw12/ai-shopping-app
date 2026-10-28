@@ -570,7 +570,8 @@ function orderDetailCard(o) {
   const sumRows = [
     ['商品总额', fmtPrice(a.productAmount)],
     ['运费', a.shippingFee ? fmtPrice(a.shippingFee) : '免运费'],
-    ['优惠券抵扣', a.couponDiscount ? `- ${fmtPrice(a.couponDiscount)}` : '- ¥0'],
+    ['优惠券' + (a.couponTitle ? `（${a.couponTitle}）` : ''),
+      a.couponDiscount ? `- ${fmtPrice(a.couponDiscount)}` : '- ¥0'],
   ];
 
   return el('article', { class: 'od-card' }, [
