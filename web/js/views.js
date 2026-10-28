@@ -1582,9 +1582,9 @@ function buildDetailPage(p, from, presetRelated = []) {
   const imgHint = el('span', { class: 'pdp-form-img-hint' }, `可选，最多 ${MAX_REVIEW_IMAGES} 张`);
   function paintImgPreview() {
     imgPreview.innerHTML = '';
-    (draft.images || []).forEach((url, i) => {
+    (draft.images || []).forEach((pic, i) => {
       imgPreview.appendChild(el('div', { class: 'pdp-form-thumb' }, [
-        el('img', { src: url, alt: `买家秀 ${i + 1}` }),
+        el('img', { src: pic.url, alt: `买家秀 ${i + 1}` }),
         el('button', {
           type: 'button',
           class: 'pdp-thumb-remove',
@@ -1694,7 +1694,8 @@ function buildDetailPage(p, from, presetRelated = []) {
         rating: draft.rating,
         content,
         skuSpec: draft.skuSpec,
-        images: draft.images || [],
+        // 只提交对象键：预签名 URL 会过期，存 URL 等于存死链
+        images: (draft.images || []).map((pic) => pic.key || pic.url),
       });
       allReviews.unshift(review);
 
@@ -1980,9 +1981,9 @@ function followUpForm(r, onSubmit) {
   const preview = el('div', { class: 'pdp-form-thumbs' });
   function paintPreview() {
     preview.innerHTML = '';
-    state.images.forEach((url, i) => {
+    state.images.forEach((pic, i) => {
       preview.appendChild(el('div', { class: 'pdp-form-thumb' }, [
-        el('img', { src: url, alt: `追评配图 ${i + 1}` }),
+        el('img', { src: pic.url, alt: `追评配图 ${i + 1}` }),
         el('button', {
           type: 'button',
           class: 'pdp-thumb-remove',
@@ -2001,8 +2002,8 @@ function followUpForm(r, onSubmit) {
     try {
       for (const file of files.slice(0, room)) {
         const dataUrl = await compressImageFile(file);
-        const url = await uploadReviewImage(dataUrl);
-        state.images.push(url);
+        const pic = await uploadReviewImage(dataUrl);
+        state.images.push(pic);
       }
       paintPreview();
       hint.textContent = state.images.length ? `已添加 ${state.images.length} 张图` : `至少 ${MIN_FU_LEN} 个字`;
@@ -2027,7 +2028,7 @@ function followUpForm(r, onSubmit) {
       submitBtn.disabled = true;
       submitBtn.textContent = '发布中…';
       try {
-        await onSubmit(r, { content, images: state.images });
+        await onSubmit(r, { content, images: state.images.map((pic) => pic.key || pic.url) });
         state.content = '';
         state.images = [];
         area.value = '';

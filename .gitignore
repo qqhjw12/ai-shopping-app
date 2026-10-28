@@ -33,3 +33,6 @@ __pycache__/
 
 # 本地记忆 / 工作区元数据（非项目代码）
 .workbuddy/
+
+# 本地对象存储工具与数据（SeaweedFS 二进制 / bucket 数据）
+.devtools/

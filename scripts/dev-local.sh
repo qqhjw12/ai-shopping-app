@@ -95,6 +95,15 @@ node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)
 
 # ── 1. 启动网关 ─────────────────────────────────────────────────────────────
 
+# 可选：ai-gateway/.env 存在就导入（本地开发配置，含存储/大模型等开关；不入库）
+if [[ -f "$ROOT/ai-gateway/.env" ]] && [[ "${SKIP_DOTENV:-0}" != "1" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$ROOT/ai-gateway/.env"
+  set +a
+  echo "· 已加载 ai-gateway/.env"
+fi
+
 if [[ "$SKIP_GATEWAY" == "1" ]]; then
   echo "▶ 跳过网关（SKIP_GATEWAY=1），假定 ${GW_PORT} 已有可用网关"
 else
@@ -114,9 +123,10 @@ else
 fi
 
 # /health 顺带给出 runMode 与索引商品数，避免为了显示数量去拉整库
-HEALTH="$(node -e 'fetch(process.argv[1]).then(r=>r.json()).then(j=>console.log(`${j.runMode}|${j.vectorStore}`)).catch(()=>console.log("?|?"))' "http://127.0.0.1:${GW_PORT}/health")"
+HEALTH="$(node -e 'fetch(process.argv[1]).then(r=>r.json()).then(j=>console.log(`${j.runMode}|${j.vectorStore}|${j.storage||"-"}`)).catch(()=>console.log("?|?|-"))' "http://127.0.0.1:${GW_PORT}/health")"
 RUN_MODE="${HEALTH%%|*}"
-PRODUCTS="${HEALTH##*|}"
+PRODUCTS="$(printf '%s' "$HEALTH" | cut -d'|' -f2)"
+STORAGE_DRIVER="$(printf '%s' "$HEALTH" | cut -d'|' -f3)"
 
 # ── 2. 启动静态前端 ─────────────────────────────────────────────────────────
 
@@ -173,7 +183,7 @@ fi
 cat <<EOF
 
 ✅ 已就绪
-   网关:   http://localhost:${GW_PORT}   （runMode=${RUN_MODE}，索引商品 ${PRODUCTS} 款）
+   网关:   http://localhost:${GW_PORT}   （runMode=${RUN_MODE}，索引商品 ${PRODUCTS} 款，买家秀存储 ${STORAGE_DRIVER}）
    数据库: ai-gateway/data/shop.db
    前端:   http://localhost:${WEB_PORT}/   （${WEB_KIND}，no-store）
 

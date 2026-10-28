@@ -1,9 +1,8 @@
 import './quiet.js';
 import http from 'node:http';
-import { writeFile, mkdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { config, useReal, startupWarnings } from './config.js';
 import { log } from './logger.js';
 import {
@@ -25,6 +24,7 @@ import * as cartRepo from './repositories/cartRepo.js';
 import * as userRepo from './repositories/userRepo.js';
 import * as orderService from './services/orderService.js';
 import * as reviewRepo from './repositories/reviewRepo.js';
+import * as storage from './storage/index.js';
 
 /** 卡片/列表用商品视图（统一字段，避免各处各写一份 mapper 导致缺字段） */
 function toSummary(p) {
@@ -448,13 +448,26 @@ async function route(req, res, url) {
     const ext = sniffImage(buf);
     if (!ext) return sendError(res, 415, '仅支持 JPG / PNG / WebP / GIF 图片', req.reqId);
     try {
-      await mkdir(UPLOAD_DIR, { recursive: true });
-      const name = `${randomUUID()}${ext}`;
-      await writeFile(join(UPLOAD_DIR, name), buf);
-      return send(res, 201, { url: `/api/uploads/${name}`, size: buf.length, contentType: IMAGE_MIME[ext] });
+      // 落对象存储（s3）或本地（local），返回对象键 + 可直接渲染的地址。
+      // 键进库、URL 只用于当次响应：预签名 URL 会过期，绝不能存。
+      const saved = await storage.saveObject({
+        buffer: buf,
+        ext,
+        contentType: IMAGE_MIME[ext] || 'application/octet-stream',
+      });
+      log.info({ reqId: req.reqId, event: 'review.upload', driver: saved.driver, key: saved.key, bytes: buf.length });
+      return send(res, 201, {
+        key: saved.key,
+        url: saved.url,
+        size: buf.length,
+        contentType: IMAGE_MIME[ext],
+        driver: saved.driver,
+        // 客户端可据此提前知道预览地址的有效期，避免缓存过久后变死链
+        expiresIn: config.storage.driver === 's3' ? config.storage.mediaUrlTtl : null,
+      });
     } catch (e) {
       log.error({ reqId: req.reqId, err: e.message, event: 'review.upload_failed' });
-      return sendError(res, 500, '图片保存失败，请稍后重试', req.reqId);
+      return sendError(res, 502, '图片存储失败，请稍后重试', req.reqId);
     }
   }
 
@@ -757,6 +770,8 @@ const server = http.createServer(async (req, res) => {
         embedding: config.embeddingProvider,
         vectorStore: vectorStore.count(),
         searchStore: searchStore.count(),
+        // 探针里带上存储驱动：部署后一眼能看出买家秀落在本地还是对象存储
+        storage: config.storage.driver,
       });
     }
     const deps = probeDeps();
@@ -837,14 +852,21 @@ try {
 }
 
 server.listen(config.port, async () => {
+  const store = storage.storageInfo();
   log.info('listen', {
     port: config.port,
     runMode: config.runMode,
     embedding: config.embeddingProvider,
     llm: config.llm.apiKey ? `${config.llm.model} @ ${config.llm.baseUrl}` : 'disabled(本地引擎)',
+    storage: store.driver === 's3' ? `s3 ${store.bucket} @ ${store.endpoint}` : 'local(data/uploads)',
   });
   const warns = startupWarnings();
   for (const w of warns) log.warn('config', { msg: w });
+  // 对象存储自检：桶不存在就建，连不上只告警（不阻断启动，上传时才报错）
+  storage.ensureReady(log).then((r) => {
+    if (r.ok) log.info('storage', { driver: r.driver, created: !!r.created, ttl: store.signedUrlTtlSec });
+    else log.warn('storage', { driver: r.driver, err: r.error });
+  });
   // 埋点索引模板：docker 模式 best-effort 建（ES 不可用时静默跳过）
   ensureTrackIndex().catch(() => {});
   try {

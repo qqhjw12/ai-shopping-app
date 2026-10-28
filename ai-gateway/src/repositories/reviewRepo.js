@@ -1,6 +1,7 @@
 // 评价仓储：列表 / 概览 / 写评价 / 追评 / 有用投票。
 // 与既有仓储保持一致：只依赖 connection.getDb()，全部参数化查询，不放任何用户输入进 SQL 字符串。
 import { getDb } from '../db/connection.js';
+import { resolveMediaList } from '../storage/index.js';
 
 // 业务约束集中在此，路由层与存储层共用同一份口径
 export const REVIEW_RULES = {
@@ -12,9 +13,12 @@ export const REVIEW_RULES = {
 };
 
 const DEFAULT_AUTHOR = '匿名用户';
-// 允许的图片 URL：本站上传目录的相对路径，或 http(s) 绝对地址。
+// 允许的图片标识：
+//   · 对象存储键 reviews/YYYY/MM/<uuid>.<ext>（新，读取时现签 URL）
+//   · 旧的本地相对路径 /api/uploads/<name>（历史数据，继续可读）
+//   · http(s) 绝对地址（历史数据 / 外链）
 // 作用是挡掉 javascript: / data: 等可被当作 src 执行的伪协议，避免存储型 XSS。
-const SAFE_IMAGE = /^(?:\/api\/uploads\/[\w.-]+|https?:\/\/\S+)$/;
+const SAFE_IMAGE = /^(?:\/api\/uploads\/[\w.-]+|reviews\/\d{4}\/\d{2}\/[A-Za-z0-9-]{1,64}\.(?:jpg|jpeg|png|webp|gif)|https?:\/\/\S+)$/;
 
 function safeJson(text, fallback) {
   try {
@@ -55,7 +59,8 @@ function mapReview(row, withFollowUps = true) {
     author: row.author || DEFAULT_AUTHOR,
     rating: Number(row.rating) || 0,
     content: row.content || '',
-    images: normalizeImages(safeJson(row.images, [])),
+    // 库里存的是对象键；出口统一换成可直接渲染的地址（s3 驱动下是现签的短期 URL）
+    images: resolveMediaList(normalizeImages(safeJson(row.images, []))),
     skuSpec: row.sku_spec || '',
     source: row.source || 'seed',
     helpful: Number(row.helpful) || 0,

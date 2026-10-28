@@ -258,7 +258,11 @@ export function saveUserReview(productId, payload = {}) {
     content: String(payload.content || '').trim().slice(0, 500),
     created_at: new Date().toISOString().slice(0, 10),
     skuSpec: payload.skuSpec || '',
-    images: Array.isArray(payload.images) ? payload.images.slice(0, MAX_REVIEW_IMAGES) : [],
+    // 离线草稿只保留「能直接渲染」的地址：对象键要靠服务端现签 URL，
+    // 离线时签不出来，存下来只会变成一排碎图
+    images: (Array.isArray(payload.images) ? payload.images : [])
+      .filter((u) => typeof u === 'string' && /^(?:https?:|\/)/.test(u))
+      .slice(0, MAX_REVIEW_IMAGES),
     helpful: 0,
     aspects: [],
     followUps: [],
@@ -423,11 +427,15 @@ export async function voteReview(reviewId) {
   }
 }
 
-/** 买家秀上传：dataURL → 网关落盘 → 返回可访问 URL（相对 /api/uploads/...） */
+/**
+ * 买家秀上传：dataURL → 网关 → 对象存储。
+ * 返回 `{ key, url }`：key 是入库用的稳定标识（对象键），url 是当次可渲染的地址
+ * （s3 驱动下是预签名 URL，有有效期）。**持久化只能存 key**。
+ */
 export async function uploadReviewImage(dataUrl) {
   const data = await api('/api/reviews/upload', { body: { data: dataUrl }, retries: 1 });
   if (!data || !data.url) throw new Error('上传失败：未返回图片地址');
-  return data.url;
+  return { key: data.key || data.url, url: data.url };
 }
 
 /* ---------------- 评价概览 & AI 摘要 service ---------------- */

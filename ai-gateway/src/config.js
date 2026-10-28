@@ -49,6 +49,21 @@ export const config = {
   trustProxy: env.TRUST_PROXY === 'true',
   // 本地 SQLite 数据文件（local 模式的商品/订单/会话/埋点全部落这里，重启不丢）
   dbFile: env.DB_FILE || 'data/shop.db',
+  // 买家秀等用户上传内容的存放位置
+  //   local: 落 data/uploads（零依赖，适合本地演示 / 无外部服务的部署）
+  //   s3   : 落 S3 兼容对象存储（SeaweedFS / MinIO / OSS / R2 / AWS），读取走预签名 URL
+  storage: {
+    driver: (env.STORAGE_DRIVER || 'local').toLowerCase() === 's3' ? 's3' : 'local',
+    endpoint: (env.S3_ENDPOINT || '').replace(/\/+$/, ''),
+    region: env.S3_REGION || 'us-east-1',
+    bucket: env.S3_BUCKET || 'review-media',
+    accessKeyId: env.S3_ACCESS_KEY_ID || '',
+    secretAccessKey: env.S3_SECRET_ACCESS_KEY || '',
+    // 本地 S3 替身（MinIO/SeaweedFS）只认 path-style；真 AWS 设 0
+    forcePathStyle: env.S3_FORCE_PATH_STYLE !== '0',
+    // 预签名 URL 有效期（秒）。短一点更安全：链接被转发出去也会自然失效
+    mediaUrlTtl: Number(env.MEDIA_URL_TTL_SECONDS || 900),
+  },
   // 可选：OpenAI 兼容大模型（DeepSeek / 通义 / Kimi / OpenAI 皆可）。
   // 未配置 LLM_API_KEY 时自动使用内置本地对话引擎（零外部依赖）。
   llm: {
@@ -71,6 +86,9 @@ export function startupWarnings() {
   }
   if (!config.aiGatewayApiKey) {
     warns.push('AI_GATEWAY_API_KEY 未设置，AI Gateway 当前对外开放（仅限演示/内网），生产请启用 API Key 鉴权');
+  }
+  if (config.storage.driver === 'local') {
+    warns.push('STORAGE_DRIVER=local：买家秀落本地磁盘，多实例部署会读不到彼此的文件，生产建议切到 s3');
   }
   return warns;
 }

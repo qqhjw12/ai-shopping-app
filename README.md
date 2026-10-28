@@ -24,6 +24,7 @@
 - [环境变量](#环境变量)
 - [API 一览](#api-一览)
   - [推荐来源埋点（全链路数据闭环）](#推荐来源埋点全链路数据闭环)
+- [买家秀对象存储（预签名 URL）](#买家秀对象存储预签名-url)
   - [真实商品数据导入（合规开放数据源）](#真实商品数据导入合规开放数据源)
 - [部署演示站点（GitHub Pages + Actions）](#部署演示站点github-pages--actions)
 - [商品视觉（程序化 SVG）](#商品视觉程序化-svg)
@@ -203,6 +204,7 @@
 │   │   ├── db/              # SQLite：connection / schema(版本迁移 v1-v3) / seedDb(种子)
 │   │   ├── repositories/    # 仓储层：product / order / conversation / track
 │   │   │                    #          cart(购物车) / user(收藏·券·地址)
+│   │   ├── storage/         # 买家秀对象存储：s3Client(SigV4 手写) / index(驱动门面+签名解析)
 │   │   ├── services/        # chatEngine(对话引擎) / llmClient(可选大模型)
 │   │   │                    #          orderService(下单事务·金额·库存)
 │   │   ├── data/catalog.js  # 商品目录种子（256 款 / 16 一级类目 / 48 二级 / 556 SKU / 768 评价）
@@ -212,7 +214,8 @@
 │   └── dify-workflows/      # Dify 工作流 spec（售后 / 文案）
 ├── mall-ai/                 # macrozheng/mall 的 AI 增强模块（Java）
 ├── nginx/                   # 反代模板（envsubst，密钥不入库）
-├── scripts/                 # dev-local.sh(一键起前后端) / dev_server.py·static-server.mjs(静态开发服务)
+├── scripts/                 # dev-local.sh(一键起前后端) / dev-storage.sh(本地 S3 替身)
+│                            #   / dev_server.py·static-server.mjs(静态开发服务)
 │                            #   / check-web.mjs(前端自检) / setup-https-proxy.sh / setup-mall-ai-env.sh
 ├── docker-compose*.yml      # 网关 / nginx / dify / 全家桶
 ├── docs/                    # 实施记录与方案文档
@@ -359,8 +362,8 @@ bash scripts/setup-https-proxy.sh
 | GET  | `/api/products/:id/reviews` | 评价列表：`userId`/`filter`(all·good·mid·bad)/`sort`(latest·helpful)/`limit`/`offset`，返回 `{ reviews, summary, hasMore }`，追评嵌套在主评价的 `followUps` 内 |
 | POST | `/api/reviews` | 发布评价；带 `parentId` 即追评。`{ productId|parentId, userId?, author?, rating?, content, skuSpec?, images? }` |
 | POST | `/api/reviews/:id/helpful` | 有用投票 `{ userId }`，幂等：再请求一次即取消，返回 `{ voted, helpful }` |
-| POST | `/api/reviews/upload` | 买家秀上传 `{ data: base64 }`，≤6MB，返回 `{ url }`；类型为 JPG/PNG/WebP/GIF（文件头校验） |
-| GET  | `/api/uploads/:name` | 读取买家秀（文件名 UUID + 白名单扩展名，长缓存） |
+| POST | `/api/reviews/upload` | 买家秀上传 `{ data: base64 }`，≤6MB，返回 `{ key, url, expiresIn }`：`key` 入库、`url` 是当次可渲染的地址（s3 驱动下为预签名 URL）；类型 JPG/PNG/WebP/GIF（文件头校验） |
+| GET  | `/api/uploads/:name` | 读取**历史**买家秀（`STORAGE_DRIVER=local` 时的落盘位置；文件名 UUID + 白名单扩展名） |
 | GET  | `/api/categories` | 类目列表（带商品数）；加 `?tree=1` 返回两级树与各类目商品数 |
 | GET  | `/api/brands` | 品牌列表（可按 `category` 过滤，带商品数） |
 | GET  | `/api/stats` | 站点规模概览：商品 / SKU / 类目 / 二级类目 / 品牌 / 评价数 |
@@ -426,6 +429,66 @@ bash scripts/setup-https-proxy.sh
 - **安全**：埋点失败不影响浏览；ES 写入带 2s 超时与 best-effort 容错，绝不阻塞主请求；埋点内容仅含事件名/渠道/商品 ID/匿名 userId，不含密码与令牌。
 
 ---
+
+## 买家秀对象存储（预签名 URL）
+
+评价图片不直接暴露存储，走「入库存键、读取现签」：
+
+```
+浏览器 ──base64──▶ 网关校验(6MB/文件头/扩展名) ──▶ 对象存储(S3)
+                                                    │
+浏览器 ◀── <img src=预签名URL> ◀── 评价接口现签 ◀── key(库里只有这个)
+```
+
+**为什么库里只存 key 不存 URL**：预签名 URL 有有效期（默认 900s），存下来第二天就是一堆死链。
+键形如 `reviews/2026/10/<uuid>.jpg`，每次列表/详情返回时现签一次，有效期由 `MEDIA_URL_TTL_SECONDS` 控制。
+
+### 本地怎么跑（不需要 Docker）
+
+```bash
+bash scripts/dev-storage.sh      # 起 S3 兼容替身（SeaweedFS all-in-one，单文件二进制）
+                                 # 首次运行自动下载；默认 :8333，开鉴权（匿名访问 403）
+```
+
+脚本会把该用的环境变量打印出来，写进 `ai-gateway/.env` 即可（`dev-local.sh` 会自动加载）：
+
+```bash
+STORAGE_DRIVER=s3
+S3_ENDPOINT=http://127.0.0.1:8333
+S3_REGION=us-east-1
+S3_BUCKET=review-media
+S3_ACCESS_KEY_ID=shopdevaccess
+S3_SECRET_ACCESS_KEY=shopdevsecret1234567890
+S3_FORCE_PATH_STYLE=1
+MEDIA_URL_TTL_SECONDS=900
+```
+
+不想接对象存储就不用配：`STORAGE_DRIVER=local`（默认）继续落 `ai-gateway/data/uploads`，
+代码路径一致，只是渲染地址从「预签名 URL」变成 `/api/uploads/<uuid>.<ext>`。
+
+### 生产接真 S3 / OSS / R2
+
+```bash
+STORAGE_DRIVER=s3
+S3_ENDPOINT=https://s3.us-east-1.amazonaws.com   # OSS: https://oss-cn-hangzhou.aliyuncs.com
+S3_REGION=us-east-1
+S3_BUCKET=your-bucket
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+S3_FORCE_PATH_STYLE=0                            # 真 AWS 用 vhost；OSS/R2/MinIO 视情况
+```
+
+要点：
+
+- **桶保持私有**，只通过预签名 URL 读；不要在桶上开公共读
+- 启动时 `HEAD bucket`，不存在则自动创建（失败只告警，不阻断启动）
+- 签名 URL 可缓存到过期为止；接口返回的 `expiresIn` 可用于提前刷新
+- 多实例部署必须用 s3：`local` 驱动下各实例只认自己磁盘上的文件
+- 换存储不用迁移数据（key 与驱动无关）；历史记录里的 `/api/uploads/...` 仍由本地路由兜底
+
+签名是手写的 SigV4（`ai-gateway/src/storage/s3Client.js`，约 200 行，零依赖），
+覆盖 `PutObject / 预签名 GET / DeleteObject / HeadBucket / CreateBucket`；
+已验证「过期 URL」与「篡改签名」均返回 403。
 
 ## 真实商品数据导入（合规开放数据源）
 
