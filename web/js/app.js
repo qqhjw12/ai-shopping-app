@@ -11,7 +11,7 @@ import { renderLogin } from './login.js';
 import { renderTools } from './tools.js';
 import { renderAnalytics } from './analytics.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
-import { createRouter, navigate } from './router.js';
+import { createRouter, navigate, parseHash } from './router.js';
 import { getUserId, loadCart, onCartChange } from './state.js';
 import { ensureSession } from './auth.js';
 import { isProtectedPath, loginTarget } from './guard.js';
@@ -36,11 +36,23 @@ loadCart();
 const view = document.getElementById('view');
 
 /* ---------------- 顶栏交互 ---------------- */
-document.getElementById('search-form').addEventListener('submit', (e) => {
+/* ---------------- 顶栏搜索 ---------------- */
+// 搜索栏是全局唯一入口：提交即进 #/search?q=；当前已在同一结果页时手动重绘一次，
+// 否则 hash 没变、hashchange 不触发，用户会以为「点了没反应」。
+const searchForm = document.getElementById('search-form');
+searchForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const q = document.getElementById('search-input').value.trim();
-  if (q) navigate(`#/search?q=${encodeURIComponent(q)}`);
+  const target = q ? `#/search?q=${encodeURIComponent(q)}` : '#/search';
+  if (location.hash === target) dispatch(parseHash());
+  else navigate(target);
 });
+
+/** 搜索栏回填当前关键词：刷新 / 深链 / 前进后退时输入框与结果保持一致 */
+function syncSearchInput(query) {
+  const input = document.getElementById('search-input');
+  if (input) input.value = query || '';
+}
 
 document.getElementById('cart-btn').addEventListener('click', () => renderCartDrawer());
 
@@ -90,25 +102,16 @@ function dispatch({ path, query }) {
   }
   setActiveNav(path);
   window.scrollTo(0, 0);
+  syncSearchInput(path === '/search' ? query.q : '');
   if (path === '/' || path === '') renderHome(view);
-  else if (path === '/categories') renderCategories(view);
+  else if (path === '/categories') renderCategories(view, query);
   else if (path === '/login') renderLogin(view, { redirect: query.redirect || '' });
   else if (path === '/account') renderAccount(view, { tab: query.tab || 'orders' });
   else if (path.startsWith('/account/order/')) {
     renderOrderDetail(view, decodeURIComponent(path.slice('/account/order/'.length)));
   }
-  else if (path === '/products') {
-    const num = (k) => (query[k] == null || query[k] === '' ? undefined : Number(query[k]));
-    renderProducts(view, {
-      category: query.cat || '',
-      sub: query.sub || '',
-      brand: query.brand || '',
-      sort: query.sort || 'default',
-      minPrice: num('min'),
-      maxPrice: num('max'),
-    });
-  }
-  else if (path === '/search') renderSearch(view, query.q);
+  else if (path === '/products') renderProducts(view, query);
+  else if (path === '/search') renderSearch(view, query);
   else if (path.startsWith('/product/')) renderProductDetail(view, decodeURIComponent(path.slice('/product/'.length)), query.from);
   else if (path === '/tools') renderTools(view);
   else if (path.startsWith('/analytics')) renderAnalytics(view);

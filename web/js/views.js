@@ -12,6 +12,11 @@ import { demoProducts } from './demo-data.js';
 import { setDemoMode, isDemoMode } from './demo.js';
 import { trackEvent, fetchProductStats } from './track.js';
 import {
+  SORTS, PRICE_BANDS, bandById, bandLabel,
+  applyFilters, facetCounts, hotSearches,
+  parseFilters, buildQuery, countActive, clearedFilters, toggleValue, EMPTY_FILTERS,
+} from './store/catalog.js';
+import {
   normalizeProductDetail,
   createMockProductDetail,
   readCachedProductDetail,
@@ -427,23 +432,19 @@ function doAdd(p, source, skuId, qty = 1) {
 }
 
 /* ---------------- 商品列表 ---------------- */
-// 排序 / 价格档位定义（侧边栏与排序下拉共用）
-export const SORT_OPTIONS = [
-  { id: 'default', label: '综合排序' },
-  { id: 'sales', label: '销量优先' },
-  { id: 'price_asc', label: '价格从低到高' },
-  { id: 'price_desc', label: '价格从高到低' },
-  { id: 'rating', label: '评分优先' },
-  { id: 'new', label: '最新上架' },
-];
-export const PRICE_RANGES = [
-  { id: 'all', label: '全部价格', min: null, max: null },
-  { id: 'p100', label: '100 元以下', min: null, max: 100 },
-  { id: 'p100_500', label: '100 - 500 元', min: 100, max: 500 },
-  { id: 'p500_1000', label: '500 - 1000 元', min: 500, max: 1000 },
-  { id: 'p1000_3000', label: '1000 - 3000 元', min: 1000, max: 3000 },
-  { id: 'p3000', label: '3000 元以上', min: 3000, max: null },
-];
+/* ============================================================
+   商品列表 / 搜索结果：共享的检索视图
+   ------------------------------------------------------------
+   同一个渲染器服务三个入口，差异只在标题与空态文案：
+     #/products            全部甄选（可按品类筛选）
+     #/products?cat=xxx    分类列表（分类页点进来）
+     #/search?q=xxx        搜索结果
+   规则全部来自 store/catalog.js（纯函数），这里只负责把状态画出来。
+   地址栏是筛选状态的唯一真源：每次改动都写回 hash（replaceState，
+   不新增历史），刷新与分享都能还原到同一屏。
+   ============================================================ */
+
+const LIST_PAGE_SIZE = 24;
 
 // 演示模式（网关不可达）下，类目树从本地商品派生，与网关的 tree 契约保持一致
 export function deriveCategoryTree(products) {
@@ -464,287 +465,446 @@ export function deriveCategoryTree(products) {
   return [...map.values()].map((t) => ({ ...t, children: [...t.children.values()] }));
 }
 
-/** 本地过滤 + 排序（演示模式 / 网关不可用时的降级，逻辑与 SQL 侧保持一致） */
-function localFilterProducts(all, f) {
-  let list = all.filter((p) => {
-    if (f.category && p.categoryId !== f.category) return false;
-    if (f.sub && p.subCategoryId !== f.sub) return false;
-    if (f.brand && p.brand !== f.brand) return false;
-    if (Number.isFinite(f.minPrice) && !(p.price >= f.minPrice)) return false;
-    if (Number.isFinite(f.maxPrice) && !(p.price <= f.maxPrice)) return false;
-    return true;
-  });
-  const by = {
-    sales: (a, b) => (b.sales || 0) - (a.sales || 0),
-    price_asc: (a, b) => a.price - b.price,
-    price_desc: (a, b) => b.price - a.price,
-    rating: (a, b) => (b.rating || 0) - (a.rating || 0),
-    new: (a, b) => String(b.id).localeCompare(String(a.id)),
-    default: (a, b) => (b.sales || 0) - (a.sales || 0),
-  }[f.sort || 'default'];
-  return [...list].sort(by);
-}
+// 移动端底部弹层是否展开：每次筛选都会重绘，这个状态要跨重绘保留
+let sheetOpen = false;
+let listingKey = '';
 
-/**
- * 按筛选条件取商品：优先走网关（SQL 侧筛选），不可达时回退本地过滤。
- */
-async function queryProducts(f) {
-  if (!isDemoMode()) {
-    try {
-      const qs = new URLSearchParams();
-      if (f.category) qs.set('category', f.category);
-      if (f.sub) qs.set('sub', f.sub);
-      if (f.brand) qs.set('brand', f.brand);
-      if (Number.isFinite(f.minPrice)) qs.set('minPrice', f.minPrice);
-      if (Number.isFinite(f.maxPrice)) qs.set('maxPrice', f.maxPrice);
-      if (f.sort) qs.set('sort', f.sort);
-      const d = await api(`/api/products?${qs.toString()}`, { retries: 0 });
-      return d.products || [];
-    } catch {
-      /* 落到本地过滤 */
-    }
+const cloneFilters = (f) => ({
+  ...f,
+  cats: [...f.cats],
+  subs: [...f.subs],
+  brands: [...f.brands],
+  price: [...f.price],
+  colors: [...f.colors],
+  sizes: [...f.sizes],
+});
+
+/** 把筛选状态写回地址栏：只改 hash、不新增历史，避免「后退」被筛选点击切碎 */
+function syncListingUrl(path, f) {
+  const next = `#${path}${buildQuery(f)}`;
+  if (location.hash === next) return;
+  try {
+    history.replaceState(null, '', next);
+  } catch {
+    location.hash = next; // 极老浏览器兜底
   }
-  return localFilterProducts(await getProducts(), f);
 }
 
-/** 商品列表页：左侧两级类目筛选 + 右侧瀑布网格，全参数走深链可分享 */
-export async function renderProducts(view, opts = {}) {
-  const f = {
-    category: opts.category || '',
-    sub: opts.sub || '',
-    brand: opts.brand || '',
-    sort: opts.sort || 'default',
-    minPrice: Number.isFinite(opts.minPrice) ? opts.minPrice : null,
-    maxPrice: Number.isFinite(opts.maxPrice) ? opts.maxPrice : null,
-  };
-  // 档位精确匹配才高亮；自定义区间（仅 URL 传入）时不高亮任何档位
-  const priceId =
-    PRICE_RANGES.find((r) => r.min === f.minPrice && r.max === f.maxPrice)?.id
-    || (f.minPrice === null && f.maxPrice === null ? 'all' : null);
+async function renderListing(view, { mode = 'collection', path = '/products', filters } = {}) {
+  const f = cloneFilters(filters || EMPTY_FILTERS);
+  const key = `${mode}:${path}`;
+  if (listingKey !== key) {
+    sheetOpen = false;
+    if (listingKey) document.body.classList.remove('flt-sheet-open');
+    listingKey = key;
+  }
 
   view.innerHTML = '';
-  const introTitle = el('h1', { class: 'page-display' }, '全部甄选');
-  const introCount = el('span', { class: 'intro-count' }, '正在整理藏品');
-  const intro = el('header', { class: 'page-intro' }, [
+  const wrap = el('section', { class: 'listing' });
+  view.appendChild(wrap);
+  loading(wrap, '加载商品中…');
+
+  let all = [];
+  try {
+    all = await getProducts();
+  } catch (err) {
+    wrap.innerHTML = '';
+    banner(wrap, friendly(err), 'err');
+    return;
+  }
+  const tree = await loadCategoryTree();
+  wrap.innerHTML = '';
+  ensureDemoBanner(view);
+
+  const catName = (id) => (tree.find((c) => c.id === id) || {}).name || id;
+  const subName = (id) => {
+    for (const c of tree) {
+      const hit = (c.children || []).find((s) => s.id === id);
+      if (hit) return hit.name;
+    }
+    return id;
+  };
+
+  const title = mode === 'search'
+    ? (f.q ? `关于「${f.q}」` : '搜索你的灵感')
+    : (f.cats.length === 1 ? catName(f.cats[0]) : '全部甄选');
+
+  const introCount = el('span', { class: 'intro-count' }, '');
+  wrap.appendChild(el('header', { class: 'page-intro' }, [
     el('div', { class: 'page-intro-copy' }, [
-      el('span', { class: 'eyebrow' }, 'THE COLLECTION'),
-      introTitle,
-      el('p', {}, '由 AI 与编辑共同筛选，克制地呈现值得拥有的物件。'),
+      el('span', { class: 'eyebrow' }, mode === 'search' ? 'SEARCH' : 'THE COLLECTION'),
+      el('h1', { class: 'page-display' }, title),
+      el('p', {}, mode === 'search'
+        ? (f.q ? '按商品名、描述与标签匹配；可以用筛选继续收窄。' : '输入关键词，或从下面这些热门词开始。')
+        : '由 AI 与编辑共同筛选，克制地呈现值得拥有的物件。'),
     ]),
     el('div', { class: 'page-intro-aside' }, [
       introCount,
       el('span', { class: 'intro-line', 'aria-hidden': 'true' }),
     ]),
-  ]);
-  const layout = el('div', { class: 'shop-layout' });
-  const aside = el('aside', { class: 'shop-filter' });
-  const main = el('div', { class: 'shop-main' });
-  const head = el('div', { class: 'shop-head' });
-  const grid = el('div', { class: 'grid' });
-  main.appendChild(head);
-  main.appendChild(grid);
-  layout.appendChild(aside);
-  layout.appendChild(main);
-  view.appendChild(intro);
-  view.appendChild(layout);
-  loading(grid, '加载商品中…');
+  ]));
 
-  let products = [];
-  let tree = [];
-  try {
-    [products, tree] = await Promise.all([
-      queryProducts(f),
-      loadCategoryTree(),
-    ]);
-    ensureDemoBanner(view);
-    introCount.textContent = `${products.length} 件藏品`;
-    const treeCat = tree.find((c) => c.id === f.category);
-    if (treeCat) introTitle.textContent = treeCat.name;
-  } catch (err) {
-    grid.innerHTML = '';
-    banner(grid, friendly(err), 'err');
+  /* ---------- 搜索页空关键词：热门搜索占位，不渲染筛选面板 ---------- */
+  if (mode === 'search' && !f.q) {
+    introCount.textContent = `${all.length} 件在架`;
+    const words = hotSearches(all, 10);
+    wrap.appendChild(el('div', { class: 'hot-search' }, [
+      el('div', { class: 'filter-label' }, '热门搜索'),
+      el('div', { class: 'hot-words' }, words.map((w) => el('button', {
+        type: 'button',
+        class: 'chip hot-word',
+        onclick: () => navigate(`#/search?q=${encodeURIComponent(w.value)}`),
+      }, [w.value, el('span', { class: 'chip-cnt' }, String(w.count))]))),
+      el('div', { class: 'hot-actions' }, [
+        el('a', { class: 'hot-link', href: '#/products' }, '或者，直接浏览全部甄选 →'),
+        el('button', { type: 'button', class: 'ghost hot-ai', onclick: () => askGuide('') }, '让 AI 私人买手试试'),
+      ]),
+    ]));
     return;
   }
 
-  /* ---------- 侧边栏 ---------- */
-  const buildAside = () => {
-    aside.innerHTML = '';
-    aside.appendChild(el('div', { class: 'filter-title' }, '分类筛选'));
+  /* ---------- 骨架 ---------- */
+  const countEl = el('span', { class: 'result-count' }, '正在统计…');
+  const crumb = el('div', { class: 'shop-crumb' });
+  const sortSelect = el('select', {
+    class: 'sort-select',
+    'aria-label': '排序方式',
+    onchange: (e) => setFilter({ sort: e.target.value }),
+  }, SORTS.map((s) => el('option', { value: s.id }, s.label)));
+  const sheetBadge = el('span', { class: 'flt-badge' }, '');
+  const sheetBtn = el('button', { type: 'button', class: 'flt-open', onclick: () => openSheet() }, [
+    el('span', {}, '筛选'), sheetBadge,
+  ]);
+  const activeRow = el('div', { class: 'flt-active' });
+  const grid = el('div', { class: 'grid' });
+  const more = el('div', { class: 'load-more-row' });
+  const asideHost = el('div', { class: 'flt-host' });
+  const panelHost = el('div', { class: 'flt-panel' });
+  const aside = el('aside', { class: 'shop-filter' }, [asideHost]);
+  const sheetScroll = el('div', { class: 'flt-sheet-scroll' });
+  const sheetCount = el('span', { class: 'flt-sheet-count' }, '');
+  const sheet = el('div', { class: `flt-sheet${sheetOpen ? ' is-open' : ''}` }, [
+    el('div', { class: 'flt-sheet-mask', onclick: () => closeSheet() }),
+    el('div', { class: 'flt-sheet-body' }, [
+      el('div', { class: 'flt-sheet-head' }, [
+        el('b', {}, '筛选'),
+        el('button', { type: 'button', class: 'flt-sheet-close', onclick: () => closeSheet() }, '完成'),
+      ]),
+      sheetScroll,
+      el('div', { class: 'flt-sheet-foot' }, [
+        el('button', { type: 'button', class: 'flt-sheet-clear', onclick: () => setFilter(clearedFilters(f)) }, '清空'),
+        el('button', { type: 'button', class: 'flt-sheet-apply', onclick: () => closeSheet() }, ['查看', sheetCount]),
+      ]),
+    ]),
+  ]);
 
-    // 一级类目（含「全部」）
-    const catList = el('div', { class: 'filter-group' });
-    catList.appendChild(
-      el('button', {
-        class: 'filter-item' + (f.category ? '' : ' active'),
-        onclick: () => navigate(`#/products${f.sort !== 'default' ? `?sort=${f.sort}` : ''}`),
-      }, `全部商品（${tree.reduce((n, c) => n + c.count, 0)}）`),
-    );
-    tree.forEach((c) => {
-      const isOpen = c.id === f.category;
-      catList.appendChild(
-        el('button', {
-          class: 'filter-item' + (isOpen ? ' active' : ''),
-          onclick: () => navigate(`#/products?cat=${encodeURIComponent(c.id)}`),
-        }, [
-          el('span', {}, c.name),
-          el('span', { class: 'cnt' }, String(c.count)),
-        ]),
-      );
-      // 展开当前类目下的二级
-      if (isOpen && c.children.length) {
-        const subWrap = el('div', { class: 'filter-subs' }, [
-          el('button', {
-            class: 'sub-item' + (f.sub ? '' : ' active'),
-            onclick: () => navigate(`#/products?cat=${encodeURIComponent(c.id)}`),
-          }, '全部'),
-          ...c.children.map((s) =>
-            el('button', {
-              class: 'sub-item' + (f.sub === s.id ? ' active' : ''),
-              onclick: () => navigate(`#/products?cat=${encodeURIComponent(c.id)}&sub=${encodeURIComponent(s.id)}`),
-            }, [
-              el('span', {}, s.name),
-              el('span', { class: 'cnt' }, String(s.count)),
+  wrap.appendChild(el('div', { class: 'shop-layout' }, [
+    aside,
+    el('div', { class: 'shop-main' }, [
+      el('div', { class: 'shop-head' }, [
+        crumb,
+        el('div', { class: 'shop-bar' }, [
+          countEl,
+          el('div', { class: 'shop-bar-right' }, [
+            el('label', { class: 'sort-wrap' }, [
+              el('span', { class: 'sort-label' }, '排序'),
+              sortSelect,
             ]),
-          ),
-        ]);
-        catList.appendChild(subWrap);
+            sheetBtn,
+          ]),
+        ]),
+        activeRow,
+      ]),
+      grid,
+      more,
+    ]),
+  ]));
+  wrap.appendChild(sheet);
+  if (sheetOpen) document.body.classList.add('flt-sheet-open');
+
+  /* ---------- 小组件 ---------- */
+  const chip = (label, { on = false, count = null, onclick } = {}) => el('button', {
+    type: 'button',
+    class: `chip small flt-chip${on ? ' active' : ''}`,
+    'aria-pressed': on ? 'true' : 'false',
+    onclick,
+  }, [String(label), count != null ? el('span', { class: 'chip-cnt' }, String(count)) : null]);
+
+  const group = (label, chips) => el('div', { class: 'filter-group' }, [
+    el('div', { class: 'filter-label' }, label),
+    ...chips,
+  ]);
+
+  // 已选但当前分面里没有的值（例如换了品类后残留），补在列表末尾避免「选了却看不见」
+  const mergeSelected = (entries, selected) => {
+    const map = new Map(entries);
+    selected.forEach((v) => { if (!map.has(v)) map.set(v, 0); });
+    return [...map.entries()];
+  };
+
+  /* ---------- 面板位置：桌面在侧栏，移动端移入弹层 ---------- */
+  function placePanel() {
+    (sheetOpen ? sheetScroll : asideHost).appendChild(panelHost);
+  }
+
+  function openSheet() {
+    sheetOpen = true;
+    sheet.classList.add('is-open');
+    document.body.classList.add('flt-sheet-open');
+    placePanel();
+  }
+
+  function closeSheet() {
+    sheetOpen = false;
+    sheet.classList.remove('is-open');
+    document.body.classList.remove('flt-sheet-open');
+    placePanel();
+  }
+
+  /* ---------- 状态变更 ---------- */
+  function setFilter(patch) {
+    Object.assign(f, patch);
+    // 子类必须挂在真实存在的类目下：深链里写了不存在的子类会被静默丢弃
+    const known = new Set();
+    tree.forEach((c) => (c.children || []).forEach((s) => known.add(s.id)));
+    if (f.subs.length) f.subs = f.subs.filter((s) => known.has(s));
+    syncListingUrl(path, f);
+    paint();
+  }
+
+  /* ---------- 面包屑 ---------- */
+  function paintCrumb(total) {
+    crumb.innerHTML = '';
+    if (mode === 'search') {
+      crumb.appendChild(el('span', { class: 'crumb current' }, `搜索「${f.q}」`));
+      if (f.cats.length) crumb.appendChild(el('span', { class: 'tag-chip' }, f.cats.map(catName).join('、')));
+      crumb.appendChild(el('span', { class: 'crumb-hint' }, `命中 ${total} 件`));
+      return;
+    }
+    crumb.appendChild(el('span', {
+      class: `crumb${f.cats.length ? '' : ' current'}`,
+      onclick: () => { if (f.cats.length) setFilter({ cats: [], subs: [] }); },
+    }, '全部商品'));
+    if (f.cats.length) {
+      crumb.appendChild(el('span', { class: 'sep' }, '/'));
+      crumb.appendChild(el('span', { class: `crumb${f.subs.length ? '' : ' current'}` }, f.cats.map(catName).join('、')));
+    }
+    if (f.subs.length) {
+      crumb.appendChild(el('span', { class: 'sep' }, '/'));
+      crumb.appendChild(el('span', { class: 'crumb current' }, f.subs.map(subName).join('、')));
+    }
+  }
+
+  /* ---------- 已选条件 ---------- */
+  function paintActive() {
+    activeRow.innerHTML = '';
+    const tags = [];
+    f.cats.forEach((id) => tags.push({ text: catName(id), patch: { cats: f.cats.filter((x) => x !== id), subs: [] } }));
+    f.subs.forEach((id) => tags.push({ text: subName(id), patch: { subs: f.subs.filter((x) => x !== id) } }));
+    f.brands.forEach((b) => tags.push({ text: b, patch: { brands: f.brands.filter((x) => x !== b) } }));
+    f.price.forEach((id) => tags.push({ text: (bandById(id) || {}).label || id, patch: { price: f.price.filter((x) => x !== id) } }));
+    f.colors.forEach((c) => tags.push({ text: `${c}色`, patch: { colors: f.colors.filter((x) => x !== c) } }));
+    f.sizes.forEach((s) => tags.push({ text: s, patch: { sizes: f.sizes.filter((x) => x !== s) } }));
+    if (f.stock) tags.push({ text: '仅看有货', patch: { stock: false } });
+    if (f.min != null || f.max != null) tags.push({ text: bandLabel(f.min, f.max), patch: { min: null, max: null } });
+
+    if (!tags.length) {
+      activeRow.classList.add('is-empty');
+      return;
+    }
+    activeRow.classList.remove('is-empty');
+    activeRow.appendChild(el('span', { class: 'flt-active-label' }, `已选 ${tags.length}`));
+    tags.forEach((t) => activeRow.appendChild(el('button', {
+      type: 'button',
+      class: 'flt-tag',
+      onclick: () => setFilter(t.patch),
+    }, [t.text, el('span', { class: 'flt-tag-x', 'aria-hidden': 'true' }, '×')])));
+    activeRow.appendChild(el('button', {
+      type: 'button',
+      class: 'flt-clear-all',
+      onclick: () => setFilter(clearedFilters(f)),
+    }, '清空全部'));
+  }
+
+  /* ---------- 筛选面板 ---------- */
+  function buildPanel() {
+    const fc = facetCounts(all, f);
+    panelHost.innerHTML = '';
+    panelHost.appendChild(el('div', { class: 'filter-title' }, '筛选'));
+
+    // 品类（多选）
+    panelHost.appendChild(group('品类', tree.map((c) => chip(c.name, {
+      on: f.cats.includes(c.id),
+      count: fc.cats.get(c.id) || 0,
+      onclick: () => {
+        const cats = toggleValue(f.cats, c.id);
+        const allowed = new Set();
+        tree.filter((t) => cats.includes(t.id)).forEach((t) => (t.children || []).forEach((s) => allowed.add(s.id)));
+        setFilter({ cats, subs: f.subs.filter((s) => allowed.has(s)) });
+      },
+    }))));
+
+    // 子类（恰好选中一个品类时出现）
+    if (f.cats.length === 1) {
+      const cat = tree.find((c) => c.id === f.cats[0]);
+      if (cat && cat.children && cat.children.length) {
+        const chips = [chip('全部', { on: !f.subs.length, onclick: () => setFilter({ subs: [] }) })];
+        cat.children.forEach((s) => chips.push(chip(s.name, {
+          on: f.subs.includes(s.id),
+          count: fc.subs.get(s.id) || 0,
+          onclick: () => setFilter({ subs: toggleValue(f.subs, s.id) }),
+        })));
+        panelHost.appendChild(group('子类', chips));
       }
-    });
-    aside.appendChild(catList);
+    }
+
+    // 品牌
+    const brandEntries = [...fc.brands.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if (brandEntries.length > 1) {
+      panelHost.appendChild(group('品牌', brandEntries.map(([b, n]) => chip(b, {
+        on: f.brands.includes(b),
+        count: n,
+        onclick: () => setFilter({ brands: toggleValue(f.brands, b) }),
+      }))));
+    }
 
     // 价格区间
-    const priceWrap = el('div', { class: 'filter-group' }, [el('div', { class: 'filter-label' }, '价格区间')]);
-    PRICE_RANGES.forEach((r) => {
-      priceWrap.appendChild(
-        el('button', {
-          class: 'chip small' + (r.id === priceId ? ' active' : ''),
-          onclick: () => navigate(
-            `#/products${qs({ cat: f.category, sub: f.sub, sort: f.sort, min: r.min, max: r.max })}`,
-          ),
-        }, r.label),
-      );
-    });
-    aside.appendChild(priceWrap);
+    panelHost.appendChild(group('价格区间', PRICE_BANDS.map((b) => chip(b.label, {
+      on: f.price.includes(b.id),
+      count: fc.price.get(b.id) || 0,
+      onclick: () => setFilter({ price: toggleValue(f.price, b.id), min: null, max: null }),
+    }))));
 
-    // 品牌（仅当前类目下有的品牌）
-    const brands = [...new Set(products.map((p) => p.brand).filter(Boolean))];
-    if (brands.length > 1) {
-      const brandWrap = el('div', { class: 'filter-group' }, [el('div', { class: 'filter-label' }, '品牌')]);
-      brandWrap.appendChild(
-        el('button', {
-          class: 'chip small' + (f.brand ? '' : ' active'),
-          onclick: () => navigate(`#/products${qs({ cat: f.category, sub: f.sub, sort: f.sort })}`),
-        }, '不限'),
-      );
-      brands.slice(0, 8).forEach((b) => {
-        brandWrap.appendChild(
-          el('button', {
-            class: 'chip small' + (f.brand === b ? ' active' : ''),
-            onclick: () => navigate(
-              `#/products${qs({ cat: f.category, sub: f.sub, sort: f.sort, brand: b })}`,
-            ),
-          }, b),
-        );
-      });
-      aside.appendChild(brandWrap);
+    // 颜色
+    const colorValues = mergeSelected(
+      [...fc.colors.entries()].sort((a, b) => b[1] - a[1]),
+      f.colors,
+    ).slice(0, 10);
+    if (colorValues.length > 1) {
+      panelHost.appendChild(group('颜色', colorValues.map(([v, n]) => chip(`${v}色`, {
+        on: f.colors.includes(v),
+        count: n,
+        onclick: () => setFilter({ colors: toggleValue(f.colors, v) }),
+      }))));
     }
 
-    if (f.category || f.sub || f.brand || priceId !== 'all') {
-      aside.appendChild(
-        el('button', {
-          class: 'filter-reset',
-          onclick: () => navigate('#/products'),
-        }, '✕ 清空筛选条件'),
-      );
+    // 规格 / 尺码
+    const sizeValues = mergeSelected(
+      [...fc.sizes.entries()].sort((a, b) => b[1] - a[1]),
+      f.sizes,
+    ).slice(0, 8);
+    if (sizeValues.length > 1) {
+      panelHost.appendChild(group(f.cats.includes('apparel') ? '尺码' : '规格', sizeValues.map(([v, n]) => chip(v, {
+        on: f.sizes.includes(v),
+        count: n,
+        onclick: () => setFilter({ sizes: toggleValue(f.sizes, v) }),
+      }))));
     }
-  };
 
-  // 只保留非空参数，保持 URL 干净可分享
-  function qs(parts) {
-    const p = new URLSearchParams();
-    if (parts.cat) p.set('cat', parts.cat);
-    if (parts.sub) p.set('sub', parts.sub);
-    if (parts.sort && parts.sort !== 'default') p.set('sort', parts.sort);
-    if (parts.brand) p.set('brand', parts.brand);
-    if (Number.isFinite(parts.min)) p.set('min', parts.min);
-    if (Number.isFinite(parts.max)) p.set('max', parts.max);
-    const s = p.toString();
-    return s ? `?${s}` : '';
+    // 库存
+    panelHost.appendChild(group('库存', [chip('仅看有货', {
+      on: f.stock,
+      count: fc.inStock,
+      onclick: () => setFilter({ stock: !f.stock }),
+    })]));
+
+    if (countActive(f) > 0) {
+      panelHost.appendChild(el('button', {
+        type: 'button',
+        class: 'filter-reset',
+        onclick: () => setFilter(clearedFilters(f)),
+      }, '✕ 清空筛选条件'));
+    }
   }
 
-  buildAside();
-
-  /* ---------- 顶部：结果数 + 排序 ---------- */
-  head.innerHTML = '';
-  const activeCat = tree.find((c) => c.id === f.category);
-  const activeSub = activeCat?.children.find((s) => s.id === f.sub);
-  head.appendChild(
-    el('div', { class: 'shop-crumb' }, [
-      el('span', { class: 'crumb', onclick: () => navigate('#/products') }, '全部商品'),
-      activeCat ? el('span', { class: 'sep' }, '/') : null,
-      activeCat
-        ? el(
-            'span',
-            { class: 'crumb' + (f.sub ? '' : ' current'), onclick: () => navigate(`#/products?cat=${encodeURIComponent(activeCat.id)}`) },
-            activeCat.name,
-          )
-        : null,
-      activeSub ? el('span', { class: 'sep' }, '/') : null,
-      activeSub ? el('span', { class: 'crumb current' }, activeSub.name) : null,
-      f.brand ? el('span', { class: 'tag-chip' }, `品牌：${f.brand}`) : null,
-    ]),
-  );
-  head.appendChild(
-    el('div', { class: 'shop-bar' }, [
-      el('span', { class: 'result-count' }, `共 ${products.length} 件商品`),
-      el('div', { class: 'sorts' }, SORT_OPTIONS.map((o) =>
-        el('button', {
-          class: 'chip small' + (o.id === f.sort ? ' active' : ''),
-          onclick: () => navigate(`#/products${qs({ cat: f.category, sub: f.sub, sort: o.id, brand: f.brand, min: f.minPrice, max: f.maxPrice })}`),
-        }, o.label),
-      )),
-    ]),
-  );
-
-  /* ---------- 网格 ---------- */
-  grid.innerHTML = '';
-  if (!products.length) {
-    grid.appendChild(emptyEditorial({
+  /* ---------- 空状态 ---------- */
+  function emptyState() {
+    const hasFilter = countActive(f) > 0;
+    if (mode === 'search') {
+      return emptyEditorial({
+        title: '没有找到正好的那一件',
+        text: `没有商品同时满足「${f.q}」与当前筛选。换个说法，或放宽一点条件。`,
+        primaryLabel: hasFilter ? '清空筛选' : '换个关键词',
+        onPrimary: () => (hasFilter ? setFilter(clearedFilters(f)) : navigate('#/search')),
+        secondaryLabel: '让 AI 找找',
+        onSecondary: () => askGuide(f.q),
+      });
+    }
+    return emptyEditorial({
       title: '这一栏，暂时留白',
       text: '当前条件还没有合适单品。放宽筛选，或让 AI 寻找相近气质的物件。',
-      primaryLabel: '让 AI 寻找',
-      onPrimary: () => askGuide(f.category ? `帮我推荐${activeCat ? activeCat.name : ''}类的好物` : '帮我挑一件有质感的好物'),
-      secondaryLabel: '清空筛选',
-      onSecondary: () => navigate('#/products'),
-    }));
-    return;
+      primaryLabel: hasFilter ? '清空筛选' : '回到全部甄选',
+      onPrimary: () => (hasFilter ? setFilter(clearedFilters(f)) : navigate('#/products')),
+      secondaryLabel: '让 AI 找找',
+      onSecondary: () => askGuide(''),
+    });
   }
-  // 大型目录分批呈现，避免一次性把所有商品塞进 DOM，也保留编辑式的长页节奏。
-  const PAGE_SIZE = 24;
-  let shown = 0;
-  const loadMoreRow = el('div', { class: 'load-more-row' });
-  main.appendChild(loadMoreRow);
-  const paintBatch = (first = false) => {
-    const batch = products.slice(shown, shown + PAGE_SIZE);
-    batch.forEach((p) => grid.appendChild(productCard(p, {
-      onDetail: (item) => openProductDetail(item, 'list'),
-      onAddCart: (item) => doAdd(item, 'list'),
-    })));
-    shown += batch.length;
-    if (first) revealCards(grid);
-    loadMoreRow.innerHTML = '';
-    if (shown < products.length) {
-      loadMoreRow.appendChild(el('span', { class: 'load-more-count' }, `${shown} / ${products.length}`));
-      loadMoreRow.appendChild(el('button', {
-        type: 'button',
-        class: 'load-more-btn',
-        onclick: () => paintBatch(false),
-      }, ['继续浏览', el('span', { 'aria-hidden': 'true' }, '↓')]));
-    } else if (products.length > PAGE_SIZE) {
-      loadMoreRow.appendChild(el('span', { class: 'load-more-count' }, `已呈现全部 ${products.length} 件藏品`));
+
+  /* ---------- 网格 ---------- */
+  function paintGrid(list) {
+    grid.innerHTML = '';
+    more.innerHTML = '';
+    if (!list.length) {
+      grid.appendChild(emptyState());
+      return;
     }
-  };
-  paintBatch(true);
+    let shown = 0;
+    const batch = (first) => {
+      const slice = list.slice(shown, shown + LIST_PAGE_SIZE);
+      slice.forEach((p) => grid.appendChild(productCard(p, {
+        onDetail: (item) => openProductDetail(item, mode === 'search' ? 'search' : 'list'),
+        onAddCart: (item) => doAdd(item, mode === 'search' ? 'search' : 'list'),
+      })));
+      shown += slice.length;
+      if (first) revealCards(grid);
+      more.innerHTML = '';
+      if (shown < list.length) {
+        more.appendChild(el('span', { class: 'load-more-count' }, `${shown} / ${list.length}`));
+        more.appendChild(el('button', {
+          type: 'button',
+          class: 'load-more-btn',
+          onclick: () => batch(false),
+        }, ['继续浏览', el('span', { 'aria-hidden': 'true' }, '↓')]));
+      } else if (list.length > LIST_PAGE_SIZE) {
+        more.appendChild(el('span', { class: 'load-more-count' }, `已呈现全部 ${list.length} 件藏品`));
+      }
+    };
+    batch(true);
+  }
+
+  /* ---------- 总装 ---------- */
+  function paint() {
+    const list = applyFilters(all, f);
+    countEl.textContent = `共 ${list.length} 件商品`;
+    introCount.textContent = `${list.length} 件`;
+    sortSelect.value = f.sort;
+    sheetCount.textContent = `${list.length} 件`;
+    const badges = countActive(f);
+    sheetBadge.textContent = badges ? String(badges) : '';
+    sheetBtn.classList.toggle('has-filter', badges > 0);
+    paintCrumb(list.length);
+    buildPanel();
+    placePanel();
+    paintActive();
+    paintGrid(list);
+    return list.length;
+  }
+
+  paint();
+
+  if (mode === 'search') {
+    trackEvent({ event: 'search', source: 'search', meta: { query: f.q, count: applyFilters(all, f).length } });
+  }
+}
+
+/** 商品列表（全部甄选 / 分类列表共用） */
+export function renderProducts(view, query = {}) {
+  return renderListing(view, { mode: 'collection', path: '/products', filters: parseFilters(query) });
+}
+
+/** 搜索结果页（关键词 + 同一套筛选与排序） */
+export function renderSearch(view, query = {}) {
+  return renderListing(view, { mode: 'search', path: '/search', filters: parseFilters(query) });
 }
 
 /** 类目树：网关优先，失败则从本地商品派生 */
@@ -758,62 +918,6 @@ async function loadCategoryTree() {
     }
   }
   return deriveCategoryTree(await getProducts());
-}
-
-/* ---------------- 智能搜索 ---------------- */
-export async function renderSearch(view, query) {
-  view.innerHTML = '';
-  view.appendChild(el('header', { class: 'page-intro search-intro' }, [
-    el('div', { class: 'page-intro-copy' }, [
-      el('span', { class: 'eyebrow' }, 'INTELLIGENT SEARCH'),
-      el('h1', { class: 'page-display' }, query ? `关于「${query}」` : '搜索你的灵感'),
-      el('p', {}, 'AI 不只是匹配关键词，也在理解你对质感、场景与预算的期待。'),
-    ]),
-    el('div', { class: 'page-intro-aside' }, [
-      el('span', { class: 'intro-line', 'aria-hidden': 'true' }),
-    ]),
-  ]));
-  const grid = el('div', { class: 'grid' });
-  view.appendChild(grid);
-  if (!query) {
-    grid.appendChild(emptyEditorial({
-      title: '从一个念头开始',
-      text: '在顶部输入关键词或一句完整的需求，例如「降噪耳机」或「预算 1000 的礼物」。',
-      primaryLabel: '让 AI 私人买手试试',
-      onPrimary: () => askGuide(''),
-    }));
-    return;
-  }
-  loading(grid, 'AI 正在理解你的需求…');
-  try {
-    const results = await searchProducts(query, 12);
-    ensureDemoBanner(view);
-    // 搜索埋点（含查询词与命中数）
-    trackEvent({ event: 'search', source: 'search', meta: { query, count: results.length } });
-    grid.innerHTML = '';
-    if (!results.length) {
-      grid.appendChild(emptyEditorial({
-        title: '没有正好的那一件',
-        text: '换个说法，或放宽一点条件。也可以交给 AI，让它理解你真正想要的感觉。',
-        primaryLabel: '让 AI 再找找',
-        onPrimary: () => askGuide(query),
-        secondaryLabel: '浏览全部',
-        onSecondary: () => navigate('#/products'),
-      }));
-      return;
-    }
-    results.forEach((p) => {
-      const card = productCard(p, { onDetail: (p) => openProductDetail(p, 'search'), onAddCart: (p) => doAdd(p, 'search') });
-      // 在卡片底部附加 AI 相关度说明
-      card.querySelector('.body').appendChild(
-        el('div', { class: 'reason' }, `AI 匹配度 ${Math.round((Number(p.score) || 0) * 100)}%`),
-      );
-      grid.appendChild(card);
-    });
-    revealCards(grid);
-  } catch (err) {
-    banner(grid, friendly(err), 'err');
-  }
 }
 
 /* ---------------- 商品详情（路由页，支持深链 #/product/:id?from=） ---------------- */

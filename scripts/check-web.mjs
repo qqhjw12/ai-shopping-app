@@ -840,5 +840,167 @@ if (failed === 0) {
   }
 }
 
+/* ---------------- 检索与筛选断言（关键词 / 多维筛选 / 排序 / URL 往返） ---------------- */
+// 这一层只碰纯函数与渲染结果，不依赖浏览器：
+//   - URL 往返（写出去的条件必须能原样读回来）——刷新/分享保持状态的根基
+//   - 多选语义（同维度 OR、跨维度 AND）、价格档位不重不漏、属性与库存
+//   - 排序单调性：价格升/降、销量、上新
+//   - 三个渲染面：搜索结果 / 空关键词热门词 / 无结果空态 / 列表页已选标签
+if (failed === 0) {
+  console.log('\n检索与筛选断言（关键词 / 多维筛选 / 排序 / URL 往返）');
+  try {
+    const dir = (f) => pathToFileURL(join(WEB_DIR, f)).href;
+    const cat = await import(dir('store/catalog.js'));
+    const { renderProducts, renderSearch } = await import(dir('views.js'));
+    const { demoProducts: demoList } = await import(dir('demo-data.js'));
+    const E = cat.EMPTY_FILTERS;
+    const all = demoList;
+
+    /* 1) URL 编解码往返 */
+    const f1 = {
+      ...E, q: '降噪 耳机', cats: ['phone', 'audio'], subs: ['audio_tws'], brands: ['极光'],
+      price: ['p100_500', 'p3000'], colors: ['黑'], sizes: ['标准版'],
+      stock: true, sort: 'price_asc', min: 88, max: null,
+    };
+    const back = cat.parseFilters(Object.fromEntries(new URLSearchParams(cat.buildQuery(f1).slice(1))));
+    const roundTrip = JSON.stringify(back) === JSON.stringify(f1);
+    const cleanUrl = cat.buildQuery(E) === '' && cat.buildQuery({ ...E, sort: 'default' }) === '';
+    const badBand = cat.parseFilters({ price: 'p100,zzz' }).price.join(',') === 'p100';
+
+    /* 2) 关键词：全字段命中、AND 语义、无命中 */
+    const kwList = cat.filterOnly(all, { ...E, q: '耳机' });
+    const kwFieldOk = kwList.length > 0 && kwList.every((p) => [p.name, p.description, (p.tags || []).join(' '), p.brand, p.category, p.subCategory]
+      .join(' ').includes('耳机'));
+    const kwAndOk = cat.filterOnly(all, { ...E, q: '耳机 降噪' }).length <= kwList.length;
+    const kwMissOk = cat.filterOnly(all, { ...E, q: '绝不存在的商品关键词' }).length === 0;
+
+    /* 3) 多选 OR / 跨维 AND / 价格档位不重不漏 */
+    const phoneN = cat.filterOnly(all, { ...E, cats: ['phone'] }).length;
+    const audioN = cat.filterOnly(all, { ...E, cats: ['audio'] }).length;
+    const multiOk = cat.filterOnly(all, { ...E, cats: ['phone', 'audio'] }).length === phoneN + audioN;
+    const crossOk = cat.filterOnly(all, { ...E, cats: ['phone'], price: ['p1000_3000'] }).length < phoneN;
+    const brandN = cat.filterOnly(all, { ...E, brands: ['极光'] }).length;
+    const brandAndCat = cat.filterOnly(all, { ...E, brands: ['极光'], cats: ['phone'] }).length;
+    const andOk = brandAndCat > 0 && brandAndCat <= Math.min(brandN, phoneN);
+    const bandSum = cat.PRICE_BANDS.reduce((n, b) => n + cat.filterOnly(all, { ...E, price: [b.id] }).length, 0);
+    const bandOk = bandSum === all.length;
+
+    /* 4) 属性（颜色/规格）与库存 */
+    const black = cat.filterOnly(all, { ...E, colors: ['黑'] });
+    const colorOk = black.length > 0 && black.every((p) => cat.skuTraits(p).colors.includes('黑'));
+    const apparelSizes = [...new Set(cat.filterOnly(all, { ...E, cats: ['apparel'] }).flatMap((p) => cat.skuTraits(p).sizes))];
+    const sizeOk = apparelSizes.includes('M') && apparelSizes.includes('L');
+    const inStock = cat.filterOnly(all, { ...E, stock: true });
+    // 演示库全部有货，用一条构造出来的缺货商品验证「仅看有货」确实会把它挡掉
+    const ghost = { ...all[0], id: '__ghost_out__', totalStock: 0, skus: [] };
+    const stocked = cat.filterOnly([...all, ghost], { ...E, stock: true });
+    const stockOk = inStock.length === all.length
+      && stocked.length === all.length
+      && !stocked.some((p) => p.id === '__ghost_out__')
+      && cat.filterOnly([...all, ghost], { ...E }).length === all.length + 1;
+
+    /* 5) 排序单调性 */
+    const asc = cat.applyFilters(all, { ...E, sort: 'price_asc' });
+    const desc = cat.applyFilters(all, { ...E, sort: 'price_desc' });
+    const sales = cat.applyFilters(all, { ...E, sort: 'sales' });
+    const newest = cat.applyFilters(all, { ...E, sort: 'new' });
+    const mono = (arr, cmp) => arr.every((p, i) => i === 0 || cmp(arr[i - 1], p));
+    const sortOk = mono(asc, (a, b) => a.price <= b.price)
+      && mono(desc, (a, b) => a.price >= b.price)
+      && mono(sales, (a, b) => (a.sales || 0) >= (b.sales || 0))
+      && mono(newest, (a, b) => String(a.id).localeCompare(String(b.id), 'en', { numeric: true }) >= 0);
+
+    /* 6) 分面计数：排除自身维度，选价格不影响品类条数 */
+    const bandOnly = cat.filterOnly(all, { ...E, price: ['p1000_3000'] });
+    const fc = cat.facetCounts(all, { ...E, price: ['p1000_3000'] });
+    const fcOk = fc.cats.get('phone') === bandOnly.filter((p) => p.categoryId === 'phone').length
+      && [...fc.price.values()].reduce((n, v) => n + v, 0) === all.length
+      && fc.inStock === bandOnly.filter((p) => cat.stockOf(p) > 0).length;
+
+    /* 7) 热门搜索词：每个词都能搜到东西 */
+    const hot = cat.hotSearches(all, 6);
+    const hotOk = hot.length === 6 && hot.every((w) => cat.filterOnly(all, { ...E, q: w.value }).length > 0);
+
+    /* 8) 渲染：搜索结果页 */
+    const sv = new El('main');
+    await renderSearch(sv, { q: '耳机' });
+    const svText = sv.textContent;
+    const svCount = /共 (\d+) 件商品/.exec(svText);
+    const searchRenderOk = svCount && Number(svCount[1]) > 0
+      && sv.querySelectorAll('.pcard').length > 0
+      && sv.querySelectorAll('.sort-select').length === 1
+      && sv.querySelectorAll('option').length === cat.SORTS.length
+      && sv.querySelectorAll('.flt-chip').length > 10;
+
+    /* 9) 空关键词：热门搜索占位，不铺商品 */
+    const hv = new El('main');
+    await renderSearch(hv, {});
+    const hotPlaceholderOk = hv.querySelectorAll('.hot-word').length >= 6
+      && hv.querySelectorAll('.pcard').length === 0
+      && /热门搜索/.test(hv.textContent);
+
+    /* 10) 无结果：安静空态 + 可清空 */
+    const ev = new El('main');
+    await renderSearch(ev, { q: '压根不存在的关键词' });
+    const emptyOk = /共 0 件商品/.test(ev.textContent)
+      && ev.querySelectorAll('.empty-editorial').length === 1
+      && /换个关键词|清空筛选/.test(ev.textContent);
+
+    /* 11) 列表页：多选 + 已选标签 + 排序下拉 */
+    // 垫片只支持单类名选择器（不认 .a.b），命中态一律按 className 统计
+    const activeChips = (root) => root.querySelectorAll('.flt-chip').filter((n) => n.classList.contains('active')).length;
+    const lv = new El('main');
+    await renderProducts(lv, { cat: 'phone,audio', color: '黑', stock: '1', sort: 'price_desc', price: 'p1000_3000' });
+    const lvTags = lv.querySelectorAll('.flt-tag').length;
+    const lvActive = activeChips(lv);
+    const listUiOk = lvTags === 5 && lvActive === 5 && lv.querySelectorAll('.flt-clear-all').length === 1;
+
+    /* 12) 清空筛选保留关键词与排序 */
+    const cleared = cat.clearedFilters({ ...f1 });
+    const clearOk = cleared.q === f1.q && cleared.sort === f1.sort
+      && cat.countActive(cleared) === 0 && cat.countActive(f1) === 10;
+
+    /* 13) 分类页：价格区间 + 排序作用于类目目录 */
+    const { renderCategories } = await import(dir('categories.js'));
+    const cv = new El('main');
+    await renderCategories(cv, { price: 'p1000_3000', sort: 'count' });
+    const catPageOk = cv.querySelectorAll('.cat-tools').length === 1
+      && cv.querySelectorAll('.flt-chip').length === cat.PRICE_BANDS.length + 1
+      && cv.querySelectorAll('.cat-card').length > 0
+      && activeChips(cv) === 1
+      && /个类目/.test(cv.textContent);
+
+    const cases = [
+      ['URL 往返（筛选状态可分享/刷新保持）', roundTrip],
+      ['默认条件不写进 URL', cleanUrl],
+      ['非法价格档位被丢弃', badBand],
+      ['关键词命中商品名/描述/标签', kwFieldOk],
+      ['多词 AND 语义', kwAndOk],
+      ['无关词零命中', kwMissOk],
+      ['同维度多选 OR', multiOk],
+      ['跨维度 AND', andOk && crossOk],
+      ['价格档位不重不漏', bandOk],
+      ['颜色属性筛选', colorOk],
+      ['尺码属性（M/L）', sizeOk],
+      ['仅看有货', stockOk],
+      ['排序单调（价格升/降/销量/上新）', sortOk],
+      ['分面计数排除自身维度', fcOk],
+      ['热门搜索词都有结果', hotOk],
+      ['搜索页：结果数/卡片/排序/筛选面板', Boolean(searchRenderOk)],
+      ['空关键词显示热门词占位', hotPlaceholderOk],
+      ['无结果空态可清空', emptyOk],
+      ['列表页：多选已选标签与清空', listUiOk],
+      ['清空筛选保留关键词与排序', clearOk],
+      ['分类页：价格区间 + 排序', catPageOk],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 检索与筛选${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 检索断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

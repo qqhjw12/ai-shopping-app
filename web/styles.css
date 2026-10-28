@@ -5101,3 +5101,348 @@ select.acct-input { appearance: none; -webkit-appearance: none; cursor: pointer;
   text-decoration: none;
 }
 .cart-full-link:hover { color: var(--ink); }
+
+/* ============================================================
+   检索：搜索栏光晕 / 排序下拉 / 筛选胶囊 / 移动端底部弹层
+   口径：胶囊一律 --r-pill，选中态 ink 底画布色文字（与全站一致），
+   不新增字体族，全部复用 --sans / --serif。
+   ============================================================ */
+
+/* 搜索栏：48px 胶囊不变，只把聚焦光晕调柔和一些（外扩 5px + 极淡投影） */
+.search:focus-within {
+  border-color: rgba(200, 169, 110, 0.6);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow:
+    0 0 0 5px rgba(200, 169, 110, 0.16),
+    0 8px 22px rgba(200, 169, 110, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+/* ---------------- 结果栏 ---------------- */
+.shop-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  min-width: 0;
+}
+.sort-wrap { display: inline-flex; align-items: center; gap: 7px; }
+.sort-label {
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 32px;
+  padding: 0 30px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background-color: rgba(255, 255, 255, 0.72);
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%238d8a84' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 10px 7px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.sort-select:hover { border-color: var(--line-strong); }
+.sort-select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px var(--gold-weak);
+}
+
+.flt-open {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 11.5px;
+}
+.flt-open.has-filter { border-color: var(--ink); }
+.flt-open:active { transform: scale(0.98); }
+.flt-badge {
+  display: none;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: var(--canvas);
+  font-family: var(--sans);
+  font-size: 9px;
+  line-height: 15px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.flt-badge:not(:empty) { display: inline-block; }
+
+.crumb-hint {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------- 已选条件 ---------------- */
+.flt-active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.flt-active.is-empty { display: none; }
+.flt-active-label {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.flt-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.flt-tag:hover { border-color: var(--ink); }
+.flt-tag-x { color: var(--muted); font-size: 12px; line-height: 1; }
+.flt-tag:hover .flt-tag-x { color: var(--ink); }
+.flt-clear-all {
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.flt-clear-all:hover { color: var(--ink); }
+
+/* ---------------- 筛选胶囊（选中 ink 底） ---------------- */
+.flt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+}
+.chip-cnt,
+.chip-ncnt {
+  color: var(--muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.flt-chip.active .chip-cnt { color: rgba(250, 249, 246, 0.62); }
+
+/* ---------------- 移动端底部弹层 ---------------- */
+.flt-sheet { display: none; }
+.flt-sheet.is-open { display: block; }
+.flt-sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 128;
+  background: rgba(26, 26, 26, 0.32);
+  animation: flt-fade 0.18s ease both;
+}
+.flt-sheet-body {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 129;
+  display: flex;
+  flex-direction: column;
+  max-height: 86vh;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: 20px 20px 0 0;
+  background: var(--canvas);
+  box-shadow: 0 -14px 48px rgba(26, 26, 26, 0.2);
+  animation: flt-up 0.22s var(--ease) both;
+}
+.flt-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.flt-sheet-head b {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+}
+.flt-sheet-close {
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 11.5px;
+}
+.flt-sheet-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 18px 6px;
+  -webkit-overflow-scrolling: touch;
+}
+.flt-sheet-scroll .filter-title { display: none; }
+.flt-sheet-scroll .filter-group { padding: 13px 0; }
+.flt-sheet-foot {
+  display: flex;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--line);
+}
+.flt-sheet-clear {
+  flex: none;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 12px;
+}
+.flt-sheet-apply {
+  flex: 1;
+  height: 44px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 0.2s var(--ease), background 0.2s ease;
+}
+.flt-sheet-apply:active { transform: scale(0.98); transition-duration: 120ms; }
+.flt-sheet-count { font-variant-numeric: tabular-nums; }
+body.flt-sheet-open { overflow: hidden; }
+
+@keyframes flt-up {
+  from { transform: translateY(22px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes flt-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---------------- 搜索页空关键词：热门搜索 ---------------- */
+.hot-search {
+  padding: 24px 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.03);
+}
+.hot-search .filter-label { margin-bottom: 0; }
+.hot-words { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.hot-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
+  font-size: 11.5px;
+}
+.hot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.hot-link {
+  color: var(--body);
+  font-size: 11.5px;
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-strong);
+  padding-bottom: 1px;
+}
+.hot-link:hover { color: var(--ink); border-color: var(--ink); }
+.hot-ai {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 11.5px;
+}
+.hot-ai:hover { border-color: var(--ink); color: var(--ink); }
+
+/* ---------------- 分类页：价格 / 排序工具栏 ---------------- */
+.cat-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.5);
+}
+.cat-tools-group { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.cat-tools .filter-label { width: auto; margin: 0; }
+.cat-tools-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ---------------- 响应式 ---------------- */
+@media (max-width: 980px) {
+  .shop-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .shop-filter { display: none; }
+  .flt-open { display: inline-flex; }
+  .shop-bar { align-items: center; flex-wrap: wrap; }
+  .shop-bar-right { width: auto; margin-left: auto; }
+}
+
+@media (min-width: 981px) {
+  .flt-sheet { display: none !important; }
+}
+
+@media (max-width: 640px) {
+  .shop-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .shop-bar-right { width: 100%; justify-content: space-between; }
+  .result-count { font-size: 10.5px; }
+  .cat-tools { padding: 12px; gap: 10px; }
+  .cat-tools .sort-wrap { width: 100%; justify-content: space-between; }
+  .hot-search { padding: 18px 16px; }
+  .hot-word { padding: 7px 12px; }
+}
