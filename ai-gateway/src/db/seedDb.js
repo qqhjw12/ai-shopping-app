@@ -151,17 +151,21 @@ export function ensureSeeded({ reset = false } = {}) {
     });
 
     const insCoupon = db.prepare(
-      'INSERT OR REPLACE INTO coupons (id, title, kind, threshold, amount, expire_days) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT OR REPLACE INTO coupons (id, title, kind, threshold, amount, expire_days, scope_text) VALUES (?, ?, ?, ?, ?, ?, ?)',
     );
-    for (const [id, title, kind, threshold, amount, days] of DEMO_COUPONS) {
-      insCoupon.run(id, title, kind, threshold, amount, days);
+    for (const [id, title, kind, threshold, amount, days, scope] of DEMO_COUPONS) {
+      insCoupon.run(id, title, kind, threshold, amount, days, scope || '全场通用');
     }
 
-    const insUserCoupon = db.prepare(
-      'INSERT INTO user_coupons (user_id, coupon_id, status, claimed_at) VALUES (?, ?, ?, ?)',
-    );
+    // 到期时间直接落库（不是每端各算一遍 claimed_at + expire_days），
+    // 否则取消订单返还时的「顺延」没有唯一真源可改。
+    const insUserCoupon = db.prepare(`
+      INSERT INTO user_coupons (user_id, coupon_id, status, claimed_at, expires_at)
+      VALUES (?, ?, ?, ?, datetime(?, '+' || (SELECT expire_days FROM coupons WHERE id = ?) || ' days'))
+    `);
     DEMO_USER_COUPONS.forEach((cid, i) => {
-      insUserCoupon.run('u_demo', cid, 'unused', daysAgo(6 - i));
+      const claimedAt = daysAgo(6 - i);
+      insUserCoupon.run('u_demo', cid, 'unused', claimedAt, claimedAt, cid);
     });
 
     const insFaq = db.prepare('INSERT INTO faqs (topic, question, answer, keywords) VALUES (?, ?, ?, ?)');

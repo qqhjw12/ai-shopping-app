@@ -469,19 +469,54 @@ async function route(req, res, url) {
     }
   }
 
+  // 券目录：券中心渲染用。前端内置同一份做离线兜底，联网时以这里为准。
+  if (url.pathname === '/api/coupons/catalog' && req.method === 'GET') {
+    return guarded(() => ({ coupons: userRepo.listCouponCatalog() }));
+  }
+
   if (url.pathname === '/api/coupons') {
     if (req.method === 'GET') {
       const userId = userIdOf(req, url.searchParams.get('userId'));
       const amount = Number(url.searchParams.get('amount') || 0);
-      return guarded(() => ({ coupons: userRepo.listCoupons(userId, amount) }));
+      // all=1：券包三 Tab 与跨设备同步都要拿到已用/已过期的券，
+      // 只返回未使用的话，另一台设备永远看不到「这张券已经被用掉了」。
+      const all = ['1', 'true', 'yes'].includes(String(url.searchParams.get('all') || '').toLowerCase());
+      return guarded(() => ({ coupons: userRepo.listCoupons(userId, amount, { all }) }));
     }
     if (req.method === 'POST') {
       const parsed = await readJson(req);
       if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
       if (!parsed.couponId) return sendError(res, 400, 'couponId required', req.reqId);
       const userId = userIdOf(req, parsed.userId);
-      return guarded(() => ({ ...userRepo.takeCoupon(userId, parsed.couponId), coupons: userRepo.listCoupons(userId) }), 201);
+      return guarded(() => ({
+        coupon: userRepo.takeCoupon(userId, parsed.couponId),
+        coupons: userRepo.listCoupons(userId, 0, { all: true }),
+      }), 201);
     }
+  }
+
+  // 核销：下单成功后由客户端回调（演示站订单落本地，服务端拿不到订单事务）
+  if (url.pathname === '/api/coupons/use' && req.method === 'POST') {
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    if (!parsed.couponId) return sendError(res, 400, 'couponId required', req.reqId);
+    const userId = userIdOf(req, parsed.userId);
+    return guarded(() => ({
+      ...userRepo.useCoupon(userId, parsed.couponId, parsed.orderId),
+      coupons: userRepo.listCoupons(userId, 0, { all: true }),
+    }));
+  }
+
+  // 取消订单返还：退回未使用 + 有效期顺延（规则在 services/couponRules.js）
+  if (url.pathname === '/api/coupons/refund' && req.method === 'POST') {
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    if (!parsed.orderId) return sendError(res, 400, 'orderId required', req.reqId);
+    const userId = userIdOf(req, parsed.userId);
+    return guarded(() => ({
+      ...userRepo.refundCouponByOrder(userId, parsed.orderId),
+      coupons: userRepo.listCoupons(userId, 0, { all: true }),
+    }));
   }
 
   // ===== 评价静态资源 / 发布 / 追评 / 有用投票 / 买家秀上传 =====
@@ -930,7 +965,11 @@ async function route(req, res, url) {
         'GET /api/orders?userId= · POST /api/orders {userId, items, addressId?, couponId?}',
         'GET /api/orders/:id?userId= · POST /api/orders/:id/pay?userId=',
         'GET|POST|DELETE /api/favorites?userId= (收藏夹：POST 为切换)',
-        'GET|POST /api/coupons?userId=&amount= (卡券包 / 领券)',
+        'GET /api/coupons/catalog (券目录，前端离线兜底同构)',
+        'GET /api/coupons?userId=&amount=&all=1 (卡包；all=1 含已用/已过期)',
+        'POST /api/coupons {userId, couponId} (领券，重复领取 409)',
+        'POST /api/coupons/use {userId, couponId, orderId} (核销，幂等)',
+        'POST /api/coupons/refund {userId, orderId} (取消订单返还 + 有效期顺延)',
         'GET|POST /api/addresses?userId= (地址簿：POST 带 id 即更新，返回最新清单)',
         'POST /api/addresses/:id/default?userId= (设为默认，幂等)',
         'DELETE /api/addresses/:id?userId= (删除；删默认则由剩余第一条接任)',

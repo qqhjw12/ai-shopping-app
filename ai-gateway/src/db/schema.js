@@ -339,6 +339,50 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_addr_alive ON addresses(user_id, deleted_at);
     `,
   },
+  {
+    version: 10,
+    name: 'coupon-wallet-sync',
+    sql: `
+      -- 券目录补「适用范围」：券中心卡片要展示，跨设备同步时一处定义处处一致
+      ALTER TABLE coupons ADD COLUMN scope_text TEXT NOT NULL DEFAULT '全场通用';
+
+      -- 券实例补到期时间与顺延次数。
+      -- expires_at 落库而不是各端用 claimed_at + expire_days 各算一遍：
+      -- 取消订单返还时要顺延有效期，只有落库才有唯一真源可改，
+      -- 否则「网页按顺延算、App 按原到期算」，同一张券两副面孔。
+      ALTER TABLE user_coupons ADD COLUMN expires_at TEXT;
+      ALTER TABLE user_coupons ADD COLUMN extension_count INTEGER NOT NULL DEFAULT 0;
+      UPDATE user_coupons SET expires_at = (
+        SELECT datetime(user_coupons.claimed_at, '+' || coupons.expire_days || ' days')
+        FROM coupons WHERE coupons.id = user_coupons.coupon_id
+      ) WHERE expires_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_uc_coupon ON user_coupons(user_id, coupon_id);
+
+      -- 券模板 id 与前端券目录对齐：两端用不同 id 的话，
+      -- 同一张券在「券中心」和「网关卡包」里是两只券，同步必然重复。
+      -- 旧的演示券（cp_new / cp_100 / cp_500 / cp_1000 / cp_vip / cp_2000）作废，
+      -- 外键级联会带走它们的卡包实例，下面统一按新目录补发体验券。
+      DELETE FROM coupons WHERE id IN ('cp_new', 'cp_100', 'cp_500', 'cp_1000', 'cp_vip', 'cp_2000');
+      INSERT OR REPLACE INTO coupons (id, title, kind, threshold, amount, expire_days, scope_text) VALUES
+        ('demo-c30',   '新人礼 · 满 99 减 30',      'cash',     99,   30,  30, '全场通用'),
+        ('demo-c80',   '会员日 · 满 599 减 80',     'cash',    599,   80,  15, '全场通用'),
+        ('demo-c90',   '尊享 9 折 · 满 199 可用',   'discount', 199,  10,  30, '全场通用'),
+        ('cp-home50',  '家居专场 · 满 399 减 50',   'cash',    399,   50,  20, '家居生活类商品'),
+        ('cp-bag20',   '箱包配饰 · 满 259 减 20',   'cash',    259,   20,  45, '箱包配饰类商品'),
+        ('cp-big150',  '尊享大额 · 满 1299 减 150', 'cash',   1299,  150,   7, '全场通用');
+
+      -- 存量用户补发三张体验券：旧券被级联删掉后卡包会空，
+      -- 而 ensureUser 只在「首次建档」时发券，老账号永远等不到补发。
+      INSERT INTO user_coupons (user_id, coupon_id, status, claimed_at, expires_at)
+      SELECT u.id, c.id, 'unused', datetime('now'), datetime('now', '+' || c.expire_days || ' days')
+      FROM users u
+      JOIN coupons c ON c.id IN ('demo-c30', 'demo-c80', 'demo-c90')
+      WHERE NOT EXISTS (
+        SELECT 1 FROM user_coupons uc
+        WHERE uc.user_id = u.id AND uc.coupon_id = c.id AND uc.status = 'unused'
+      );
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

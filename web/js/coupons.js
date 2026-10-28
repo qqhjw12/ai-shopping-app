@@ -8,8 +8,8 @@ import { el, toast } from './ui.js';
 import { navigate } from './router.js';
 import { getCurrentUser } from './user.js';
 import {
-  COUPON_CATALOG, STATE_TEXT, claimCoupon, fmtCouponValue, listWallet, hydrateWallet, onWalletChange,
-  walletStats,
+  STATE_TEXT, claimCoupon, currentCatalog, fetchCatalog, fmtCouponValue, listWallet,
+  onWalletChange, syncWallet, walletStats,
 } from './store/couponStore.js';
 
 function fmtDay(ms) {
@@ -87,7 +87,7 @@ export function renderCoupons(view) {
     // 可领取的排在前面：用户进来是为了领券，已领的只是状态回显
     const mine = user ? listWallet(user.id) : [];
     const held = new Set(mine.filter((w) => w.state === 'unused').map((w) => String(w.couponId)));
-    const rows = [...COUPON_CATALOG].sort((a, b) => {
+    const rows = [...currentCatalog()].sort((a, b) => {
       const ca = held.has(String(a.id));
       const cb = held.has(String(b.id));
       if (ca !== cb) return ca ? 1 : -1;
@@ -173,12 +173,20 @@ export function renderCoupons(view) {
     paintGrid();
   });
 
-  // 网关卡包校准：静态托管下 fetch 直接 404 走本地，不刷屏也不报错
+  // 联网时先对齐券目录（运营配置以服务端为准）再同步券包；
+  // 静态托管下两个请求都 404，安静回落到本地，不刷屏也不报错。
   if (user) {
-    hydrateWallet(user.id).then(() => {
-      paintWallet();
-      paintGrid();
-    }).catch((e) => console.warn('[coupons] 卡包校准失败', e && e.message));
+    Promise.all([fetchCatalog(), syncWallet(user.id)])
+      .then(([, res]) => {
+        paintWallet();
+        paintGrid();
+        if (res && res.online && res.adopted) {
+          toast(`已与本账号同步 ${res.adopted} 张券的变更`, 'ok');
+        }
+      })
+      .catch((e) => console.warn('[coupons] 同步失败', e && e.message));
+  } else {
+    fetchCatalog().then(() => paintGrid()).catch(() => {});
   }
 
   // 离开页面时退订，避免多次进入叠加回调

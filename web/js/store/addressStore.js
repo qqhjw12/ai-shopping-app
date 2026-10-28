@@ -282,8 +282,12 @@ export async function saveAddress(userId, payload = {}) {
         id: editingId || undefined,
         receiver: draft.receiver,
         phone: draft.phone,
+        // region 必须一起发：结算页的地址表单只有一个「省/市/区」输入框，
+        // 此时 province / city 都是空的，只有 region 有值。漏发 region 会让
+        // 网关判定「地区为空」直接 400——纯静态模式因为 404 回落本地，看不出这个问题。
         province: draft.province,
         city: draft.city,
+        region: draft.region,
         detail: draft.detail,
         postal: draft.postal,
         isDefault: draft.isDefault,

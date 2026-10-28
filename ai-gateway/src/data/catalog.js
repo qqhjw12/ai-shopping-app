@@ -714,15 +714,28 @@ export const DEMO_CART = [
 // 演示收藏
 export const DEMO_FAVORITES = ['p034', 'p019', 'p097', 'p050'];
 
-// 优惠券模板：[id, 名称, 类型, 门槛, 面额/折扣百分数, 有效天数]
+// 优惠券模板：[id, 名称, 类型, 门槛, 面额/折扣百分数, 有效天数, 适用范围]
+//
+// id 必须与前端 web/js/store/couponStore.js 的 COUPON_CATALOG 完全一致——
+// 前端把券包按 couponId 与网关卡包做双向合并，两边 id 不同步等于「同一张券
+// 在两台设备上是两只券」，跨设备同步会凭空多出一堆重复券。
+// type 口径：cash = 满减（amount 为直减金额）、discount = 折扣（amount 为减免百分比）。
 export const DEMO_COUPONS = [
-  ['cp_new', '新人专享券', 'amount', 0, 20, 30],
-  ['cp_100', '满 100 减 15', 'amount', 100, 15, 30],
-  ['cp_500', '满 500 减 60', 'amount', 500, 60, 30],
-  ['cp_1000', '满 1000 减 150', 'amount', 1000, 150, 30],
-  ['cp_vip', '会员日 9 折券', 'discount', 0, 10, 15],
-  ['cp_2000', '满 2000 减 300', 'amount', 2000, 300, 60],
+  ['demo-c30', '新人礼 · 满 99 减 30', 'cash', 99, 30, 30, '全场通用'],
+  ['demo-c80', '会员日 · 满 599 减 80', 'cash', 599, 80, 15, '全场通用'],
+  ['demo-c90', '尊享 9 折 · 满 199 可用', 'discount', 199, 10, 30, '全场通用'],
+  ['cp-home50', '家居专场 · 满 399 减 50', 'cash', 399, 50, 20, '家居生活类商品'],
+  ['cp-bag20', '箱包配饰 · 满 259 减 20', 'cash', 259, 20, 45, '箱包配饰类商品'],
+  ['cp-big150', '尊享大额 · 满 1299 减 150', 'cash', 1299, 150, 7, '全场通用'],
 ];
 
-// 演示用户已领取的券
-export const DEMO_USER_COUPONS = ['cp_new', 'cp_500', 'cp_vip'];
+/**
+ * 开户即送的体验券。其余券要用户自己到券中心领——
+ * 全量自动发放会让「领取」这个动作在服务端根本不存在，
+ * 跨设备同步也就无从谈起（人人卡包都满，谁也没真正领过）。
+ */
+export const STARTER_COUPON_IDS = ['demo-c30', 'demo-c80', 'demo-c90'];
+
+
+// 演示用户已领取的券（与开户赠券同口径，避免 u_demo 的卡包和别人的不一样）
+export const DEMO_USER_COUPONS = STARTER_COUPON_IDS;

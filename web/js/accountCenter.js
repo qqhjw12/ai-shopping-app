@@ -23,8 +23,8 @@ import {
   getOrder, listOrders, mergeOrders, normalizeRemote, statusText, updateOrderStatus,
 } from './store/orderStore.js';
 import {
-  STATE_TEXT, fmtCouponValue, hydrateWallet, onWalletChange, refundCouponsByOrder,
-  walletByState, walletStats,
+  REFUND_GRACE_DAYS, STATE_TEXT, fmtCouponValue, onWalletChange, refundCouponsByOrder,
+  syncWallet, walletByState, walletStats,
 } from './store/couponStore.js';
 
 const TABS = [
@@ -588,9 +588,9 @@ function paintCoupons(box, user, bento) {
   });
   window.addEventListener('hashchange', off, { once: true });
 
-  // 网关卡包校准（静态托管下静默失败，本地券包照常可用）
-  hydrateWallet(user.id).then(() => render())
-    .catch((e) => console.warn('[coupons] 卡包校准失败', e && e.message));
+  // 与账号同步：另一台设备领的/用掉的/返还顺延过的券，进这个 Tab 就能看到
+  syncWallet(user.id).then(() => render())
+    .catch((e) => console.warn('[coupons] 卡包同步失败', e && e.message));
 }
 
 function myCouponCard(w) {
@@ -602,7 +602,7 @@ function myCouponCard(w) {
     ? `已使用${w.orderId ? ` · 订单 ${w.orderId}` : ''}${w.usedAt ? ` · ${fmtDay(Date.parse(w.usedAt))}` : ''}`
     : state === 'expired'
       ? `${fmtDay(w.expiresAt)} 已过期`
-      : `有效期至 ${fmtDay(w.expiresAt)}`;
+      : `有效期至 ${fmtDay(w.expiresAt)}${w.extensionCount ? ` · 已顺延 ${w.extensionCount} 次` : ''}`;
 
   const act = state === 'unused'
     ? el('a', { class: 'mycp-act', href: '#/products' }, '去使用')
@@ -740,7 +740,7 @@ function orderDetailCard(o, { user, repaint } = {}) {
       const refund = refundCouponsByOrder(user.id, o.id);
       toast(
         refund.restored
-          ? `订单已取消，${refund.restored} 张优惠券已退回券包`
+          ? `订单已取消，${refund.restored} 张优惠券已退回券包${refund.extended ? `（有效期顺延 ${REFUND_GRACE_DAYS} 天）` : ''}`
           : '订单已取消',
         'ok',
       );

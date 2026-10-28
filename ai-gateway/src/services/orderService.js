@@ -85,7 +85,9 @@ export function previewOrder({ userId, items, addressId, couponId }) {
   let coupon = null;
   if (couponId) {
     coupon = userRepo.listCoupons(userId, productAmount).find((c) => c.couponId === couponId);
-    if (!coupon) throw Object.assign(new Error('优惠券不可用'), { status: 400 });
+    // usable 里已经含「未使用 + 未过期 + 达到门槛」三个条件，
+    // 只判断「找不到」会把过期券放过——过期的券也在卡包里，只是 state 是 expired。
+    if (!coupon || !coupon.usable) throw Object.assign(new Error('优惠券不可用'), { status: 400 });
     discountAmount = Math.min(coupon.worth, productAmount);
   }
   const shippingFee = productAmount - discountAmount >= SHIPPING_FREE_THRESHOLD ? 0 : SHIPPING_FEE;
@@ -134,8 +136,8 @@ export function createOrder({ userId, items, addressId, couponId, remark = '' })
     // 已购商品从购物车移除（用户手选了部分明细时，只清这些）
     cartRepo.clearCart(userId, draft.items.map((l) => l.productId));
     if (couponId) {
-      db.prepare("UPDATE user_coupons SET status = 'used', order_id = ? WHERE user_id = ? AND coupon_id = ? AND status = 'unused'")
-        .run(orderId, userId, couponId);
+      // 核销走仓储同一入口：直接写 SQL 会绕过「已过期不许核销」与幂等判断
+      userRepo.useCoupon(userId, couponId, orderId);
     }
 
     db.exec('COMMIT');

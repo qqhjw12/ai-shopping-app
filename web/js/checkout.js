@@ -327,7 +327,9 @@ export async function renderCheckout(view) {
   // 否则券中心的领取动作毫无意义。不可用的券也留在列表里，并写明原因（差多少钱 / 已过期 / 已使用）。
   function paintCoupon() {
     couponCard.innerHTML = '';
-    const coupons = couponsNow();
+    // 只列「还没用掉」的券：已使用 / 已过期的券在券包里看就行，
+    // 混进结算页只会让「这张为什么点不动」变成噪音。
+    const coupons = couponsNow().filter((c) => c.state === 'unused');
     const usable = coupons.filter((c) => c.usable);
     const picked = pickedCoupon();
     const autoOn = state.couponAuto && usable.length > 0;

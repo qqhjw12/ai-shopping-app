@@ -901,6 +901,70 @@ if (failed === 0) {
     const isolatedWallet = cp.walletStats('u_coupon_other').total === 0
       && cp.listWallet('u_coupon_other').length === 0;
 
+    /* 10) 跨设备合并（纯函数）：服务端已核销覆盖本地、本地已核销补推、服务端独有补入 */
+    const nowM = Date.now();
+    const D = 86400000;
+    const mres = cp.mergeWallet(
+      [
+        { id: 'l1', couponId: 'ma-demo', status: 'unused', expiresAt: nowM + 10 * D },
+        { id: 'l2', couponId: 'mb-demo', status: 'used', orderId: 'MS_LOCAL', expiresAt: nowM + 5 * D },
+      ],
+      [
+        { id: 91, couponId: 'ma-demo', state: 'used', orderId: 'MS_REMOTE', expiresAt: nowM + 3 * D },
+        { id: 92, couponId: 'mc-demo', state: 'unused', expiresAt: nowM + 8 * D, title: '服务端新券' },
+      ],
+      nowM,
+      // 发件箱里还躺着一张没送达的核销 → 该补推，不能当成「服务端已返还」
+      [{ type: 'use', couponId: 'mb-demo', orderId: 'MS_LOCAL' }],
+    );
+    const mA = mres.list.find((c) => c.couponId === 'ma-demo');
+    // 另一台设备用掉的券，本机必须跟着变已使用；到期时间也以服务端为准
+    const remoteUsedWins = mA.status === 'used' && mA.orderId === 'MS_REMOTE' && mA.expiresAt === nowM + 3 * D;
+    // 本地已核销、服务端还没 → 补推核销（离线下单不能白多用一张券）
+    const localUsedPushed = mres.toUse.some((o) => o.couponId === 'mb-demo' && o.orderId === 'MS_LOCAL');
+    // 服务端有、本地没有 → 补进来（另一台设备领的）
+    const remoteOnlyAdded = mres.list.some((c) => c.couponId === 'mc-demo' && c.title === '服务端新券');
+    // 合并结果按 couponId 唯一，不会因为重复同步长出重复券
+    const noDupAfterMerge = new Set(mres.list.map((c) => c.couponId)).size === mres.list.length;
+    const m2 = cp.mergeWallet([{ id: 'l3', couponId: 'md-demo', status: 'unused', expiresAt: nowM + D }], [], nowM);
+    const localOnlyPushed = m2.toPush.includes('md-demo');
+    // 发件箱是空的、服务端却说未使用 → 只能是因为订单取消返还了，本地必须跟着退回
+    const mReturn = cp.mergeWallet(
+      [{ id: 'l4', couponId: 'me-demo', status: 'used', orderId: 'MS_RETURNED', expiresAt: nowM + D }],
+      [{ id: 93, couponId: 'me-demo', state: 'unused', expiresAt: nowM + 8 * D }],
+      nowM,
+      [],
+    );
+    const localFollowsRefund = mReturn.list.find((c) => c.couponId === 'me-demo').status === 'unused'
+      && mReturn.toUse.length === 0;
+
+    /* 11) 返还顺延：从 max(原到期, 现在) 起算 +7 天，每券最多顺延 3 次 */
+    const graceFromNow = cp.refundExpiry(nowM - D, 0, nowM).expiresAt === nowM + cp.REFUND_GRACE_DAYS * D;
+    const graceOnRemain = cp.refundExpiry(nowM + 2 * D, 0, nowM).expiresAt === nowM + (2 + cp.REFUND_GRACE_DAYS) * D;
+    const graceCapped = cp.refundExpiry(nowM + D, cp.MAX_EXTENSIONS, nowM).extended === false;
+
+    const uidR = 'u_coupon_grace';
+    const seedRaw = (row) => localStorage.setItem(`maison_coupons::${uidR}`, JSON.stringify([row]));
+    seedRaw({
+      id: 'g1', couponId: 'demo-c80', title: '会员日 · 满 599 减 80', kind: 'cash',
+      threshold: 599, amount: 80, status: 'used', orderId: 'MS_GRACE',
+      claimedAt: new Date(nowM - D).toISOString(), expiresAt: nowM + 2 * D, extensionCount: 0,
+    });
+    const rf = cp.refundCouponsByOrder(uidR, 'MS_GRACE');
+    const wG = cp.listWallet(uidR).find((c) => c.couponId === 'demo-c80');
+    const refundExtended = rf.restored === 1 && rf.extended === 1
+      && wG.state === 'unused' && wG.extensionCount === 1
+      && wG.expiresAt === nowM + (2 + cp.REFUND_GRACE_DAYS) * D;
+    // 已在订单占用期间过期的券，返还后立刻恢复可用（从 now 起算而不是原到期日）
+    seedRaw({
+      id: 'g2', couponId: 'demo-c80', title: '会员日 · 满 599 减 80', kind: 'cash',
+      threshold: 599, amount: 80, status: 'used', orderId: 'MS_GRACE2',
+      claimedAt: new Date(nowM - 40 * D).toISOString(), expiresAt: nowM - 3 * D, extensionCount: 0,
+    });
+    cp.refundCouponsByOrder(uidR, 'MS_GRACE2');
+    const wG2 = cp.listWallet(uidR).find((c) => c.couponId === 'demo-c80');
+    const expiredRefundRevived = wG2.state === 'unused' && wG2.expiresAt > nowM;
+
     const cases = [
       ['券中心列出目录全部券', catalogShown],
       ['券卡显示门槛/有效期/适用范围', metaShown],
@@ -931,6 +995,17 @@ if (failed === 0) {
       ['未达门槛 worth 为 0', noWorthBelowThreshold],
       ['负数输入被夹到 0', sanitized],
       ['券包按用户隔离', isolatedWallet],
+      ['跨设备：服务端已核销覆盖本地', remoteUsedWins],
+      ['跨设备：本地核销补推', localUsedPushed],
+      ['跨设备：服务端返还后本地跟着退回', localFollowsRefund],
+      ['跨设备：服务端独有券补入', remoteOnlyAdded],
+      ['跨设备：本地独有券补推领取', localOnlyPushed],
+      ['跨设备：合并后无重复券', noDupAfterMerge],
+      ['返还顺延从「现在」起算', graceFromNow],
+      ['返还顺延叠加剩余天数', graceOnRemain],
+      ['顺延次数达上限后不再延长', graceCapped],
+      ['取消订单返还并顺延 7 天', refundExtended],
+      ['过期券返还后恢复可用', expiredRefundRevived],
     ];
     const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 优惠券${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);

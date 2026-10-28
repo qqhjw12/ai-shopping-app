@@ -59,7 +59,7 @@
 | 🗂️ 分类浏览 | `#/categories` | 16 个一级类目 + 48 个二级类目，每个类目用真实商品封面拼图；类目目录本身支持价格区间筛选与排序（顺序 / 商品数 / 名称），条件写进 URL 且点进类目时会带进商品列表 |
 | 🛒 商品列表 | `#/products` | 共享检索引擎：品类/子类/品牌 **多选**、价格区间多选（档位左闭右开不重不漏）、颜色/规格属性（从 SKU 规格自动归一）、仅看有货；排序「综合 / 价格升降 / 销量 / 上新」下拉；已选条件胶囊行（单个移除 + 清空全部）；结果数、继续浏览分批、无结果安静空态；全部条件走 hash URL，刷新/分享还原，移动端筛选收进底部弹层 |
 | 🛒 购物车 | 顶栏抽屉 + `#/cart` | 服务端持久化，换设备/清缓存不丢；数量增减（受库存夹逼，边界置灰）、行内小计、删除后可撤销、库存不足拦截结算；抽屉与整页互通，运费/券统一在结算页确认 |
-| 🎟️ 优惠券中心 | `#/coupons` + `#/account?tab=coupons` | 可领取券列表（面额 / 门槛 / 有效期 / 适用范围，票券卡带齿孔虚线），已领取按钮置灰、重复领取被拒；未登录点领取跳登录并回跳。我的券包分**未使用 / 已使用 / 已过期**三 Tab（按用户隔离存 localStorage，状态由到期时间实时推导），未使用的可直接「去使用」，已使用的标注订单号 |
+| 🎟️ 优惠券中心 | `#/coupons` + `#/account?tab=coupons` | 可领取券列表（面额 / 门槛 / 有效期 / 适用范围，票券卡带齿孔虚线），已领取按钮置灰、重复领取被拒；未登录点领取跳登录并回跳。我的券包分**未使用 / 已使用 / 已过期**三 Tab（状态由到期时间实时推导），未使用的可直接「去使用」，已使用的标注订单号。**券包与网关卡包双向同步**：换设备登录同一手机号即看到同一份券，核销/返还顺延以服务端为准，离线领的券联网后补推 |
 | 🧾 结算下单 | `#/checkout` | 左右两栏（移动端单栏）：收货地址（**与个人中心共用同一份地址簿，可新增**，未选地址禁提交）+ 配送方式（标准免运费 / 加急 ¥18，含时效 mock）+ 支付方式（在线支付 / 货到付款 mock）+ **优惠券（自动选最优，随金额实时重算；可手动更换/取消，未达门槛显示差额）** + 订单备注 + 商品清单（**行内 −/+ 改数量（库存夹逼）/ 删除**，也可返回购物袋修改）+ 金额汇总（`tabular-nums`，券名与抵扣实时联动）；提交香槟金按钮防重复点击 |
 | 🎉 订单成功 | `#/order-success/:id` | 订单号 + 应付金额 + 订单要素（状态 / 时间 / 配送 / 支付 / 收货），「查看订单」进详情、「继续购物」回商城；刷新不丢（本地订单簿兜底） |
 | 📦 我的订单 | `#/orders` + `#/account?tab=orders` | 本地订单簿与网关订单合并展示；待付款 / 已付款 / 已发货 / 已完成状态机，演示模式可模拟支付，再次购买、物流信息；订单详情 `#/account/order/:id` 还原商品 / 地址 / 配送 / 金额 |
@@ -92,7 +92,7 @@
 | `review_votes` | 有用投票：主键 `(review_id, user_id)`，天然幂等——同一用户重复请求在「赞 / 取消」间切换 |
 | `cart_items` | 购物车（服务端持久化，按 user+sku 唯一，重复加购累加） |
 | `favorites` | 收藏夹 |
-| `coupons` / `user_coupons` | 优惠券模板与用户卡包（满减 / 折扣，领用核销） |
+| `coupons` / `user_coupons` | 优惠券模板与用户卡包（满减 / 折扣，领用核销）。迁移 v10 给券实例补了 `expires_at`（落库而不是各端现算，返还顺延才有唯一真源）与 `extension_count`；券模板补 `scope_text`，并把 id 与前端券目录对齐 |
 | `faqs` / `policies` | 客服 FAQ 与退换货 / 物流 / 质保 / 发票 / 支付政策 |
 | `conversations` / `messages` | 会话与消息（多轮上下文、可回放，重启不丢） |
 | `track_events` | 埋点事件（替代原内存环形缓冲，聚合走 SQL） |
@@ -150,21 +150,31 @@
 - **本地下单与网关订单合并展示**：个人中心订单 Tab 与 `#/orders` 用 `mergeOrders` 按订单号去重、按时间倒序；演示模式的「去支付」直接把状态推进到已付款，让状态机在纯静态站点也看得见。
 - **静态托管没有 `/api/*`**：首个 404 会话级记住（`maison_no_backend`），后续请求直接本地降级，控制台不再刷 404；显式 `?api=` 指定网关时不受影响（404 是真错误）。
 
-### 优惠券（领取 → 券包 → 抵扣 → 核销）
+### 优惠券（领取 → 券包 → 抵扣 → 核销 → 返还顺延）
 
-券域全部收敛在 `web/js/store/couponStore.js`，页面只负责渲染：
+券域全部收敛在 `web/js/store/couponStore.js`（前端）与 `ai-gateway/src/services/couponRules.js`（服务端，同口径孪生），页面只负责渲染：
 
 | 环节 | 实现 |
 |---|---|
-| 券目录 | `COUPON_CATALOG` 与网关种子同构（满 99 减 30 / 满 599 减 80 / 满 199 九折等），含 `threshold / validDays / scopeText` |
-| 领取 | `claimCoupon` 写本地券包并发网关（`POST /api/coupons`），静态站 404 时本地成功、仅提示同步失败；同一券重复领取直接拒绝 |
-| 状态 | 只存事实（`couponId / claimedAt / expiresAt / usedOrderId`），`unused / used / expired` 由当前时间推导——不需要定时任务把券「跑成过期」 |
+| 券目录 | 内置 `COUPON_CATALOG` 做离线兜底，联网时用 `GET /api/coupons/catalog` 覆盖（运营改面额/文案不用发版）。**id 与网关 `coupons` 表严格一致**——两端 id 不同步，同一张券会在券中心和网关卡包里变成两只券 |
+| 领取 | `claimCoupon` 先写本地再 `POST /api/coupons`，成功后用服务端返回的实例 id 与 `expiresAt` 回填（各设备到期日必须一致）；静态站 404 时本地成功，靠 `syncWallet` 的补推把离线领的券补上云 |
+| 状态 | 落盘只存事实（`couponId / claimedAt / expiresAt / usedOrderId / extensionCount`），`unused / used / expired` 由到期时间推导——不需要定时任务把券「跑成过期」；服务端 `expires_at` 落库，不再各端用 `claimed_at + expire_days` 各算一遍 |
 | 可用性 | `decorateMine(list, productAmount)` 同时给出 `usable`、可省金额 `worth`、门槛差额 `gap` 与人话原因 `reason`；不可用券在结算页原样展示原因而不是隐藏 |
 | 最优 | `bestCouponId` 按省得最多排序、平手取门槛高的；结算页首次进入自动选中，改数量后若用户没手动干预过就按新金额重选，手动点选即接管 |
-| 核销 / 返还 | 下单快照写入 `couponId / couponDiscount / couponTitle` 并把券标为已用（挂 `usedOrderId`）；取消订单调 `refundCouponsByOrder` 退回未使用（占位，未做券有效期重新计时） |
+| 核销 | 下单快照写入 `couponId / couponDiscount / couponTitle` 并标为已用，同时 `POST /api/coupons/use`（幂等）；**操作先进本地发件箱再发**，`keepalive` 让请求活过「下单后跳成功页」的导航 |
+| 返还 | `refundCouponsByOrder` 退回未使用并**顺延有效期 7 天**（`REFUND_GRACE_DAYS`），从 `max(原到期, 现在)` 起算——券在订单占用期间过期了也能退回来立刻可用；每张券最多顺延 3 次（`MAX_EXTENSIONS`），防「下单→取消」白刷 |
+
+**跨设备同步**（`syncWallet` + 纯函数 `mergeWallet`）：
+
+- **同号同账户**：`userIdOf(identifier)` 把手机号/邮箱哈希成稳定 userId，两台设备登录同一手机号即同一个网关卡包。
+- **服务端是核销/顺延的真源**：另一台设备用掉的券、返还顺延后的到期时间，本地同步时一律接受服务端的值。
+- **本地是离线缓冲**：离线领的券、离线下单核销的券记进发件箱（`maison_coupon_ops::<uid>`），`syncWallet` 开头先重放；重放不成功就留着下次再试，不丢券。
+- **本地已用 vs 服务端未用** 靠发件箱区分：还有未确认的 `use` → 是离线核销没推上去，补推；发件箱是空的 → 核销早送达了，服务端现在未使用只能是因为订单被取消返还了，本地跟着退回。
+- **只增不删**：任一侧独有的券都保留，宁可多一张也不让用户觉得券消失了。
 
 - **金额永不为负**：`computeAmounts` 对商品总额、运费、抵扣各做 `max(0, …)`，抵扣再 `min(…, 商品总额)` —— 券抵运费、抵成负数在结构上不可能出现。
 - **键 `maison_coupons::<userId>`**：换账号即换键；券包只存已领取的实例，券模板永远从目录读，改文案不用迁移数据。
+- **开户只送 3 张体验券**（`STARTER_COUPON_IDS`），其余要用户到券中心自己领——全量自动发放会让「领取」在服务端根本不存在，跨设备同步也就没有可同步的东西。
 
 ### 对话引擎（`src/services/chatEngine.js`）
 
@@ -453,8 +463,11 @@ bash scripts/setup-https-proxy.sh
 | GET  | `/api/favorites?userId=` | 收藏列表 |
 | POST | `/api/favorites` | 收藏切换 `{ userId, productId }`，返回 `favorited` |
 | DELETE | `/api/favorites` | 取消收藏 `?userId=&productId=` |
-| GET  | `/api/coupons?userId=&amount=` | 卡券包（标注可用性与可省金额） |
-| POST | `/api/coupons` | 领券 `{ userId, couponId }` |
+| GET  | `/api/coupons/catalog` | 券目录（`couponId / title / kind / threshold / amount / validDays / scopeText`），前端离线时用内置同构目录兜底 |
+| GET  | `/api/coupons?userId=&amount=&all=1` | 卡券包（标注可用性与可省金额）；`all=1` 返回全部状态含已用/已过期，跨设备同步要靠它 |
+| POST | `/api/coupons` | 领券 `{ userId, couponId }`，重复领取 409，返回服务端实例（含 `expiresAt`） |
+| POST | `/api/coupons/use` | 核销 `{ userId, couponId, orderId }`，幂等（同单重复调用返回 `already:true`） |
+| POST | `/api/coupons/refund` | 取消订单返还 `{ userId, orderId }`，退回未使用并把有效期顺延 7 天（每券最多 3 次） |
 | GET  | `/api/addresses?userId=` | 收货地址列表（默认地址排首位，含 `province` / `city` / `region` / `postal`） |
 | POST | `/api/addresses` | 新增/更新地址 `{ userId, id?, receiver, phone, province, city, detail, postal?, isDefault? }`；带 `id` 即更新，返回 `{ id, created, addresses }` |
 | POST | `/api/addresses/:id/default?userId=` | 设为默认（幂等，默认地址始终有且仅有一条） |
@@ -733,6 +746,20 @@ curl -s -N -X POST localhost:8080/api/ai/guide \
 ```
 
 > `node --check` 只做语法解析，**看不到**模块链接期错误（例如同名绑定重复 import 会让整个应用入口加载失败、页面白屏）。`check-web.mjs` 用极简 DOM 垫片把 16 个模块逐个 `import()` 一遍，并断言首屏能渲染、404 兜底可用。
+
+真实浏览器验收（playwright-core + 本机 Edge 无头，脚本自己拉起静态站/网关，退出码即结论）：
+
+```bash
+node scripts/e2e-coupons.mjs    # 券中心 → 券包 → 结算抵扣 → 核销 → 返还（纯静态）
+node scripts/e2e-sync.mjs       # 跨设备同步：两套独立 context 同号登录 + 真网关
+node scripts/e2e-checkout.mjs   # 交易闭环
+node scripts/e2e-search.mjs     # 搜索 / 筛选 / 排序 / URL 往返
+node scripts/e2e-pdp.mjs        # 详情页评价与问答
+```
+
+> `e2e-sync.mjs` 是唯一会拉起真网关的一个（其余跑纯静态模式）。它验的是「另一台设备也认账」：
+> 领券上云、核销同步、取消后返还顺延、离线领券补推。两个 context 的 localStorage 完全隔离，
+> 只共享「同一手机号 → 同一 userId → 同一网关卡包」这一条链路。
 
 ---
 

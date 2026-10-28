@@ -1,5 +1,7 @@
 // 用户侧仓储：收藏夹 / 优惠券 / 收货地址。均为轻量操作，按 user_id 隔离。
 import { getDb } from '../db/connection.js';
+import { STARTER_COUPON_IDS } from '../data/catalog.js';
+import { parseDbTime, refundExpiry, stateOf, toDbTime } from '../services/couponRules.js';
 
 function safeJson(text, fallback) {
   try {
@@ -87,56 +89,194 @@ export function ensureUser(userId, nickname = '游客') {
   const row = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!row) {
     db.prepare('INSERT INTO users (id, nickname, level) VALUES (?, ?, ?)').run(userId, nickname, 'normal');
-    // 券是按会员发放的（user_coupons），新建会员时补发在售券；
-    // 否则任何首次到访的用户卡包都是空的，结算页优惠券区会永远显示「暂无可用优惠券」。
-    db.prepare("INSERT INTO user_coupons (user_id, coupon_id, status) SELECT ?, id, 'unused' FROM coupons").run(userId);
+    // 开户只送三张体验券，其余要用户到券中心自己领。
+    // 早先这里是「发放全部在售券」，结果是人人卡包一开就是满的：
+    // 「领取」这个动作在服务端根本不存在，跨设备同步也就没有可同步的东西。
+    const grantStarter = db.prepare(`
+      INSERT INTO user_coupons (user_id, coupon_id, status, claimed_at, expires_at)
+      SELECT ?, id, 'unused', datetime('now'), datetime('now', '+' || expire_days || ' days')
+      FROM coupons WHERE id IN (${STARTER_COUPON_IDS.map(() => '?').join(',')})
+    `);
+    grantStarter.run(userId, ...STARTER_COUPON_IDS);
   }
   return userId;
 }
 
 /* ---------------- 优惠券 ---------------- */
 
-/** 用户卡包：未使用的券，并标注当前金额下是否可用 */
-export function listCoupons(userId, amount = 0) {
+/**
+ * 券目录：券中心的列表来源。
+ * 前端内置同一份目录做离线兜底，联网时用这里的返回值覆盖（运营改了文案不用发版）。
+ */
+export function listCouponCatalog() {
+  return getDb()
+    .prepare(`
+      SELECT id, title, kind, threshold, amount, expire_days, scope_text
+      FROM coupons ORDER BY threshold ASC, id ASC
+    `)
+    .all()
+    .map((r) => ({
+      couponId: r.id,
+      title: r.title,
+      kind: r.kind,
+      threshold: r.threshold,
+      amount: r.amount,
+      validDays: r.expire_days,
+      scopeText: r.scope_text || '全场通用',
+    }));
+}
+
+const UC_SELECT = `
+  SELECT uc.id, uc.coupon_id, uc.status, uc.claimed_at, uc.expires_at,
+         uc.order_id, uc.extension_count,
+         c.title, c.kind, c.threshold, c.amount, c.expire_days, c.scope_text
+  FROM user_coupons uc
+  JOIN coupons c ON c.id = uc.coupon_id
+  WHERE uc.user_id = ?
+`;
+
+function toCouponInstance(r, amount, now) {
+  const state = stateOf(r, now);
+  const a = Math.max(0, Number(amount) || 0);
+  const usable = state === 'unused' && a >= r.threshold && r.amount > 0;
+  const worth = usable
+    ? (r.kind === 'discount' ? Math.floor((a * r.amount) / 100) : r.amount)
+    : 0;
+  return {
+    id: r.id,
+    couponId: r.coupon_id,
+    title: r.title,
+    kind: r.kind,
+    threshold: r.threshold,
+    amount: r.amount,
+    scopeText: r.scope_text || '全场通用',
+    state,
+    claimedAt: parseDbTime(r.claimed_at),
+    expiresAt: parseDbTime(r.expires_at),
+    orderId: r.order_id || null,
+    extensionCount: r.extension_count || 0,
+    validDays: r.expire_days,
+    usable,
+    worth,
+    gap: usable ? 0 : Math.max(0, r.threshold - a),
+  };
+}
+
+/**
+ * 用户卡包。
+ * @param {string} userId
+ * @param {number} amount 当前商品总额（用于标注可用性，0 表示只看不判可用）
+ * @param {{all?: boolean}} opts all=true 时返回全部状态（券包三 Tab 与跨设备同步需要），
+ *        默认只返回未使用（旧调用方与结算预览的口径）
+ */
+export function listCoupons(userId, amount = 0, { all = false } = {}) {
   // 先建档：新访客首次进结算页时 ensureUser 才会补发体验券。
   // 少了这一步，卡包永远查不到券，结算页的「自动选最优券」形同虚设。
   const uid = ensureUser(userId, '游客');
-  return getDb()
-    .prepare(`
-      SELECT uc.id, uc.coupon_id, uc.status, uc.claimed_at,
-             c.title, c.kind, c.threshold, c.amount
-      FROM user_coupons uc
-      JOIN coupons c ON c.id = uc.coupon_id
-      WHERE uc.user_id = ? AND uc.status = 'unused'
-      ORDER BY c.threshold DESC
-    `)
-    .all(uid)
-    .map((r) => {
-      const usable = amount >= r.threshold;
-      return {
-        id: r.id,
-        couponId: r.coupon_id,
-        title: r.title,
-        kind: r.kind,
-        threshold: r.threshold,
-        amount: r.amount,
-        // 折扣券 amount 为打折幅度百分比（如 10 表示减 10%，即 9 折）
-        usable,
-        worth: usable ? (r.kind === 'discount' ? Math.floor(amount * r.amount / 100) : r.amount) : 0,
-      };
-    });
+  const now = Date.now();
+  const sql = `${UC_SELECT}${all ? '' : " AND uc.status = 'unused'"}
+    ORDER BY CASE uc.status WHEN 'unused' THEN 0 WHEN 'used' THEN 1 ELSE 2 END,
+             uc.expires_at ASC, uc.id ASC`;
+  return getDb().prepare(sql).all(uid).map((r) => toCouponInstance(r, amount, now));
 }
 
+/** 领券：写一条实例，到期时间 = 现在 + 券模板有效天数 */
 export function takeCoupon(userId, couponId) {
   const db = getDb();
-  const c = db.prepare('SELECT id, title FROM coupons WHERE id = ?').get(couponId);
+  const uid = ensureUser(userId || 'u_guest');
+  const c = db
+    .prepare('SELECT id, title, expire_days FROM coupons WHERE id = ?')
+    .get(couponId);
   if (!c) throw Object.assign(new Error('优惠券不存在'), { status: 404 });
+  // 判重看「未使用」而不是「存在」：用掉/过期之后可以再领，符合真实电商的复领规则
+  const now = Date.now();
   const dup = db
-    .prepare("SELECT id FROM user_coupons WHERE user_id = ? AND coupon_id = ? AND status = 'unused'")
-    .get(userId, couponId);
-  if (dup) throw Object.assign(new Error('该券已在卡包中'), { status: 409 });
-  const info = db.prepare('INSERT INTO user_coupons (user_id, coupon_id) VALUES (?, ?)').run(userId, couponId);
-  return { id: Number(info.lastInsertRowid), title: c.title };
+    .prepare(
+      `SELECT id, status, claimed_at, expires_at FROM user_coupons
+       WHERE user_id = ? AND coupon_id = ? AND status = 'unused'`,
+    )
+    .get(uid, couponId);
+  if (dup && stateOf(dup, now) === 'unused') {
+    throw Object.assign(new Error('该券已在卡包中'), { status: 409 });
+  }
+  const info = db
+    .prepare(`
+      INSERT INTO user_coupons (user_id, coupon_id, status, claimed_at, expires_at)
+      VALUES (?, ?, 'unused', datetime('now'), datetime('now', '+' || ? || ' days'))
+    `)
+    .run(uid, couponId, c.expire_days);
+  const row = db.prepare(`${UC_SELECT} AND uc.id = ?`).get(uid, Number(info.lastInsertRowid));
+  return toCouponInstance(row, 0, now);
+}
+
+/**
+ * 核销：下单成功后把券标记为已使用并挂订单号。
+ * 幂等——同一张券已经被同一订单核销过就直接返回，不报错，
+ * 免得「下单成功但响应丢包 → 客户端重试」把用户卡在报错页面。
+ */
+export function useCoupon(userId, couponId, orderId) {
+  const db = getDb();
+  const uid = ensureUser(userId || 'u_guest');
+  const now = Date.now();
+  const hit = db
+    .prepare(
+      `SELECT * FROM user_coupons WHERE user_id = ? AND coupon_id = ? AND status = 'unused'
+       ORDER BY expires_at ASC LIMIT 1`,
+    )
+    .get(uid, couponId);
+  if (!hit) {
+    const used = db
+      .prepare(`SELECT * FROM user_coupons WHERE user_id = ? AND coupon_id = ? AND order_id = ?`)
+      .get(uid, couponId, orderId || null);
+    if (used) return { ok: true, already: true, coupon: toCouponInstance(used, 0, now) };
+    throw Object.assign(new Error('优惠券不可用'), { status: 400 });
+  }
+  if (stateOf(hit, now) === 'expired') {
+    throw Object.assign(new Error('优惠券已过期'), { status: 400 });
+  }
+  db.prepare(`UPDATE user_coupons SET status = 'used', order_id = ? WHERE id = ?`)
+    .run(orderId || '', hit.id);
+  const row = db.prepare(`${UC_SELECT} AND uc.id = ?`).get(uid, hit.id);
+  return { ok: true, already: false, coupon: toCouponInstance(row, 0, now) };
+}
+
+/**
+ * 取消订单返还：把该订单用掉的券退回未使用，并把有效期顺延。
+ *
+ * 顺延是「补偿」不是「奖励」：用户因为订单取消才晚拿到券，
+ * 剩余可用时间不该比下单前更短。上限 MAX_EXTENSIONS 次防刷。
+ * 超过上限的券仍然退回未使用，只是不再延长。
+ */
+export function refundCouponByOrder(userId, orderId) {
+  const db = getDb();
+  const uid = ensureUser(userId || 'u_guest');
+  if (!orderId) return { restored: 0, coupons: [] };
+  const rows = db
+    .prepare(`SELECT * FROM user_coupons WHERE user_id = ? AND order_id = ? AND status = 'used'`)
+    .all(uid, orderId);
+  if (!rows.length) return { restored: 0, coupons: [] };
+
+  const now = Date.now();
+  const updExtend = db.prepare(
+    `UPDATE user_coupons SET status = 'unused', order_id = NULL, expires_at = ?, extension_count = ?
+     WHERE id = ?`,
+  );
+  const updPlain = db.prepare(
+    `UPDATE user_coupons SET status = 'unused', order_id = NULL WHERE id = ?`,
+  );
+  for (const r of rows) {
+    const { expiresAt, extended } = refundExpiry(parseDbTime(r.expires_at), r.extension_count, now);
+    if (extended) {
+      updExtend.run(toDbTime(expiresAt), (Number(r.extension_count) || 0) + 1, r.id);
+    } else {
+      updPlain.run(r.id);
+    }
+  }
+  const coupons = db
+    .prepare(`${UC_SELECT} AND uc.status = 'unused' AND uc.order_id IS NULL AND uc.id IN (${rows.map(() => '?').join(',')})`)
+    .all(uid, ...rows.map((r) => r.id))
+    .map((r) => toCouponInstance(r, 0, now));
+  return { restored: rows.length, coupons };
 }
 
 /* ---------------- 收货地址 ---------------- */

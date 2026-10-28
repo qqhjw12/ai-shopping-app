@@ -88,7 +88,7 @@ function markBackendMissing(path) {
 
 /**
  * @param {string} path  相对路径，如 /api/products
- * @param {{method?: string, body?: any, retries?: number}} [opts]
+ * @param {{method?: string, body?: any, retries?: number, keepalive?: boolean}} [opts]
  */
 export async function api(path, opts = {}) {
   if (!navigator.onLine) throw new ApiError('当前网络不可用，请检查连接后重试', 'offline');
@@ -114,6 +114,9 @@ export async function api(path, opts = {}) {
         method,
         headers,
         body: opts.body ? JSON.stringify(opts.body) : undefined,
+        // keepalive：请求要活过页面跳转。下单成功立刻跳成功页，
+        // 不带这个的 fetch 会被导航中止——表现为「订单下了、券在别的设备上还是未使用」。
+        keepalive: opts.keepalive === true,
       });
       // 401：访问令牌过期 → 刷新一次并用新令牌重试（并发刷新由 auth.js 去重）
       if (resp.status === 401 && !refreshed && !opts.noAuthRetry) {
