@@ -295,6 +295,50 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_rt_exp ON refresh_tokens(expires_at);
     `,
   },
+  {
+    version: 8,
+    name: 'addresses-cross-device',
+    sql: `
+      -- 地址跨设备：补齐前端地址簿的完整字段，避免「存服务端再拉回来」丢 province/city/postal。
+      -- 老数据只有 region（"省 市"拼串），下面按空格回填 province/city，postal 留空。
+      ALTER TABLE addresses ADD COLUMN province TEXT NOT NULL DEFAULT '';
+      ALTER TABLE addresses ADD COLUMN city     TEXT NOT NULL DEFAULT '';
+      ALTER TABLE addresses ADD COLUMN postal   TEXT NOT NULL DEFAULT '';
+      ALTER TABLE addresses ADD COLUMN updated_at TEXT;
+
+      UPDATE addresses
+         SET province = CASE WHEN instr(region, ' ') > 0
+                             THEN substr(region, 1, instr(region, ' ') - 1)
+                             ELSE region END,
+             city     = CASE WHEN instr(region, ' ') > 0
+                             THEN substr(region, instr(region, ' ') + 1)
+                             ELSE '' END
+       WHERE province = '';
+
+      UPDATE addresses SET updated_at = datetime('now') WHERE updated_at IS NULL;
+
+      -- 一个用户至多一条默认地址：先归零多余默认，再由应用层保证始终有且仅有一条
+      UPDATE addresses
+         SET is_default = 0
+       WHERE is_default = 1
+         AND rowid NOT IN (
+           SELECT MIN(rowid) FROM addresses WHERE is_default = 1 GROUP BY user_id
+         );
+
+      CREATE INDEX IF NOT EXISTS idx_addr_default ON addresses(user_id, is_default);
+    `,
+  },
+  {
+    version: 9,
+    name: 'addresses-soft-delete',
+    sql: `
+      -- 地址改软删除：订单的 address_id 外键指向 addresses，
+      -- 硬删会被外键挡下（删过一次地址的用户永远删不掉），而历史订单又需要这条记录做追溯。
+      -- 于是删除只打时间戳，列表查询过滤掉即可。
+      ALTER TABLE addresses ADD COLUMN deleted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_addr_alive ON addresses(user_id, deleted_at);
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

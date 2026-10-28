@@ -6,32 +6,13 @@
 // 2) 金额规则（包邮门槛 / 运费）必须与网关 orderService 保持一致，
 //    否则会出现「预览一个价、下单另一个价」——所以常量在这里集中定义，页面不再各写一份。
 import { api } from '../api.js';
+import { hydrateAddresses, ensureCached, saveAddress as saveBookAddress } from './addressStore.js';
 
 /* ---------------- 金额规则（与网关 orderService 对齐） ---------------- */
 export const FREE_SHIPPING_THRESHOLD = 99;
 export const SHIPPING_FEE = 10;
 
-/* ---------------- 本地持久化（降级用） ---------------- */
-const ADDR_KEY = 'maison_addresses_v1';
-
-function readJSON(key, fallback) {
-  try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
-    if (!raw) return fallback;
-    const v = JSON.parse(raw);
-    return v == null ? fallback : v;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJSON(key, val) {
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(key, JSON.stringify(val));
-  } catch {
-    /* 隐私模式 / 配额满：降级为纯内存，不影响交互 */
-  }
-}
+/* ---------------- 错误分类 ---------------- */
 
 /** 判断一次失败是否来自「网关不可达」（而非用户输入错误） */
 export function isUnreachable(e) {
@@ -169,40 +150,19 @@ export const DEMO_ADDRESS = {
   demo: true,
 };
 
-function localAddresses(userId) {
-  const all = readJSON(ADDR_KEY, {});
-  return Array.isArray(all && all[userId]) ? all[userId] : [];
-}
-
-function writeLocalAddresses(userId, list) {
-  const all = readJSON(ADDR_KEY, {}) || {};
-  all[userId] = list;
-  writeJSON(ADDR_KEY, all);
-}
-
-/** 服务端列表与本地离线新增合并（按 id 去重，服务端优先） */
-function mergeAddresses(server = [], local = []) {
-  const out = server.slice();
-  const seen = new Set(out.map((a) => String(a && a.id)));
-  local.forEach((a) => {
-    if (a && !seen.has(String(a.id))) { out.push(a); seen.add(String(a.id)); }
-  });
-  return out.length ? out : [DEMO_ADDRESS];
-}
-
+/**
+ * 结算页地址列表：**与个人中心共用一份地址簿**（store/addressStore.js，服务端为准）。
+ * 只在这里做一件事——离线且一条地址都没有时垫一个演示地址，
+ * 免得静态演示站点进结算页就是空白。
+ */
 export async function loadAddresses(userId) {
-  const local = localAddresses(userId);
-  try {
-    const d = await api(`/api/addresses?userId=${encodeURIComponent(userId)}`, { retries: 0 });
-    const server = Array.isArray(d && d.addresses) ? d.addresses : [];
-    return { addresses: mergeAddresses(server, local), online: true };
-  } catch (e) {
-    // 离线首次进入：把演示地址落进本地清单。
-    // 否则后续「新增地址」是在一份空列表上追加，返回时会把刚展示过的演示地址覆盖掉，
-    // 表现为「明明新增成功，地址数量却没变」。
-    if (isUnreachable(e) && !local.length) writeLocalAddresses(userId, [DEMO_ADDRESS]);
-    return { addresses: mergeAddresses([], localAddresses(userId)), online: false };
+  const { addresses, online } = await hydrateAddresses(userId);
+  if (!online && !addresses.length) {
+    // 垫一条演示地址，并并入缓存——否则用户在这条之外新增时基数会少它
+    ensureCached(userId, DEMO_ADDRESS);
+    return { addresses: [DEMO_ADDRESS], online };
   }
+  return { addresses, online };
 }
 
 /** 校验并在缺少必填项时抛错（网关侧同样要求 receiver + region） */
@@ -215,26 +175,26 @@ export function validateAddress({ receiver, phone, region } = {}) {
   return '';
 }
 
+/**
+ * 保存地址：委托地址簿（服务端为准 + 本地缓存），成功后返回最新清单。
+ * 保留抛错约定——结算页用 try/catch 呈现错误。
+ */
 export async function saveAddress(userId, payload = {}) {
-  const addr = {
+  const res = await saveBookAddress(userId, {
     receiver: String(payload.receiver || '').trim(),
     phone: String(payload.phone || '').trim(),
+    province: String(payload.province || '').trim(),
+    city: String(payload.city || '').trim(),
     region: String(payload.region || '').trim(),
     detail: String(payload.detail || '').trim(),
+    postal: String(payload.postal || '').trim(),
     isDefault: !!payload.isDefault,
+    id: payload.id,
+  });
+  if (!res.ok) throw Object.assign(new Error(res.error || '地址保存失败'), { kind: 'client' });
+  return {
+    addresses: res.addresses || [],
+    id: (res.address && res.address.id) || payload.id || '',
+    online: res.online !== false,
   };
-  try {
-    const d = await api('/api/addresses', { method: 'POST', body: { userId, ...addr } });
-    const server = Array.isArray(d && d.addresses) ? d.addresses : [];
-    return { addresses: mergeAddresses(server, localAddresses(userId)), id: d && d.id, online: true };
-  } catch (e) {
-    if (!isUnreachable(e)) throw e;
-    // 离线：落到本地并在下次连通时不丢
-    const list = localAddresses(userId).filter((a) => String(a.id) !== String(payload.id));
-    const id = payload.id || `a_local_${Date.now()}`;
-    const next = [{ id, ...addr, local: true }, ...list];
-    if (addr.isDefault) next.forEach((a) => { a.isDefault = String(a.id) === String(id); });
-    writeLocalAddresses(userId, next);
-    return { addresses: mergeAddresses([], next), id, online: false };
-  }
 }

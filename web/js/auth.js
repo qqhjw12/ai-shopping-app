@@ -8,6 +8,30 @@ const API_BASE = new URLSearchParams(location.search).get('api') || location.ori
 let accessToken = '';
 let accessExpiresAt = 0; // 毫秒时间戳；提前 30s 视为过期，避免边界请求恰好过期
 let inflightRefresh = null;
+// 当前令牌属于哪个用户：用于「页面登录用户 ≠ 令牌身份」时不把令牌发出去，
+// 否则服务端按令牌取身份，会读到上一个身份（匿名/旧账号）的数据。
+let tokenSubject = '';
+
+// 「本设备是否拿到过刷新令牌」的布尔标记（不是令牌本身，只是让前端少一次必然 401 的探测）。
+// 刷新令牌本体在 HttpOnly Cookie 里，JS 读不到也不需要读。
+const FLAG_KEY = 'maison_has_refresh';
+
+function hasRefreshFlag() {
+  try {
+    return localStorage.getItem(FLAG_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function setRefreshFlag(on) {
+  try {
+    if (on) localStorage.setItem(FLAG_KEY, '1');
+    else localStorage.removeItem(FLAG_KEY);
+  } catch {
+    /* 隐私模式：降级为每次探测 */
+  }
+}
 
 function setToken(token, expiresInSec) {
   accessToken = token || '';
@@ -17,6 +41,11 @@ function setToken(token, expiresInSec) {
 /** 当前可用的访问令牌（过期也返回，交给 401 触发刷新） */
 export function getAccessToken() {
   return accessToken;
+}
+
+/** 令牌所属的用户 ID（未建会话时为空串） */
+export function tokenOwner() {
+  return tokenSubject;
 }
 
 export function hasValidToken() {
@@ -38,6 +67,8 @@ export async function login(userId, nickname) {
   if (!resp.ok) throw new Error('登录失败');
   const d = await resp.json();
   setToken(d.accessToken, d.expiresIn);
+  tokenSubject = String(userId || '');
+  setRefreshFlag(true);
   return d.user || null;
 }
 
@@ -48,15 +79,19 @@ export async function login(userId, nickname) {
  */
 export function refreshAccessToken() {
   if (inflightRefresh) return inflightRefresh;
+  // 本设备从没拿到过刷新令牌（首次访问 / 已登出）：不做这次必然 401 的探测
+  if (!hasRefreshFlag()) return Promise.resolve(null);
   inflightRefresh = (async () => {
     try {
       const resp = await authFetch('/api/auth/refresh');
       if (!resp.ok) {
         setToken('', 0);
+        if (resp.status === 401) setRefreshFlag(false); // Cookie 已被服务端作废，别再来回试
         return null;
       }
       const d = await resp.json();
       setToken(d.accessToken, d.expiresIn);
+      setRefreshFlag(true);
       return d.accessToken;
     } catch {
       setToken('', 0);
@@ -92,6 +127,8 @@ export async function logout() {
     /* 离线也要清本地令牌 */
   }
   setToken('', 0);
+  tokenSubject = '';
+  setRefreshFlag(false);
 }
 
 /** 当前用户（需要有效访问令牌） */

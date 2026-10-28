@@ -3,7 +3,7 @@
 // 数据归属约定：
 //   - 订单：网关按 userId 返回，userId 来自当前登录用户（state.getUserId 登录优先），
 //     所以「登录后下的单」天然挂在这个账户名下；网关不可达时给出可行动的提示。
-//   - 地址：本机地址簿（store/addressStore.js），按用户 ID 分组隔离，
+//   - 地址：服务端为准 + 本地缓存（store/addressStore.js），同一账号换设备自动跟随；
 //     与结算页共用同一份存储，默认地址会被结算页优先选中。
 //   - 优惠券：本步骤只做占位，下一步接 /api/coupons。
 import { api } from './api.js';
@@ -14,7 +14,7 @@ import {
   clearCurrentUser, displayName, getCurrentUser, initials, maskIdentifier, onUserChange,
 } from './user.js';
 import {
-  PROVINCES, getDefaultAddress, listAddresses, removeAddress,
+  PROVINCES, getDefaultAddress, hydrateAddresses, listAddresses, removeAddress,
   saveAddress, setDefaultAddress, validateAddress,
 } from './store/addressStore.js';
 
@@ -61,8 +61,18 @@ export function renderAccount(view, { tab = 'orders' } = {}) {
   view.appendChild(page);
 
   if (active === 'orders') paintOrders(panel, user, bento);
-  else if (active === 'address') paintAddresses(panel, user, addresses, bento);
-  else paintCoupons(panel);
+  else if (active === 'address') {
+    const addrPanel = paintAddresses(panel, user, addresses, bento);
+    // 服务端校准：先用缓存秒开，拉回最新地址后再刷一次（表单正在编辑时不打断）
+    hydrateAddresses(user.id).then(({ addresses: fresh, online }) => {
+      bento.setAddresses(fresh);
+      if (!addrPanel || !addrPanel.isEditing()) addrPanel.repaint(fresh);
+      if (!online) return;
+    }).catch((e) => {
+      // 校准失败不该影响已渲染的缓存内容，但要在控制台留下线索便于排查
+      console.warn('[addresses] 服务端校准失败', e && e.message);
+    });
+  } else paintCoupons(panel);
 
   // 登录态变化（退出 / 换号）时重绘本页，避免停在一份过期资料上
   const off = onUserChange((u) => {
@@ -267,11 +277,11 @@ function paintAddresses(box, user, addresses, bento) {
   box.appendChild(formHost);
   box.appendChild(grid);
 
-  const repaint = () => {
-    const next = listAddresses(user.id);
+  const repaint = (given) => {
+    const next = Array.isArray(given) ? given : listAddresses(user.id);
     // 顶部数据块、面板计数与默认地址提示随地址增删同步，避免停在进入页面时的快照
     if (bento && bento.setAddresses) bento.setAddresses(next);
-    subNode.textContent = `${next.length} 个 · 按账户隔离`;
+    subNode.textContent = `${next.length} 个 · 跨设备同步`;
     grid.innerHTML = '';
     if (!next.length) {
       grid.appendChild(emptyCard({
@@ -299,6 +309,12 @@ function paintAddresses(box, user, addresses, bento) {
   });
 
   repaint();
+
+  return {
+    repaint,
+    /** 表单开着时不要被服务端回刷打断，否则用户正在填的内容会被清掉 */
+    isEditing: () => Boolean(formHost.firstChild),
+  };
 }
 
 function addressCard(a, { user, repaint, openForm }) {
@@ -306,7 +322,7 @@ function addressCard(a, { user, repaint, openForm }) {
   let confirming = false;
   let resetTimer = null;
 
-  delBtn.addEventListener('click', () => {
+  delBtn.addEventListener('click', async () => {
     if (!confirming) {
       confirming = true;
       delBtn.textContent = '确认删除?';
@@ -319,13 +335,19 @@ function addressCard(a, { user, repaint, openForm }) {
       return;
     }
     if (resetTimer) clearTimeout(resetTimer);
-    const res = removeAddress(user.id, a.id);
+    delBtn.disabled = true;
+    const res = await removeAddress(user.id, a.id);
+    delBtn.disabled = false;
     if (!res.ok) {
       toast(res.error || '删除失败', 'err');
+      // 失败要复位按钮，否则停在「确认删除?」上让人以为没点上
+      confirming = false;
+      delBtn.textContent = '删除';
+      delBtn.classList.remove('is-confirm');
       return;
     }
-    toast('地址已删除', 'ok');
-    repaint();
+    toast(res.online === false ? '地址已删除（仅本机）' : '地址已删除', 'ok');
+    repaint(res.addresses);
   });
 
   const actions = el('div', { class: 'acct-addr-actions' }, [
@@ -335,10 +357,16 @@ function addressCard(a, { user, repaint, openForm }) {
       : el('button', {
         class: 'acct-addr-act',
         type: 'button',
-        onclick: () => {
-          const res = setDefaultAddress(user.id, a.id);
+        onclick: async (e) => {
+          const btn = e && e.currentTarget;
+          if (btn) btn.disabled = true;
+          const res = await setDefaultAddress(user.id, a.id);
+          if (btn) btn.disabled = false;
           if (!res.ok) toast(res.error || '设置失败', 'err');
-          else { toast('已设为默认地址', 'ok'); repaint(); }
+          else {
+            toast(res.online === false ? '已设为默认（仅本机）' : '已设为默认地址', 'ok');
+            repaint(res.addresses);
+          }
         },
       }, '设为默认'),
     delBtn,
@@ -349,6 +377,7 @@ function addressCard(a, { user, repaint, openForm }) {
       el('strong', { class: 'acct-addr-name' }, a.receiver),
       el('span', { class: 'acct-addr-phone' }, maskIdentifier(a.phone)),
       a.isDefault ? el('span', { class: 'acct-addr-badge' }, '默认') : null,
+      a.pending ? el('span', { class: 'acct-addr-badge is-pending' }, '仅本机') : null,
     ]),
     el('p', { class: 'acct-addr-line' }, `${a.region} ${a.detail}`.trim()),
     a.postal ? el('p', { class: 'acct-addr-postal' }, `邮编 ${a.postal}`) : null,
@@ -414,7 +443,7 @@ function addressForm({ user, editing, onDone }) {
     isDefault: Boolean(f.isDefault.checked),
   });
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     const payload = collect();
     const invalid = validateAddress(payload);
@@ -422,13 +451,22 @@ function addressForm({ user, editing, onDone }) {
       showErr(invalid);
       return;
     }
-    const res = saveAddress(user.id, payload);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    const res = await saveAddress(user.id, payload);
+    if (submitBtn) submitBtn.disabled = false;
     if (!res.ok) {
       showErr(res.error || '保存失败');
       return;
     }
     showErr('');
-    toast(editing ? '地址已更新' : '地址已添加', 'ok');
+    const offline = res.online === false;
+    toast(
+      offline
+        ? (editing ? '地址已更新（仅本机，联网后自动同步）' : '地址已添加（仅本机，联网后自动同步）')
+        : (editing ? '地址已更新' : '地址已添加'),
+      'ok',
+    );
     onDone();
   });
 

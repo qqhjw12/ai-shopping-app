@@ -645,15 +645,39 @@ async function route(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/addresses') {
     const parsed = await readJson(req);
     if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
-    if (!parsed.receiver || !parsed.region) return sendError(res, 400, 'receiver and region required', req.reqId);
+    // region 可由 province/city 拼出（前端两个入口字段口径不同），这里只卡真正缺不了的字段，
+    // 其余校验与文案交给仓储层，避免两处规则各说一套。
+    if (!parsed.receiver) return sendError(res, 400, 'receiver required', req.reqId);
     const userId = userIdOf(req, parsed.userId);
     return guarded(
-      () => ({
-        ...userRepo.saveAddress(userId, parsed),
-        addresses: userRepo.listAddresses(userId),
-      }),
+      () => {
+        const r = userRepo.saveAddress(userId, parsed);
+        return { ...r, addresses: userRepo.listAddresses(userId) };
+      },
       201,
     );
+  }
+
+  // 设为默认地址：幂等，重复调用结果一致
+  const addrDefaultMatch = url.pathname.match(/^\/api\/addresses\/([^/]+)\/default$/);
+  if (req.method === 'POST' && addrDefaultMatch) {
+    const userId = userIdOf(req, url.searchParams.get('userId'));
+    const id = decodeURIComponent(addrDefaultMatch[1]);
+    return guarded(() => {
+      userRepo.setDefaultAddress(userId, id);
+      return { ok: true, addresses: userRepo.listAddresses(userId) };
+    });
+  }
+
+  // 删除地址：删掉默认地址后由剩余第一条接任，返回最新清单
+  const addrIdMatch = url.pathname.match(/^\/api\/addresses\/([^/]+)$/);
+  if (req.method === 'DELETE' && addrIdMatch) {
+    const userId = userIdOf(req, url.searchParams.get('userId'));
+    const id = decodeURIComponent(addrIdMatch[1]);
+    return guarded(() => {
+      const r = userRepo.removeAddress(userId, id);
+      return { ...r, addresses: userRepo.listAddresses(userId) };
+    });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/ai/chat') {
@@ -907,7 +931,9 @@ async function route(req, res, url) {
         'GET /api/orders/:id?userId= · POST /api/orders/:id/pay?userId=',
         'GET|POST|DELETE /api/favorites?userId= (收藏夹：POST 为切换)',
         'GET|POST /api/coupons?userId=&amount= (卡券包 / 领券)',
-        'GET /api/addresses?userId=',
+        'GET|POST /api/addresses?userId= (地址簿：POST 带 id 即更新，返回最新清单)',
+        'POST /api/addresses/:id/default?userId= (设为默认，幂等)',
+        'DELETE /api/addresses/:id?userId= (删除；删默认则由剩余第一条接任)',
         'POST /api/ai/chat {message, userId?, conversationId?}',
         'POST /api/ai/qa {query, userId?, conversationId?, productId?} (stream:true 时 SSE 逐字，末尾回传 results)',
         'POST /api/ai/guide {message, userId?, budget?, category?, topK?}',

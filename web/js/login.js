@@ -151,15 +151,22 @@ export function renderLogin(view, { redirect = '' } = {}) {
   });
 
   /* ---- 登录落盘 ---- */
-  const complete = (user, welcome) => {
+  const complete = async (user, welcome) => {
     try {
       setCurrentUser(user);
     } catch (e) {
       showError(e.message || '登录失败，请重试');
       return;
     }
-    // 令牌会话是加分项：网关可达时顺带建立（离线/静态演示静默跳过）
-    openSession(user.id, user.nickname).catch(() => {});
+    // 令牌会话要跟着页面身份走：先建好会话再跳转。
+    // 否则跳转后的首个请求还带着上一层身份（匿名/旧账号）的令牌，
+    // 服务端按令牌取身份 → 读到的是别人的地址簿。
+    // 网关可达时必走；离线/静态演示下失败也不拦登录（静默跳过）。
+    try {
+      await openSession(user.id, user.nickname);
+    } catch {
+      /* 离线：仅保持页面登录态 */
+    }
     toast(welcome, 'ok');
     navigate(sanitizeRedirect(redirect));
   };

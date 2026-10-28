@@ -25,8 +25,19 @@ function makeOrderId(db) {
  */
 export function previewOrder({ userId, items, addressId, couponId }) {
   const db = getDb();
-  // 新用户首次结算时补齐档案与默认地址（否则外键约束会让建单失败）
+  // 新用户首次结算时补齐档案（orders 外键指向 users，缺人会导致建单失败）
   userRepo.ensureUser(userId);
+  // 地址簿为空且未指定地址时才补一条兜底地址（仅结算时触发，账户中心看到的空就是空）
+  if (!addressId && !userRepo.listAddresses(userId).length) {
+    userRepo.saveAddress(userId, {
+      receiver: '演示收货人',
+      phone: '13800000000',
+      province: '上海市',
+      city: '浦东新区',
+      detail: '示例路 1 号 101 室',
+      isDefault: true,
+    });
+  }
   const address = addressId
     ? userRepo.listAddresses(userId).find((a) => a.id === addressId)
     : userRepo.defaultAddress(userId);

@@ -1,10 +1,25 @@
 // 类型化请求封装：4xx 不重试；5xx / 网络异常自动重试最多 3 次；离线优先提示。
 // 默认同源（经 nginx 反代时即网关地址），可用 ?api= 覆盖（本地直连调试用）。
-import { getAccessToken, refreshAccessToken } from './auth.js';
+import { getAccessToken, refreshAccessToken, tokenOwner } from './auth.js';
+import { getCurrentUser } from './user.js';
 
 const API_BASE = new URLSearchParams(location.search).get('api') || location.origin;
 
 export const apiBase = API_BASE;
+
+/**
+ * 请求该带的鉴权头。
+ * 令牌身份必须与「页面当前登录用户」一致才发出去——服务端以令牌身份为准，
+ * 若页面已切到 A 账号而令牌还是匿名/旧账号，带上它就会读到别人的数据。
+ * 未登录（页面无用户）时照常带匿名会话令牌，不影响公开读接口。
+ */
+function authHeader() {
+  const token = getAccessToken();
+  if (!token) return null;
+  const pageUser = (getCurrentUser() || {}).id || '';
+  if (pageUser && tokenOwner() !== pageUser) return null;
+  return { Authorization: `Bearer ${token}` };
+}
 
 /**
  * 把网关返回的相对媒体路径解析成可加载的绝对地址。
@@ -49,9 +64,9 @@ export async function api(path, opts = {}) {
   while (true) {
     try {
       const headers = { 'Content-Type': 'application/json' };
-      // 有访问令牌就带上；过期不影响——下面的 401 分支会自动刷新重试
-      const token = getAccessToken();
-      if (token) headers.Authorization = `Bearer ${token}`;
+      // 有访问令牌且身份一致就带上；过期不影响——下面的 401 分支会自动刷新重试
+      const auth = authHeader();
+      if (auth) Object.assign(headers, auth);
       const resp = await fetch(`${API_BASE}${path}`, {
         method,
         headers,
@@ -106,8 +121,8 @@ export async function streamApi(path, body, onEvent, opts = {}) {
   const retries = opts.retries ?? 2;
   const doFetch = async (canRetry = true) => {
     const headers = { 'Content-Type': 'application/json' };
-    const token = getAccessToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const auth = authHeader();
+    if (auth) Object.assign(headers, auth);
     const resp = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
       headers,

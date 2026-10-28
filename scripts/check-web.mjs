@@ -528,20 +528,23 @@ if (failed === 0) {
     const lq = (c) => lv.querySelectorAll(c);
     const lform = lq('.auth-form')[0];
     const errText = () => (lq('.auth-error')[0] || {}).textContent || '';
-    const submitLogin = () => lform.listeners.submit({ preventDefault() {} });
+    const submitLogin = async () => {
+      lform.listeners.submit({ preventDefault() {} });
+      await new Promise((r) => setTimeout(r, 30)); // 登录会先建会话再跳转
+    };
 
-    submitLogin();
+    await submitLogin();
     const errEmpty = /手机号|邮箱/.test(errText());
     lq('.auth-id')[0].value = '12345';
-    submitLogin();
+    await submitLogin();
     const errBadId = /手机号|邮箱/.test(errText());
     lq('.auth-id')[0].value = '13800001234';
     lq('.auth-code')[0].value = '000000';
-    submitLogin();
+    await submitLogin();
     const errBadCode = /验证码/.test(errText()) && !userMod.isLoggedIn();
 
     lq('.auth-code')[0].value = userMod.DEMO_CODE;
-    submitLogin();
+    await submitLogin();
     const loggedIn = userMod.isLoggedIn();
     const me = userMod.getCurrentUser();
     const persisted = JSON.parse(localStorage.getItem('current_user') || 'null');
@@ -557,6 +560,7 @@ if (failed === 0) {
     const lv2 = new El('main');
     renderLogin(lv2, { redirect: '/checkout' });
     lv2.querySelectorAll('.auth-demo')[0].listeners.click();
+    await new Promise((r) => setTimeout(r, 30));
     const demoId = (userMod.getCurrentUser() || {}).id;
     const redirectWorks = location.hash === '#/checkout';
 
@@ -587,6 +591,8 @@ if (failed === 0) {
     const invalidBlocked = av.querySelectorAll('.acct-addr').length === 0
       && /姓名/.test((av.querySelectorAll('.acct-form-err')[0] || {}).textContent || '');
 
+    const tick = (ms = 10) => new Promise((r) => setTimeout(r, ms));
+
     field('.f-receiver').value = '张三';
     field('.f-phone').value = '13800001234';
     field('.f-province').value = '上海市';
@@ -594,6 +600,7 @@ if (failed === 0) {
     field('.f-detail').value = '世纪大道 100 号 8 楼';
     field('.f-postal').value = '200120';
     form1.listeners.submit({ preventDefault() {} });
+    await tick();
     const oneCard = av.querySelectorAll('.acct-addr').length === 1;
     const autoDefault = /默认/.test((av.querySelectorAll('.acct-addr')[0] || {}).textContent || '');
 
@@ -605,22 +612,24 @@ if (failed === 0) {
     field('.f-city').value = '杭州市 西湖区';
     field('.f-detail').value = '文三路 200 号 A 座 5 层';
     form2.listeners.submit({ preventDefault() {} });
+    await tick();
     const twoCards = av.querySelectorAll('.acct-addr').length === 2;
     // 面板计数与顶部数据块都要跟着地址数走（不能停在渲染时的快照 0）
-    const panelCountSynced = (av.querySelectorAll('.acct-panel-sub')[0] || {}).textContent === '2 个 · 按账户隔离'
+    const panelCountSynced = (av.querySelectorAll('.acct-panel-sub')[0] || {}).textContent === '2 个 · 跨设备同步'
       && (av.querySelectorAll('.acct-stat-value')[0] || {}).textContent === '2'
       && /默认收货：张三/.test((av.querySelectorAll('.acct-hero-note')[0] || {}).textContent || '');
 
     const setDefaultBtn = av.querySelectorAll('.acct-addr-act')
       .find((b) => b.textContent === '设为默认' && b.listeners && b.listeners.click);
     if (setDefaultBtn) setDefaultBtn.listeners.click();
+    await tick();
     const listAfterDefault = addr.listAddresses(userMod.DEMO_ACCOUNT.id);
     const defaultMoved = listAfterDefault[0] && listAfterDefault[0].receiver === '李四'
       && listAfterDefault.filter((a) => a.isDefault).length === 1;
 
     // 按用户隔离：另一个账户看到的必须是空的
     const otherEmpty = addr.listAddresses('u_someone_else').length === 0;
-    addr.saveAddress('u_someone_else', { receiver: '王五', phone: '13700003333', province: '北京市', city: '朝阳区', detail: '建国路 1 号院 3 号楼' });
+    await addr.saveAddress('u_someone_else', { receiver: '王五', phone: '13700003333', province: '北京市', city: '朝阳区', detail: '建国路 1 号院 3 号楼' });
     const isolated = addr.listAddresses(userMod.DEMO_ACCOUNT.id).length === 2
       && addr.listAddresses('u_someone_else').length === 1;
 
@@ -628,11 +637,25 @@ if (failed === 0) {
     delBtn.listeners.click();
     const confirming = delBtn.textContent === '确认删除?' && delBtn.classList.contains('is-confirm');
     delBtn.listeners.click();
+    await tick();
     const afterDelete = av.querySelectorAll('.acct-addr').length === 1;
 
-    const badPostal = addr.saveAddress(userMod.DEMO_ACCOUNT.id, {
+    const badPostal = await addr.saveAddress(userMod.DEMO_ACCOUNT.id, {
       receiver: '赵六', phone: '13600004444', province: '广东省', city: '深圳市', detail: '科技园南路 8 号', postal: '123',
     });
+
+    /* 6b) 跨设备契约：服务端为准 + 离线降级可辨认 */
+    // 离线写入（自检环境无后端，api 必然失败）应保留本地并标记 pending，而不是丢数据
+    const offlineSave = await addr.saveAddress(userMod.DEMO_ACCOUNT.id, {
+      receiver: '离线甲', phone: '13500005555', province: '四川省', city: '成都市', detail: '天府大道 1 号',
+    });
+    const offlineKept = offlineSave.ok === true && offlineSave.online === false
+      && addr.listAddresses(userMod.DEMO_ACCOUNT.id).some((a) => a.receiver === '离线甲' && a.pending);
+    const hydrateIsFn = typeof addr.hydrateAddresses === 'function';
+    // 服务端返回项要能补齐 province/city（老数据只有 region 时不能把地区写丢）
+    const hydrated = await addr.hydrateAddresses(userMod.DEMO_ACCOUNT.id);
+    const hydrateKeepsLocal = hydrated.online === false
+      && hydrated.addresses.some((a) => a.receiver === '离线甲');
 
     /* 7) 优惠券占位 + 订单 Tab + 订单详情占位 */
     const av2 = new El('main');
@@ -678,6 +701,9 @@ if (failed === 0) {
       ['删除需二次确认', confirming],
       ['确认后删除生效', afterDelete],
       ['邮编格式校验', badPostal.ok === false && /邮编/.test(badPostal.error || '')],
+      ['离线写入保留本地并标记待同步', offlineKept],
+      ['导出服务端校准接口', hydrateIsFn],
+      ['离线校准不丢未同步地址', hydrateKeepsLocal],
       ['优惠券占位空状态', couponEmpty],
       ['订单取不回时给兜底提示', ordersFallback],
       ['订单详情占位页', detailPlaceholder],
