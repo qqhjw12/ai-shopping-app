@@ -138,30 +138,48 @@ export function getAftersale(id, db = getDb()) {
 /**
  * 运营侧工单列表。
  *
- * 待处理的排在前面：审核台打开就该先看到要做的事，按时间排会让新提交的工单
- * 混在已处理的历史里往下沉。
+ * 待处理的排在前面：审核台打开就该先看到要做的事；已处理的按**处理时间**倒序——
+ * 操作记录要回答的是「最近处理了什么」，按提交时间排会把一早提交、下午才处理的
+ * 工单混在三天前那批里。COALESCE 一并解决两种语义：待处理的 reviewed_at 是 NULL，
+ * 落到 created_at；已处理的落到 reviewed_at。
+ *
  * 商品摘要单独一次 IN 查询取回，不为每单再查一次明细（列表页的 N+1 与订单列表同理）。
+ *
+ * @param {{status?: string, reviewed?: boolean|null, page?: number, size?: number}} opts
+ *        reviewed=true 只看已处理，false 只看待处理，null 不额外过滤。
  */
-export function listForAdmin({ status = '', page = 1, size = 20 } = {}, db = getDb()) {
+export function listForAdmin({ status = '', reviewed = null, page = 1, size = 20 } = {}, db = getDb()) {
   const code = String(status || '').trim();
   const filtered = STATUS_MAP.has(code);
   const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(size) || 20));
   const offset = (Math.max(1, Number(page) || 1) - 1) * limit;
 
+  const conds = [];
+  const args = [];
+  if (filtered) {
+    conds.push('a.status = ?');
+    args.push(code);
+  }
+  if (typeof reviewed === 'boolean') {
+    conds.push(reviewed ? "a.status <> 'reviewing'" : "a.status = 'reviewing'");
+  }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+
   const total = db
-    .prepare(`SELECT COUNT(*) AS n FROM aftersales${filtered ? ' WHERE status = ?' : ''}`)
-    .get(...(filtered ? [code] : [])).n;
+    .prepare(`SELECT COUNT(*) AS n FROM aftersales a ${where}`)
+    .get(...args).n;
 
   const rows = db
     .prepare(`
       SELECT a.*, o.total_amount AS order_total, o.status AS order_status
       FROM aftersales a
       JOIN orders o ON o.id = a.order_id
-      ${filtered ? 'WHERE a.status = ?' : ''}
-      ORDER BY CASE a.status WHEN 'reviewing' THEN 0 ELSE 1 END, a.created_at DESC
+      ${where}
+      ORDER BY CASE a.status WHEN 'reviewing' THEN 0 ELSE 1 END,
+               COALESCE(a.reviewed_at, a.created_at) DESC
       LIMIT ? OFFSET ?
     `)
-    .all(...(filtered ? [code] : []), limit, offset);
+    .all(...args, limit, offset);
 
   const ids = rows.map((r) => r.order_id);
   const byOrder = new Map();
@@ -176,10 +194,31 @@ export function listForAdmin({ status = '', page = 1, size = 20 } = {}, db = get
     });
   }
 
+  // 总览不受筛选影响：它是「现在还有多少没处理、一共退了多少钱」，
+  // 切到「已驳回」标签时数字跟着变只会让人怀疑是不是漏看了。
+  const stat = db
+    .prepare(`
+      SELECT
+        SUM(CASE WHEN status = 'reviewing' THEN 1 ELSE 0 END) AS reviewing,
+        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved,
+        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+        COALESCE(SUM(refund_amount), 0) AS refund_total,
+        SUM(CASE WHEN refund_amount IS NOT NULL THEN 1 ELSE 0 END) AS refund_count
+      FROM aftersales
+    `)
+    .get();
+
   return {
     total,
     page: Math.max(1, Number(page) || 1),
     size: limit,
+    summary: {
+      reviewing: Number(stat.reviewing || 0),
+      approved: Number(stat.approved || 0),
+      rejected: Number(stat.rejected || 0),
+      refundTotal: Math.round(Number(stat.refund_total || 0) * 100) / 100,
+      refundCount: Number(stat.refund_count || 0),
+    },
     items: rows.map((r) => {
       const mapped = mapRow(r);
       const goods = byOrder.get(r.order_id) || [];

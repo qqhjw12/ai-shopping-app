@@ -17,15 +17,18 @@ import { navigate } from './router.js';
 import { AFTERSALE_STATUS_TEXT, REFUNDABLE_TYPES } from './store/aftersaleStore.js';
 
 const KEY_SLOT = 'maison_admin_key';
+const ACTOR_SLOT = 'maison_admin_actor';
+const ACTOR_MAX = 20;
 const PAGE_SIZE = 20;
 
 // 不给筛选参数时默认停在「待处理」：运营打开审核台是想处理事情，
 // 不是想看历史。要看全部得显式点一下（带 status=all，避免与「没带参数」混淆）。
 const FILTERS = [
-  { code: 'all', label: '全部' },
   { code: 'reviewing', label: '待处理' },
+  { code: 'done', label: '处理记录' },
   { code: 'approved', label: '已同意' },
   { code: 'rejected', label: '已驳回' },
+  { code: 'all', label: '全部' },
 ];
 const DEFAULT_FILTER = 'reviewing';
 
@@ -46,8 +49,38 @@ function writeKey(v) {
   }
 }
 
+/** 操作人是必填的：一条没有署名的处理记录等于没记，出了事谁都能说不是自己干的 */
+function readActor() {
+  try {
+    return sessionStorage.getItem(ACTOR_SLOT) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeActor(v) {
+  try {
+    if (v) sessionStorage.setItem(ACTOR_SLOT, v);
+    else sessionStorage.removeItem(ACTOR_SLOT);
+  } catch {
+    /* 同上 */
+  }
+}
+
+/**
+ * 管理接口请求头。
+ *
+ * 操作人**必须编码后再放进 HTTP 头**：HTTP 头值只允许可打印 ASCII，
+ * 直接塞中文会让 fetch 在构造 Request 时就抛 TypeError——连请求都发不出去，
+ * 页面只能看到一句「网络异常」。这个名字偏偏大概率就是中文，
+ * 用 ASCII 名字测试会完美掩盖这个问题。
+ */
 function adminHeaders() {
-  return { 'X-Admin-Key': readKey(), 'X-Admin-Actor': 'ops-console' };
+  const actor = readActor();
+  return {
+    'X-Admin-Key': readKey(),
+    'X-Admin-Actor': actor ? encodeURIComponent(actor) : '',
+  };
 }
 
 function fmtDate(iso) {
@@ -64,9 +97,11 @@ function isKeyRejected(e) {
    取数
    ============================================================ */
 
-async function fetchList({ status, page }) {
+async function fetchList({ status, reviewed, page }) {
   const qs = new URLSearchParams();
   if (status) qs.set('status', status);
+  // 「处理记录」= 所有已处理的，不带 status 只带 reviewed=1
+  if (reviewed) qs.set('reviewed', '1');
   qs.set('page', String(page));
   qs.set('size', String(PAGE_SIZE));
   return api(`/api/aftersales?${qs}`, { headers: adminHeaders(), retries: 0 });
@@ -85,6 +120,12 @@ async function submitReview(id, payload) {
    钥匙门
    ============================================================ */
 
+/**
+ * 钥匙门同时收「管理密钥」和「操作人」。
+ * 两样都必填：只有密钥的话，处理记录里全是无署名的操作，出了事追不到人。
+ * 都只写 sessionStorage——写进 localStorage 的凭据会一直躺在硬盘上，
+ * 谁打开这台电脑谁就是管理员。关掉标签页即失效。
+ */
 function keyGate(repaint) {
   const input = el('input', {
     class: 'adm-key-input',
@@ -92,31 +133,51 @@ function keyGate(repaint) {
     placeholder: 'ADMIN_API_KEY',
     'aria-label': '管理员密钥',
   });
+  const actorInput = el('input', {
+    class: 'adm-key-input',
+    type: 'text',
+    maxlength: String(ACTOR_MAX),
+    placeholder: '你的名字或工号',
+    'aria-label': '操作人',
+    autocomplete: 'off',
+  });
   const err = el('p', { class: 'adm-error', role: 'alert' });
 
   const form = el('form', { class: 'adm-key-form' }, [
     el('h1', { class: 'adm-title' }, '售后审核台'),
     el('p', { class: 'adm-sub' }, '这一页不属于买家路径，进入需要服务端的管理密钥。'),
+    el('label', { class: 'adm-label' }, '管理密钥'),
     input,
+    el('label', { class: 'adm-label' }, '操作人'),
+    actorInput,
     err,
     el('div', { class: 'adm-actions' }, [
       el('button', { class: 'adm-btn', type: 'submit' }, '进入'),
     ]),
     el('p', { class: 'adm-hint' }, [
-      '密钥取服务端环境变量 ADMIN_API_KEY；它只存在当前标签页，关闭即失效。',
+      '密钥取服务端环境变量 ADMIN_API_KEY。两个值都只存在当前标签页，关闭即失效。',
       el('br', {}),
-      '服务端未配置该变量时，这一页无法使用——写接口的默认姿态是关闭的。',
+      '操作人会写进处理记录。它是自报的，服务端另外按钥匙本身记了指纹：',
+      '名字方便人读，真正能追责的是指纹。',
     ]),
   ]);
 
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
     const v = input.value.trim();
+    const actor = actorInput.value.trim();
     if (!v) {
       err.textContent = '请输入管理密钥';
+      input.focus();
+      return;
+    }
+    if (actor.length < 2) {
+      err.textContent = '请填写操作人（至少 2 个字），处理记录要署名';
+      actorInput.focus();
       return;
     }
     writeKey(v);
+    writeActor(actor.slice(0, ACTOR_MAX));
     repaint();
   });
 
@@ -290,7 +351,10 @@ function recordCard(record, { reload }) {
     if (REFUNDABLE_TYPES.includes(record.type) && record.refundAmount != null) {
       bits.push(`退款 ${fmtPrice(record.refundAmount)}`);
     }
-    bits.push(`${fmtDate(record.reviewedAt)}`);
+    bits.push(fmtDate(record.reviewedAt));
+    // 处理人没记到就是真的没有：老数据在审核功能上线前就处理完了，
+    // 显示一条「—」好过显示一个编出来的名字
+    bits.push(`处理人 ${record.reviewer || '—'}`);
     children.push(el('div', { class: 'adm-verdict' }, [
       el('span', { class: 'adm-verdict-main' }, bits.filter(Boolean).join(' · ')),
       record.reviewNote ? el('span', { class: 'adm-verdict-note' }, `意见：${record.reviewNote}`) : null,
@@ -323,19 +387,48 @@ function pager(page, size, total, active) {
   ]);
 }
 
+/**
+ * 顶部总览。
+ * 数字是**全库**的，不跟着筛选变：切到「已驳回」时总数跟着缩水只会让人怀疑
+ * 是不是漏看了。切标签是换视角，不是换账本。
+ */
+function summaryRow(data) {
+  const s = (data && data.summary) || {};
+  const bits = [
+    // 说「当前」而不是「共」：旁边三个胶囊加起来是全库的数字，
+    // 写「共 2 条」会让人以为漏看了——当前视图 2 条、全库 3 条，两件事
+    el('span', { class: 'adm-sum-count num' }, `当前 ${data.total} 条`),
+    el('span', { class: 'adm-chip is-reviewing' }, `待处理 ${s.reviewing ?? 0}`),
+    el('span', { class: 'adm-chip' }, `已同意 ${s.approved ?? 0}`),
+    el('span', { class: 'adm-chip' }, `已驳回 ${s.rejected ?? 0}`),
+  ];
+  // 一笔都没退过时不显示金额：一个孤零零的 ¥0.00 只是占位噪音
+  if (s.refundCount) {
+    bits.push(el('span', { class: 'adm-sum-money' }, [
+      '退款合计 ',
+      el('b', { class: 'num' }, fmtPrice(s.refundTotal || 0)),
+      `（${s.refundCount} 笔）`,
+    ]));
+  }
+  return el('div', { class: 'adm-summary' }, bits);
+}
+
 /* ============================================================
    页面
    ============================================================ */
 
 export async function renderAdminAftersales(view, query = {}) {
   const active = FILTERS.some((f) => f.code === query.status) ? query.status : DEFAULT_FILTER;
-  // 发给服务端的筛选值：「全部」不带 status，其余原样
-  const status = active === 'all' ? '' : active;
+  const isDone = active === 'done';
+  // 发给服务端的条件：「全部」不带 status；「处理记录」不带 status 只带 reviewed=1
+  const status = active === 'all' || isDone ? '' : active;
+  const reviewed = isDone;
   const page = Math.max(1, Number(query.page) || 1);
 
   const paint = () => renderAdminAftersales(view, query);
 
-  if (!readKey()) {
+  // 钥匙或操作人缺一样都回钥匙门：只有钥匙的话，处理记录里全是无署名操作
+  if (!readKey() || !readActor()) {
     view.innerHTML = '';
     view.appendChild(keyGate(paint));
     return;
@@ -349,12 +442,14 @@ export async function renderAdminAftersales(view, query = {}) {
       el('div', {}, [
         el('span', { class: 'eyebrow' }, 'AFTER-SALES CONSOLE'),
         el('h1', { class: 'adm-title' }, '售后审核台'),
+        el('span', { class: 'adm-actor' }, `操作人 ${readActor()}`),
       ]),
       el('button', {
         class: 'adm-line-btn',
         type: 'button',
         onclick: () => {
           writeKey('');
+          writeActor('');
           paint();
         },
       }, '退出'),
@@ -366,7 +461,7 @@ export async function renderAdminAftersales(view, query = {}) {
 
   let data;
   try {
-    data = await fetchList({ status, page });
+    data = await fetchList({ status, reviewed, page });
   } catch (e) {
     host.innerHTML = '';
     if (isKeyRejected(e)) {
@@ -388,14 +483,20 @@ export async function renderAdminAftersales(view, query = {}) {
   host.innerHTML = '';
   const list = (data && data.items) || [];
   if (!list.length) {
+    const [title, desc] = isDone
+      ? ['还没有处理记录', '处理过的工单会出现在这里，按处理时间倒序。']
+      : [
+        '这一类暂时没有工单',
+        active === 'reviewing' ? '待处理的都处理完了。' : '用户提交售后申请后会出现在这里。',
+      ];
     host.appendChild(el('div', { class: 'adm-empty' }, [
-      el('h2', {}, status ? '这一类暂时没有工单' : '还没有售后工单'),
-      el('p', {}, status === 'reviewing' ? '待处理的都处理完了。' : '用户提交售后申请后会出现在这里。'),
+      el('h2', {}, title),
+      el('p', {}, desc),
     ]));
     return;
   }
 
-  host.appendChild(el('div', { class: 'adm-summary' }, `共 ${data.total} 条`));
+  host.appendChild(summaryRow(data));
   list.forEach((r) => host.appendChild(recordCard(r, { reload: paint })));
   const p = pager(page, data.size || PAGE_SIZE, data.total, active);
   if (p) host.appendChild(p);

@@ -35,6 +35,13 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const GW = `http://127.0.0.1:${GW_PORT}`;
 const APP = `${BASE}/index.html?api=${GW}`;
 const ADMIN_KEY = 'e2e-admin-key-4c1f';
+// 两条路径用不同名字，且**都是中文**：接口侧 李审核、页面侧 张小满。
+// 用中文不是为了好看——HTTP 头值只吃可打印 ASCII，名叫 "e2e-ops" 时无论前端
+// 有没有编码都能跑通，这个坑就被永久掩盖了。真实运营用的偏偏是中文名。
+// 两个名字不同还能顺带证明页面真的把自报的操作人发了出去，而不是服务端兜底。
+const API_ACTOR = '李审核';
+const UI_ACTOR = '张小满';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // 独立临时库：审核会把订单改成 refunded，跑开发库会污染真实订单
 const DB = join(ROOT, 'ai-gateway', 'data', '_e2e-asreview.db');
@@ -102,7 +109,10 @@ async function req(method, path, body = null, headers = {}) {
   return { status: r.status, d };
 }
 
-const adminHeaders = (key = ADMIN_KEY) => (key ? { 'X-Admin-Key': key, 'X-Admin-Actor': 'e2e-ops' } : {});
+// 接口侧也要编码：不编码的话 node 的 fetch 一样会拒绝这个中文头值
+const adminHeaders = (key = ADMIN_KEY) => (key
+  ? { 'X-Admin-Key': key, 'X-Admin-Actor': encodeURIComponent(API_ACTOR) }
+  : {});
 
 const listTickets = (qs = '', key = ADMIN_KEY) => req('GET', `/api/aftersales${qs ? `?${qs}` : ''}`, null, adminHeaders(key));
 const review = (id, body, key = ADMIN_KEY) => req('PATCH', `/api/aftersales/${encodeURIComponent(id)}`, body, adminHeaders(key));
@@ -227,6 +237,9 @@ try {
     exApprove.d.aftersale ? String(exApprove.d.aftersale.refundAmount) : '');
 
   /* 6) 驳回：退回申请那一刻的状态（已完成） */
+  // 三次处理刻意错开 1 秒以上：时间戳只精确到秒，同秒处理的三条排序不稳定，
+  // 「处理记录按处理时间倒序」这条断言就会时灵时不灵——那比不测更糟。
+  await sleep(1100);
   const rej = await review(o3.asId, { action: 'reject', note: '凭证不足以判定运输破损' });
   const afterRej = await serverOrder(uid, o3.id);
   check('驳回：工单状态 rejected', rej.d.aftersale && rej.d.aftersale.status === 'rejected',
@@ -240,6 +253,7 @@ try {
     rej.d.aftersale && /凭证不足以判定运输破损/.test(rej.d.aftersale.handleNote || ''));
 
   /* 7) 退款金额上限：手滑多打两个 0 不能真退那么多 */
+  await sleep(1100);
   const clamp = await review(o4.asId, { action: 'approve', note: '同意退款', refundAmount: 99999 });
   const afterClamp = await serverOrder(uid, o4.id);
   check('超额退款被夹到订单实付',
@@ -252,14 +266,67 @@ try {
   const again = await review(o4.asId, { action: 'approve' });
   check('重复审核被拒（409）', again.status === 409, `HTTP ${again.status} ${again.d.error || ''}`);
 
+  /* 8.5) 处理记录：操作人落库 + 已处理筛选 + 排序 + 汇总 */
+  const apiApproved = await listTickets('status=approved');
+  const apiRows = ((apiApproved.d && apiApproved.d.items) || []);
+  check('接口侧处理的两条都记下了操作人 李审核',
+    apiRows.length === 2 && apiRows.every((r) => r.reviewer === API_ACTOR),
+    apiRows.map((r) => r.reviewer).join(','));
+
+  const done = await listTickets('reviewed=1');
+  const doneList = (done.d && done.d.items) || [];
+  check('按「已处理」筛选得到 3 条（页面那条还没处理）', doneList.length === 3,
+    String(doneList.length));
+  check('处理记录里不含待处理工单', doneList.every((r) => r.status !== 'reviewing'));
+  // 处理顺序是 o2 换货 → o3 驳回 → o4 同意，倒序就该是 o4 > o3 > o2
+  check('处理记录按处理时间倒序，最后处理的排最前',
+    doneList.length === 3
+      && doneList[0].orderId === o4.id
+      && doneList[1].orderId === o3.id
+      && doneList[2].orderId === o2.id,
+    doneList.map((r) => r.orderId).join(' > '));
+  check('处理时间确实递减（不是碰巧排对）',
+    doneList.every((r, i) => i === 0
+      || String(doneList[i - 1].reviewedAt) > String(r.reviewedAt)),
+    doneList.map((r) => String(r.reviewedAt).slice(11)).join(' > '));
+
+  const sm = (done.d && done.d.summary) || {};
+  check('汇总：待处理 1 / 已同意 2 / 已驳回 1',
+    sm.reviewing === 1 && sm.approved === 2 && sm.rejected === 1, JSON.stringify(sm));
+  check('退款合计只算真正退了钱的（换货那笔不产生退款）',
+    sm.refundCount === 1 && Math.abs(sm.refundTotal - paid) < 0.02,
+    `${sm.refundCount} 笔 ${sm.refundTotal} vs 实付 ${paid}`);
+  // 切到「已同意」时数字不该缩水——切标签是换视角，不是换账本
+  const sm2 = (apiApproved.d && apiApproved.d.summary) || {};
+  check('汇总不跟着筛选变（切到「已同意」仍报全库数字）',
+    sm2.reviewing === 1 && sm2.rejected === 1, JSON.stringify(sm2));
+
   /* 9) 审核台页面：钥匙门 → 默认停在待处理 */
   await page.goto(`${APP}#/admin/aftersales`, { waitUntil: 'load' });
   await page.waitForSelector('.adm-key-form');
   check('未持钥匙时先看到钥匙门，而不是空列表',
     (await page.locator('.adm-card').count()) === 0);
-  await page.locator('.adm-key-input').fill(ADMIN_KEY);
+
+  // 只填密钥不填名字进不去：处理记录没有署名等于没记
+  await page.getByLabel('管理员密钥').fill(ADMIN_KEY);
+  await page.locator('.adm-btn', { hasText: '进入' }).click();
+  await page.waitForTimeout(500);
+  check('不填操作人进不去，仍停在钥匙门',
+    (await page.locator('.adm-key-form').count()) === 1
+      && /至少 2 个字/.test((await page.locator('.adm-error').textContent()) || ''),
+    (await page.locator('.adm-error').textContent()) || '');
+  // 名字太短也不行
+  await page.getByLabel('操作人').fill('A');
+  await page.locator('.adm-btn', { hasText: '进入' }).click();
+  await page.waitForTimeout(400);
+  check('操作人只填 1 个字也被挡住', (await page.locator('.adm-key-form').count()) === 1);
+
+  await page.getByLabel('操作人').fill(UI_ACTOR);
   await page.locator('.adm-btn', { hasText: '进入' }).click();
   await page.waitForSelector('.adm-card', { timeout: 8000 });
+  check('进入后头部常驻显示当前操作人',
+    /张小满/.test((await page.locator('.adm-actor').textContent()) || ''),
+    (await page.locator('.adm-actor').textContent()) || '');
   check('默认停在「待处理」，只剩接口还没动的那条',
     (await page.locator('.adm-card').count()) === 1,
     String(await page.locator('.adm-card').count()));
@@ -301,6 +368,29 @@ try {
   check('卡片上显示退款金额与审核意见',
     /退款 ¥/.test(approvedText) && /意见：已核实破损/.test(approvedText));
 
+  /* 11.5) 处理记录：署名、金额、排序、汇总 */
+  await page.locator('.adm-filter', { hasText: '处理记录' }).click();
+  await page.waitForTimeout(1300);
+  const doneText = (await page.locator('.adm-page').textContent()) || '';
+  check('「处理记录」里是 4 条（四笔都处理过了）',
+    (await page.locator('.adm-card').count()) === 4,
+    String(await page.locator('.adm-card').count()));
+  check('卡片上署名：页面侧一条、接口侧一条',
+    /处理人 张小满/.test(doneText) && /处理人 李审核/.test(doneText));
+  check('最新处理的那条排第一（页面最后处理的 o1）',
+    /处理人 张小满/.test((await page.locator('.adm-card').first().textContent()) || ''));
+  // 页面操作真的把自报名字送到了服务端：中文名与接口侧的 李审核 是两个值，
+  // 落库成同一个就说明页面根本没在发这个头
+  const uiTicket = (((await listTickets('status=approved')).d || {}).items || [])
+    .find((r) => r.orderId === o1.id);
+  check('页面提交的工单落库操作人是张小满，不是接口那个',
+    Boolean(uiTicket) && uiTicket.reviewer === UI_ACTOR,
+    uiTicket ? uiTicket.reviewer : '未找到');
+  check('汇总条显示三类数量与退款合计',
+    /待处理 0/.test(doneText) && /已同意 3/.test(doneText) && /已驳回 1/.test(doneText)
+      && /退款合计/.test(doneText),
+    (doneText.match(/待处理 \d+|已同意 \d+|已驳回 \d+|退款合计 [^（]*/g) || []).join(' | '));
+
   await page.locator('.adm-filter', { hasText: '已驳回' }).click();
   await page.waitForTimeout(1300);
   check('「已驳回」里是那一条',
@@ -328,6 +418,36 @@ try {
   const reapply = await applyAftersale(o3.id, uid, 'refund');
   check('驳回后可以重新提交售后', reapply.status === 201,
     `HTTP ${reapply.status} ${reapply.d.error || ''}`);
+
+  /* 14) 重新申请不会把旧的处理记录冲掉：历史是历史，新工单是新工单 */
+  const afterReapply = await listTickets('reviewed=1');
+  const afterList = (afterReapply.d && afterReapply.d.items) || [];
+  check('重新申请生成新工单，旧的处理记录仍保留',
+    afterList.length === 4 && (afterReapply.d.summary || {}).reviewing === 1,
+    `${afterList.length} 条 / 待处理 ${(afterReapply.d.summary || {}).reviewing}`);
+  check('旧工单仍是已驳回，没有被新申请改写',
+    afterList.some((r) => r.orderId === o3.id && r.status === 'rejected'));
+
+  /* 15) 退出：钥匙与操作人一起清掉，不留半个身份 */
+  await page.goto(`${APP}#/admin/aftersales`, { waitUntil: 'load' });
+  await page.waitForSelector('.adm-card', { timeout: 8000 });
+  await page.locator('.adm-line-btn', { hasText: '退出' }).click();
+  await page.waitForSelector('.adm-key-form', { timeout: 8000 });
+  const cleared = await page.evaluate(() => ({
+    key: sessionStorage.getItem('maison_admin_key'),
+    actor: sessionStorage.getItem('maison_admin_actor'),
+  }));
+  check('退出后钥匙与操作人一起清空', !cleared.key && !cleared.actor, JSON.stringify(cleared));
+
+  /* 16) 半截身份不给进：只有钥匙没有操作人时回钥匙门补齐 */
+  await page.evaluate((k) => {
+    sessionStorage.setItem('maison_admin_key', k);
+    sessionStorage.removeItem('maison_admin_actor');
+  }, ADMIN_KEY);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('.adm-key-form', { timeout: 8000 });
+  check('只有钥匙没有操作人时被挡在钥匙门',
+    (await page.locator('.adm-card').count()) === 0);
 
   check('控制台无 JS 错误', errors.length === 0, errors.slice(0, 2).join(' | '));
 

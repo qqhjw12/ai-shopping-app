@@ -1,6 +1,6 @@
 import './quiet.js';
 import http from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
@@ -132,9 +132,37 @@ function requireAdmin(req, res) {
   return true;
 }
 
-/** 管理操作的执行人（只进日志与审计字段，不参与鉴权） */
+/**
+ * 管理操作的执行人（只进日志与审计字段，不参与鉴权）。
+ *
+ * 值是 URL 编码过的——HTTP 头只吃可打印 ASCII，中文名字直接放进去会让请求
+ * 在客户端就构造失败。解码失败就用原串：一个显示成乱码的署名，
+ * 也好过整个审核动作 500。
+ */
 function adminActor(req) {
-  return String(req.headers['x-admin-actor'] || 'admin').slice(0, 40);
+  const raw = String(req.headers['x-admin-actor'] || '');
+  if (!raw) return 'admin';
+  let name = raw;
+  try {
+    name = decodeURIComponent(raw);
+  } catch {
+    name = raw;
+  }
+  return name.slice(0, 40);
+}
+
+/**
+ * 管理员钥匙的短指纹。
+ *
+ * X-Admin-Actor 是客户端自报的标签——能发请求的人就能把它写成任何名字，
+ * 单靠它追责是空的。指纹由服务端从钥匙本身算出，客户端改不动。两条一起记
+ * 才有意义：名字回答「是谁说自己做的」，指纹回答「用的到底是哪把钥匙」。
+ * 想让名字变得可信，正确的做法是给每个运营发不同的 ADMIN_API_KEY，
+ * 而不是继续在这个自报字段上加校验。
+ */
+function adminKeyFingerprint(req) {
+  const raw = String(req.headers['x-admin-key'] || '');
+  return raw ? createHash('sha256').update(raw).digest('hex').slice(0, 8) : 'none';
 }
 
 // ===== 买家秀上传 =====
@@ -568,8 +596,14 @@ async function route(req, res, url) {
   // 匿名可读等于把隐私和投诉内容挂在公网上。ADMIN_API_KEY 未配置时 requireAdmin 直接 403。
   if (url.pathname === '/api/aftersales' && req.method === 'GET') {
     if (!requireAdmin(req, res)) return;
+    // reviewed=1 只看已处理、=0 只看待处理；省略则不做这层过滤（与 status 各管一层）
+    const rawReviewed = url.searchParams.get('reviewed');
+    const reviewed = rawReviewed === '1' || rawReviewed === 'true'
+      ? true
+      : (rawReviewed === '0' || rawReviewed === 'false' ? false : null);
     return guarded(() => aftersaleService.listForAdmin({
       status: url.searchParams.get('status') || '',
+      reviewed,
       page: url.searchParams.get('page'),
       size: url.searchParams.get('size'),
     }));
@@ -598,6 +632,7 @@ async function route(req, res, url) {
       });
       log.info('aftersale.reviewed', {
         reqId: req.reqId, actor, id,
+        keyFp: adminKeyFingerprint(req),
         action: aftersale.status,
         refund: aftersale.refundAmount,
       });

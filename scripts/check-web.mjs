@@ -13,7 +13,7 @@
  * 退出码：0 全部通过 / 1 有模块加载失败
  */
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1863,8 +1863,9 @@ if (failed === 0) {
       && /ADMIN_API_KEY/.test((vGate.querySelectorAll('.adm-key-input')[0] || {}).attrs?.placeholder || '')
       && /当前标签页/.test(vGate.textContent || '');
 
-    /* 6) 有钥匙但网关不可达（静态部署）：给空态和重试，不是白屏也不是抛异常 */
+    /* 6) 身份齐全但网关不可达（静态部署）：给空态和重试，不是白屏也不是抛异常 */
     sessionStorage.setItem('maison_admin_key', 'k');
+    sessionStorage.setItem('maison_admin_actor', '张三');
     const vDown = new El('main');
     await renderAdminAftersales(vDown, {});
     await tick(60);
@@ -1874,7 +1875,49 @@ if (failed === 0) {
       && /没有取到工单/.test(downText)
       && vDown.querySelectorAll('.adm-line-btn').filter((n) => /重试/.test(n.textContent)).length === 1;
 
+    /* 7) 半截身份不给进：只有钥匙没有操作人时回钥匙门补齐 */
+    sessionStorage.clear();
+    sessionStorage.setItem('maison_admin_key', 'k');
+    const vHalf = new El('main');
+    await renderAdminAftersales(vHalf, {});
+    await tick();
+    const halfOk = vHalf.querySelectorAll('.adm-key-form').length === 1
+      && vHalf.querySelectorAll('.adm-filters').length === 0;
+
+    /* 8) 两样齐全：头部署名常驻，筛选器多出「处理记录」 */
+    sessionStorage.setItem('maison_admin_actor', '张三');
+    const vFull = new El('main');
+    await renderAdminAftersales(vFull, {});
+    await tick(60);
+    const filterLabels = (vFull.querySelectorAll('.adm-filter') || [])
+      .map((n) => n.textContent || '').join(',');
+    const actorOk = /操作人 张三/.test(vFull.textContent || '')
+      && /处理记录/.test(filterLabels)
+      && (vFull.querySelectorAll('.adm-filter') || []).length === 5;
+
+    /* 9) 钥匙门收两样，并如实告诉运营这个名字是自报的 */
+    sessionStorage.clear();
+    const vGate2 = new El('main');
+    await renderAdminAftersales(vGate2, {});
+    await tick();
+    const gate2Ok = (vGate2.querySelectorAll('.adm-key-input') || []).length === 2
+      && /操作人/.test(vGate2.textContent || '')
+      && /自报的/.test(vGate2.textContent || '');
+
+    /* 10) 操作人必须编码后才进 HTTP 头。
+       中文名直接当头值会让 fetch 在构造 Request 时就抛错，连请求都发不出去——
+       用 ASCII 名字测试发现不了，所以在这里用源码锁住，防止后来被当成多余的代码删掉 */
+    const asSrc = readFileSync(join(WEB_DIR, 'adminAftersales.js'), 'utf8');
+    const gwSrc = readFileSync(join(WEB_DIR, '..', '..', 'ai-gateway', 'src', 'server.js'), 'utf8');
+    const encOk = /X-Admin-Actor/.test(asSrc)
+      && /encodeURIComponent\(\s*actor\s*\)/.test(asSrc)
+      && /decodeURIComponent/.test(gwSrc);
+
     const cases = [
+      ['只有钥匙没有操作人时回钥匙门（半截身份不给进）', halfOk],
+      ['头部常驻署名 + 筛选器含处理记录', actorOk],
+      ['钥匙门同时收密钥与操作人', gate2Ok],
+      ['操作人编码进 HTTP 头（中文名会把请求打挂）', encOk],
       ['词表（三种售后类型 / 退款类 / 已退款终态）', wordOk],
       ['同意退款：已退款 + 结论 + 金额 + 意见', refundOk],
       ['同意换货：回到已发货且不带退款金额', exchangeOk],

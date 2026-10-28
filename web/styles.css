@@ -6374,7 +6374,27 @@ body.flt-sheet-open { overflow: hidden; }
 .adm-filter:hover { border-color: var(--line-strong); color: var(--ink); }
 .adm-filter.is-on { border-color: var(--gold); background: var(--gold-weak); color: var(--gold-deep); }
 
-.adm-summary { margin-top: 16px; color: var(--muted); font-size: 10.5px; }
+.adm-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.adm-sum-count { color: var(--body); }
+/* 总览胶囊比筛选胶囊更轻：它只是数字，不是能点的东西，别做得像按钮 */
+.adm-chip {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: 10.5px;
+}
+.adm-chip.is-reviewing { border-color: var(--gold); color: var(--gold-deep); }
+.adm-sum-money { margin-left: auto; color: var(--body); }
+.adm-sum-money b { color: var(--ink); font-weight: 500; }
+.adm-actor { display: inline-block; margin-top: 5px; color: var(--muted); font-size: 10.5px; }
 .adm-card {
   margin-top: 10px;
   padding: 15px 18px;
@@ -6483,6 +6503,8 @@ body.flt-sheet-open { overflow: hidden; }
   background: var(--surface);
 }
 .adm-key-form { display: flex; flex-direction: column; gap: 10px; }
+.adm-label { margin-top: 6px; color: var(--muted); font-size: 10.5px; }
+.adm-label:first-of-type { margin-top: 0; }
 .adm-key-input {
   width: 100%;
   padding: 10px 12px;
@@ -6499,6 +6521,10 @@ body.flt-sheet-open { overflow: hidden; }
 @media (max-width: 640px) {
   .adm-head { flex-direction: column; align-items: flex-start; gap: 10px; }
   .adm-title { font-size: 21px; }
+  /* 五个筛选标签在 390px 下必然换行，已经 flex-wrap，不需要额外处理 */
+  .adm-summary { gap: 6px 8px; }
+  /* 窄屏让金额独占一行：挤在胶囊后面的话，金额涨到四位数就会把胶囊顶出去 */
+  .adm-sum-money { margin-left: 0; flex-basis: 100%; }
   .adm-card { padding: 13px 14px; }
   .adm-goods { flex-direction: column; gap: 2px; }
   .adm-actions { justify-content: stretch; }
