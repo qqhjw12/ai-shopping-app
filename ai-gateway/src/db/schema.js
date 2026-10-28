@@ -383,6 +383,40 @@ const MIGRATIONS = [
       );
     `,
   },
+  {
+    version: 11,
+    name: 'runtime-settings-and-order-shipping',
+    sql: `
+      -- 运营可配参数：运费/配送方式、券返还顺延规则等以前写死在前后端两处常量里，
+      -- 改一个数字要发一次版，还容易两边改漏。改存一张键值表，接口读写、进程内缓存。
+      -- 表空时用代码里的 DEFAULT_SETTINGS 兜底，不在迁移里插数据——
+      -- 默认值只有一份来源，避免「迁移插的旧默认值」与「代码新默认值」打架。
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,              -- JSON 文本
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_by TEXT
+      );
+
+      -- 订单补配送/支付方式：原来只在库里存金额，前端订单详情全靠本地快照，
+      -- 换台设备就看不出这单是「加急」还是「货到付款」。
+      -- 运费也不再由服务端按「满 99 包邮」硬算，而是按 settings 里的配送方式定价，
+      -- 于是服务端与结算页展示的运费必然同源。
+      ALTER TABLE orders ADD COLUMN shipping_method_id TEXT;
+      ALTER TABLE orders ADD COLUMN payment_method_id TEXT;
+      ALTER TABLE orders ADD COLUMN shipping_eta TEXT;
+    `,
+  },
+  {
+    version: 12,
+    name: 'order-items-spec',
+    sql: `
+      -- 订单明细单独存规格：原来只把规格拼进 name（「商品名（0.5mm / 灰）」），
+      -- 前端拿不到结构化字段，换设备看订单就只剩「SKU：默认规格」这种废话。
+      -- 已有行留空即可，前端 spec 为空时按「见商品名」处理，不做数据回填猜测。
+      ALTER TABLE order_items ADD COLUMN spec TEXT;
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

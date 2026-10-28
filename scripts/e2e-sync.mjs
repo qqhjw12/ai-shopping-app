@@ -166,11 +166,14 @@ try {
   check('设备 B 看到同一张券', b1.list.some((c) => c.couponId === claimTarget));
 
   /* 2) A 下单核销 → B 看到已使用 */
+  // 购物袋里必须是**真实的商品与 SKU**：下单已改走服务端事务，服务端按自己库里的
+  // 价格与 SKU 现查（客户端传的价格不作数），伪造 price/skuId 会被服务端按 29 元档重算，
+  // 于是「满 99 减 30」的券不够门槛 → 下单失败。买 4 支 = 116 元，正好过门槛。
   await A.page.evaluate(() => {
     localStorage.setItem('shop_cart', JSON.stringify([{
-      id: 'p244', productId: 'p244', skuId: null, itemId: null, __key: 'p244',
-      name: '墨方 自动铅笔 0.5mm', price: 128, pic: '', coverColor: '', brand: '墨方',
-      spec: '黑色 / 0.5mm', categoryId: 'c_stationery', stock: 20, qty: 1,
+      id: 'p244', productId: 'p244', skuId: 'p244-s1', itemId: null, __key: 'p244-s1',
+      name: '墨方 自动铅笔 0.5mm', price: 29, pic: '', coverColor: '', brand: '墨方',
+      spec: '0.5mm / 灰', categoryId: 'c_stationery', stock: 143, qty: 4,
     }]));
   });
   await A.page.goto(`${APP}#/checkout`, { waitUntil: 'load' });

@@ -34,9 +34,11 @@ export function applyCors(req, res) {
   }
   if (allow) {
     res.setHeader('Access-Control-Allow-Origin', allow);
-    // PATCH / DELETE 是购物车改量、删条目、删地址在用的方法，漏掉会被预检直接拦死
+    // PATCH / DELETE 是购物车改量、删条目、删地址在用的方法，漏掉会被预检直接拦死。
+    // X-Admin-Key / X-Admin-Actor 是运营后台改配置用的自定义头：自定义头必须显式允许，
+    // 否则浏览器预检直接失败（表现为「Failed to fetch」，且看服务端日志一条请求都没有）。
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key, X-Admin-Key, X-Admin-Actor');
     if (allow !== '*') {
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }

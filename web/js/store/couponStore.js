@@ -23,20 +23,19 @@
 //   - 本地是「离线操作」的缓冲：离线领的券、离线下单核销的券，同步时补推给服务端。
 //   - 只增不删：任何一侧有、另一侧没有的券都不丢，宁可多一张也不让用户觉得券消失了。
 import { api, isMissingEndpoint } from '../api.js';
+import { refundRules } from './config.js';
 
 const WALLET_PREFIX = 'maison_coupons::';
 const MAX_WALLET = 40;
 const DAY = 86400000;
 
 /**
- * 取消订单返还时，有效期顺延的天数。
- * 必须与网关 ai-gateway/src/services/couponRules.js 的 REFUND_GRACE_DAYS 同值：
- * 两边算得不一样，同一张券在两台设备上会显示不同到期日。
+ * 返还顺延规则：顺延天数与次数上限是**运营可配**的（服务端 app_settings.coupon，
+ * 前端经 GET /api/config 拿并缓存，离线用内置默认）。
+ * 这里不再有 REFUND_GRACE_DAYS / MAX_EXTENSIONS 常量——写死一份就必然与
+ * 服务端那份漂移，同一张券在两台设备上会显示不同到期日。
+ * 需要读当前生效值时用 refundRules()。
  */
-export const REFUND_GRACE_DAYS = 7;
-
-/** 同一张券最多顺延几次（防「下单→取消」循环白刷有效期），与网关 MAX_EXTENSIONS 同值 */
-export const MAX_EXTENSIONS = 3;
 
 /**
  * 券目录：券中心列表就是它。
@@ -265,6 +264,9 @@ export function couponState(inst, now = Date.now()) {
 
 export const STATE_TEXT = { unused: '未使用', used: '已使用', expired: '已过期' };
 
+/** 当前生效的券返还规则（顺延天数 / 次数上限），供页面文案与断言读取 */
+export { refundRules };
+
 function stampId(seed) {
   return `w_${seed.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -479,41 +481,50 @@ export function markCouponUsed(userId, couponId, orderId) {
 }
 
 /**
- * 返还后的新到期时间：从「原到期时间」与「现在」两者较晚者起算，顺延 REFUND_GRACE_DAYS 天。
+ * 返还后的新到期时间：从「原到期时间」与「现在」两者较晚者起算，顺延配置里的 grace 天。
  *
  * 取 max 是关键：券在订单占用的这段时间里可能已经过期，
  * 只按原到期日加 7 天会退给用户一张当场就过期的废券。
  * 取 now 兜底后，过期券返还即恢复可用，未过期的券则在剩余天数上继续加。
  *
- * 与网关 couponRules.refundExpiry 同口径（含顺延次数上限）。
+ * 与网关 couponRules.refundExpiry 同公式，规则值同源（config.refundRules）。
+ * @param {number} currentExpiresAt
+ * @param {number} extensionCount
+ * @param {number} [now]
+ * @param {{refundGraceDays:number, maxExtensions:number}} [rules] 显式传规则时照此计算（纯函数测试用）
  * @returns {{expiresAt:number, extended:boolean, extensionCount:number}}
  */
-export function refundExpiry(currentExpiresAt, extensionCount = 0, now = Date.now()) {
+export function refundExpiry(currentExpiresAt, extensionCount = 0, now = Date.now(), rules = null) {
+  const r = rules || refundRules();
+  const graceDays = Math.max(0, Number(r.refundGraceDays) || 0);
+  const max = Math.max(0, Number(r.maxExtensions) || 0);
   const remain = Number(currentExpiresAt) || 0;
   const used = Number(extensionCount) || 0;
-  if (used >= MAX_EXTENSIONS) return { expiresAt: remain, extended: false, extensionCount: used };
+  if (used >= max || graceDays === 0) return { expiresAt: remain, extended: false, extensionCount: used };
   const base = Math.max(remain, now);
-  return { expiresAt: base + REFUND_GRACE_DAYS * DAY, extended: true, extensionCount: used + 1 };
+  return { expiresAt: base + graceDays * DAY, extended: true, extensionCount: used + 1 };
 }
 
 /**
- * 取消订单返还：按订单号把券退回未使用，并把有效期顺延 REFUND_GRACE_DAYS 天。
+ * 取消订单返还：按订单号把券退回未使用，并把有效期顺延（天数/次数取运营配置）。
  *
  * 顺延是「补偿」不是「奖励」：用户因为订单取消才晚拿到券，
- * 剩余可用时间不该比下单前更短。每张券最多顺延 MAX_EXTENSIONS 次，
- * 超过上限的券仍然退回未使用，只是不再延长——否则「下单→取消」可以无限刷有效期。
+ * 剩余可用时间不该比下单前更短。超过上限的券仍然退回未使用，只是不再延长——
+ * 否则「下单→取消」可以无限刷有效期。
  *
- * @returns {{restored:number, extended:number, coupons:Array}}
+ * @returns {{restored:number, extended:number, graceDays:number, coupons:Array}}
  */
 export function refundCouponsByOrder(userId, orderId) {
   const id = String(orderId || '');
-  if (!id) return { restored: 0, extended: 0, coupons: [] };
+  if (!id) return { restored: 0, extended: 0, graceDays: 0, coupons: [] };
   const list = readRaw(userId);
   const now = Date.now();
+  // 同一笔订单里的券按同一套规则处理：逐张读配置会在「运营刚好在保存」时算出不同天数
+  const rules = refundRules();
   const hit = list.filter((c) => c.status === 'used' && String(c.orderId || '') === id);
   let extended = 0;
   hit.forEach((c) => {
-    const ex = refundExpiry(c.expiresAt, c.extensionCount, now);
+    const ex = refundExpiry(c.expiresAt, c.extensionCount, now, rules);
     c.status = 'unused';
     c.usedAt = null;
     c.orderId = null;
@@ -521,7 +532,7 @@ export function refundCouponsByOrder(userId, orderId) {
     if (ex.extended) {
       c.expiresAt = ex.expiresAt;
       c.extensionCount = ex.extensionCount;
-      c.graceDays = REFUND_GRACE_DAYS;
+      c.graceDays = rules.refundGraceDays;
       extended += 1;
     }
   });
@@ -532,7 +543,7 @@ export function refundCouponsByOrder(userId, orderId) {
     // 下次 syncWallet 会用服务端的 expiresAt 覆盖回来。
     deliver(userId, { type: 'refund', orderId: id });
   }
-  return { restored: hit.length, extended, coupons: hit.map((c) => ({ ...c, state: couponState(c) })) };
+  return { restored: hit.length, extended, graceDays: rules.refundGraceDays, coupons: hit.map((c) => ({ ...c, state: couponState(c) })) };
 }
 
 /* ---------------- 网关联通（跨设备同步） ---------------- */

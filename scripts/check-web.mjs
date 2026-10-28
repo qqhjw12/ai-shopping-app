@@ -938,10 +938,17 @@ if (failed === 0) {
     const localFollowsRefund = mReturn.list.find((c) => c.couponId === 'me-demo').status === 'unused'
       && mReturn.toUse.length === 0;
 
-    /* 11) 返还顺延：从 max(原到期, 现在) 起算 +7 天，每券最多顺延 3 次 */
-    const graceFromNow = cp.refundExpiry(nowM - D, 0, nowM).expiresAt === nowM + cp.REFUND_GRACE_DAYS * D;
-    const graceOnRemain = cp.refundExpiry(nowM + 2 * D, 0, nowM).expiresAt === nowM + (2 + cp.REFUND_GRACE_DAYS) * D;
-    const graceCapped = cp.refundExpiry(nowM + D, cp.MAX_EXTENSIONS, nowM).extended === false;
+    /* 11) 返还顺延：从 max(原到期, 现在) 起算 + 配置天数，每券最多顺延配置次数 */
+    const rulesNow = cp.refundRules();
+    const graceFromNow = cp.refundExpiry(nowM - D, 0, nowM).expiresAt === nowM + rulesNow.refundGraceDays * D;
+    const graceOnRemain = cp.refundExpiry(nowM + 2 * D, 0, nowM).expiresAt === nowM + (2 + rulesNow.refundGraceDays) * D;
+    const graceCapped = cp.refundExpiry(nowM + D, rulesNow.maxExtensions, nowM).extended === false;
+
+    /* 11b) 规则是运营可配的：显式传不同规则必须算不同结果（证明不是写死的 7 天 / 3 次） */
+    const ruleA = { refundGraceDays: 15, maxExtensions: 1 };
+    const configDrivesGrace = cp.refundExpiry(nowM - D, 0, nowM, ruleA).expiresAt === nowM + 15 * D;
+    const configDrivesCap = cp.refundExpiry(nowM - D, 1, nowM, ruleA).extended === false;
+    const zeroGrace = cp.refundExpiry(nowM, 0, nowM, { refundGraceDays: 0, maxExtensions: 9 }).extended === false;
 
     const uidR = 'u_coupon_grace';
     const seedRaw = (row) => localStorage.setItem(`maison_coupons::${uidR}`, JSON.stringify([row]));
@@ -954,7 +961,7 @@ if (failed === 0) {
     const wG = cp.listWallet(uidR).find((c) => c.couponId === 'demo-c80');
     const refundExtended = rf.restored === 1 && rf.extended === 1
       && wG.state === 'unused' && wG.extensionCount === 1
-      && wG.expiresAt === nowM + (2 + cp.REFUND_GRACE_DAYS) * D;
+      && wG.expiresAt === nowM + (2 + rulesNow.refundGraceDays) * D;
     // 已在订单占用期间过期的券，返还后立刻恢复可用（从 now 起算而不是原到期日）
     seedRaw({
       id: 'g2', couponId: 'demo-c80', title: '会员日 · 满 599 减 80', kind: 'cash',
@@ -991,6 +998,8 @@ if (failed === 0) {
       ['过期由时间推导（不落盘）', expiredDerived && expiredCounted],
       ['过期券不可在结算页使用', expiredNotUsable],
       ['抵扣不超过商品总额（不为负）', floorZero],
+      ['顺延规则取自运营配置（非写死 7 天/3 次）', configDrivesGrace && configDrivesCap],
+      ['顺延天数配 0 时不再延长', zeroGrace],
       ['运费不被券抵扣', shipKept],
       ['未达门槛 worth 为 0', noWorthBelowThreshold],
       ['负数输入被夹到 0', sanitized],
@@ -1014,6 +1023,75 @@ if (failed === 0) {
   } catch (e) {
     failed++;
     console.log(`  FAIL 优惠券断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
+/* ---------------- 运行时配置断言（运营可配参数） ---------------- */
+// 运费与券返还规则从「编译期常量」改成「服务端配置」之后，最怕两种坏法：
+//   1) 配置缺字段/类型不对时算出 NaN 或负运费（配置错了不该让结算页算不出钱）；
+//   2) 页面读的其实是本地常量，运营改了也不生效（等于换了个地方写死）。
+// 这两件事都在这里用纯函数兜住：归一化、运费公式、注入后生效。
+if (failed === 0) {
+  console.log('\n运行时配置断言（归一化 / 运费公式 / 券规则可配）');
+  try {
+    const dir = (f) => pathToFileURL(join(WEB_DIR, f)).href;
+    const cfg = await import(dir('store/config.js'));
+
+    /* 1) 默认值完整：至少两种配送方式 + 券顺延规则有值 */
+    const defaultsOk = cfg.DEFAULT_CONFIG.shipping.methods.length >= 2
+      && cfg.DEFAULT_CONFIG.coupon.refundGraceDays > 0
+      && cfg.DEFAULT_CONFIG.coupon.maxExtensions >= 0;
+
+    /* 2) 空配置 → 完全回落到内置默认（离线首屏不能没有运费） */
+    const emptySafe = cfg.normalizeConfig({}).shipping.methods.length
+      === cfg.DEFAULT_CONFIG.shipping.methods.length;
+
+    /* 3) 脏配置 → 逐项夹住，不产生 NaN / 负运费 */
+    const dirty = cfg.normalizeConfig({
+      shipping: { methods: [{ id: 'x', name: '', fee: 'abc' }] },
+      coupon: { refundGraceDays: 'abc', maxExtensions: 999 },
+    });
+    const dirtySafe = Number.isFinite(dirty.shipping.methods[0].fee)
+      && dirty.shipping.methods[0].fee === 0
+      && Number.isFinite(dirty.coupon.refundGraceDays)
+      && dirty.coupon.maxExtensions <= 10;
+
+    /* 4) 运费公式：标价 / 满额包邮门槛按「券后金额」判 / 负数夹到 0 */
+    const feeFormula = cfg.shippingFeeOf({ fee: 18, freeOver: 199 }, 100) === 18
+      && cfg.shippingFeeOf({ fee: 18, freeOver: 199 }, 199) === 0
+      && cfg.shippingFeeOf({ fee: 0, freeOver: null }, 0) === 0;
+    const feeFloor = cfg.shippingFeeOf({ fee: -20, freeOver: null }, 500) === 0;
+
+    /* 5) 未知配送 id 回落到 fallback，不会返回 undefined 让页面崩 */
+    const fallbackOk = Boolean(cfg.findShipping('no-such-id')) === true
+      && cfg.findShipping('no-such-id').id === cfg.getConfig().shipping.fallbackId;
+
+    /* 6) 注入新配置后立刻生效——证明读的是运行时值，不是写死的常量 */
+    cfg.__setRuntimeConfigForTest({
+      shipping: { methods: [{ id: 'only', name: '唯一', fee: 8, eta: '当天送达' }], fallbackId: 'only' },
+      coupon: { refundGraceDays: 11, maxExtensions: 5 },
+    });
+    const injected = cfg.refundRules().refundGraceDays === 11
+      && cfg.refundRules().maxExtensions === 5
+      && cfg.shippingMethods().length === 1
+      && cfg.shippingMethods()[0].fee === 8;
+    cfg.__setRuntimeConfigForTest(cfg.DEFAULT_CONFIG); // 还原，别影响后面的块
+
+    const cases = [
+      ['内置默认配置完整（配送 ≥2 种、券规则有值）', defaultsOk],
+      ['空配置回落到默认', emptySafe],
+      ['脏配置被夹住（不出 NaN / 超界）', dirtySafe],
+      ['运费按配置计算，满额包邮看券后金额', feeFormula],
+      ['负运费夹到 0', feeFloor],
+      ['未知配送方式回落到 fallback', fallbackOk],
+      ['注入配置后立即生效（非本地写死）', injected],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'}  运行时配置${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 运行时配置断言异常: ${String(e.message).split('\n')[0]}`);
   }
 }
 

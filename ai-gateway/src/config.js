@@ -42,6 +42,9 @@ export const config = {
   })(),
   // AI Gateway 访问鉴权：设置后所有业务接口（除 /health、/ready）需携带 X-API-Key
   aiGatewayApiKey: env.AI_GATEWAY_API_KEY || '',
+  // 运营配置写入密钥（PUT /api/config 的 X-Admin-Key）。
+  // 未设置 = 关闭写入，只读接口照常可用；生产必须显式配置，绝不使用默认值。
+  adminApiKey: env.ADMIN_API_KEY || '',
   // 限流：每 IP 每分钟请求数（0 表示不限流，仅演示）
   rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN || 60),
   rateLimitWindowMs: Number(env.RATE_LIMIT_WINDOW_MS || 60000),
@@ -123,6 +126,9 @@ export function startupWarnings() {
     warns.push('AUTH_REQUIRED=true 但 AUTH_JWT_SECRET 未设置：将拒绝启动（生产必须配置固定密钥）');
   } else if (!config.auth.secret) {
     warns.push('AUTH_JWT_SECRET 未设置：local 模式将生成临时密钥，进程重启后已签发的访问/刷新令牌全部失效');
+  }
+  if (!config.adminApiKey) {
+    warns.push('ADMIN_API_KEY 未设置：运营配置接口（PUT /api/config）为只读，无法调整运费与券返还规则');
   }
   return warns;
 }

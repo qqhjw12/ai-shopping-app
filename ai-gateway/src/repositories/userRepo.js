@@ -2,6 +2,7 @@
 import { getDb } from '../db/connection.js';
 import { STARTER_COUPON_IDS } from '../data/catalog.js';
 import { parseDbTime, refundExpiry, stateOf, toDbTime } from '../services/couponRules.js';
+import { couponRules } from '../services/settingsService.js';
 
 function safeJson(text, fallback) {
   try {
@@ -257,6 +258,9 @@ export function refundCouponByOrder(userId, orderId) {
   if (!rows.length) return { restored: 0, coupons: [] };
 
   const now = Date.now();
+  // 规则取一次配置：同一笔订单里的券必须按同一套顺延参数处理，
+  // 逐张读配置在「运营刚好在保存新配置」时会出现同单券顺延天数不一致。
+  const rules = couponRules();
   const updExtend = db.prepare(
     `UPDATE user_coupons SET status = 'unused', order_id = NULL, expires_at = ?, extension_count = ?
      WHERE id = ?`,
@@ -264,10 +268,12 @@ export function refundCouponByOrder(userId, orderId) {
   const updPlain = db.prepare(
     `UPDATE user_coupons SET status = 'unused', order_id = NULL WHERE id = ?`,
   );
+  let extendedCount = 0;
   for (const r of rows) {
-    const { expiresAt, extended } = refundExpiry(parseDbTime(r.expires_at), r.extension_count, now);
+    const { expiresAt, extended } = refundExpiry(parseDbTime(r.expires_at), r.extension_count, now, rules);
     if (extended) {
       updExtend.run(toDbTime(expiresAt), (Number(r.extension_count) || 0) + 1, r.id);
+      extendedCount += 1;
     } else {
       updPlain.run(r.id);
     }
@@ -276,7 +282,7 @@ export function refundCouponByOrder(userId, orderId) {
     .prepare(`${UC_SELECT} AND uc.status = 'unused' AND uc.order_id IS NULL AND uc.id IN (${rows.map(() => '?').join(',')})`)
     .all(uid, ...rows.map((r) => r.id))
     .map((r) => toCouponInstance(r, 0, now));
-  return { restored: rows.length, coupons };
+  return { restored: rows.length, extended: extendedCount, graceDays: rules.refundGraceDays, coupons };
 }
 
 /* ---------------- 收货地址 ---------------- */

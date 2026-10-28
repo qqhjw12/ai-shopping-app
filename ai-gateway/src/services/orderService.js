@@ -1,10 +1,19 @@
 // 下单服务：购物车 → 订单。整个链路在一个事务里完成，任一环节失败全部回滚。
-// 规则与 FAQ/政策保持一致：满 99 包邮，否则 10 元运费；优惠券不可用则拒绝而非静默忽略。
+//
+// 两层规则：
+//   1) 商品与库存由数据库说了算（价格、SKU、库存都现查，绝不信任客户端传来的价格）；
+//   2) 运费与配送方式由运营配置说了算（app_settings.shipping），
+//      与结算页展示用的是同一份配置，因此「预览一个价、下单另一个价」在结构上很难发生。
+//
+// 券核销必须和建单在同一个事务里：分开做会出现「单建成了、券没核销」（用户白嫖一张券）
+// 或「券核销了、单没建成」（用户丢一张券）。退款时同理，取消单与返券必须原子。
 import { getDb } from '../db/connection.js';
 import * as cartRepo from '../repositories/cartRepo.js';
 import * as userRepo from '../repositories/userRepo.js';
 import { listCart } from '../repositories/cartRepo.js';
+import { shippingById, shippingFeeOf } from './settingsService.js';
 
+/** 已废弃：运费改由运营配置（app_settings.shipping）决定。保留导出仅为不打断外部引用。 */
 export const SHIPPING_FREE_THRESHOLD = 99;
 export const SHIPPING_FEE = 10;
 
@@ -20,10 +29,12 @@ function makeOrderId(db) {
 }
 
 /**
- * 预览订单（不写库）：前端结算页用它实时算钱
- * @returns {{items, productAmount, shippingFee, discountAmount, payAmount, address, coupon}}
+ * 预览订单（不写库）：前端结算页用它实时算钱。
+ * 服务端是金额的唯一真源——商品价、库存、券可用性、运费全部现算，
+ * 前端传什么价都不作数，只传「买哪个 SKU 几件、用哪张券、走哪种配送」。
+ * @returns {{items, productAmount, shippingFee, discountAmount, payAmount, address, coupon, shipping, paymentMethodId}}
  */
-export function previewOrder({ userId, items, addressId, couponId }) {
+export function previewOrder({ userId, items, addressId, couponId, shippingMethodId, paymentMethodId }) {
   const db = getDb();
   // 新用户首次结算时补齐档案（orders 外键指向 users，缺人会导致建单失败）
   userRepo.ensureUser(userId);
@@ -90,41 +101,73 @@ export function previewOrder({ userId, items, addressId, couponId }) {
     if (!coupon || !coupon.usable) throw Object.assign(new Error('优惠券不可用'), { status: 400 });
     discountAmount = Math.min(coupon.worth, productAmount);
   }
-  const shippingFee = productAmount - discountAmount >= SHIPPING_FREE_THRESHOLD ? 0 : SHIPPING_FEE;
-  const payAmount = productAmount - discountAmount + shippingFee;
+  // 运费按运营配置的配送方式算，包邮门槛按「券后商品金额」判断：
+  // 先看商品总额再判包邮，会让「用券把总额压到门槛以下」的订单仍然免运费，等于券抵了两次。
+  const shipping = shippingById(shippingMethodId);
+  const goodsAfterDiscount = Math.max(0, productAmount - discountAmount);
+  const shippingFee = shippingFeeOf(shipping, goodsAfterDiscount);
+  const payAmount = Math.max(0, Math.round((goodsAfterDiscount + shippingFee) * 100) / 100);
 
-  return { items: lines, address, coupon, productAmount, shippingFee, discountAmount, payAmount };
+  return {
+    items: lines,
+    address,
+    coupon,
+    productAmount,
+    shippingFee,
+    discountAmount,
+    payAmount,
+    shipping,
+    paymentMethodId: normalizePaymentId(paymentMethodId),
+  };
+}
+
+/** 支付方式白名单：只记录选择，不接真实支付网关 */
+export const PAYMENT_METHOD_IDS = ['online', 'cod'];
+
+function normalizePaymentId(id) {
+  const s = String(id || 'online');
+  return PAYMENT_METHOD_IDS.includes(s) ? s : 'online';
 }
 
 /**
  * 下单：校验 → 算钱 → 扣库存 → 建单 → 清购物车 → 销券（同一事务）
+ *
+ * 券核销是事务里的最后一步，与建单同生共死：
+ * 建单失败不会白扣一张券，核销失败（券过期/已被别处用掉）则整单回滚，
+ * 用户看到的是「优惠券不可用」而不是「下单成功但券没了」。
+ *
  * @returns {{orderId, status, payAmount, ... }} 完整订单
  */
-export function createOrder({ userId, items, addressId, couponId, remark = '' }) {
+export function createOrder({ userId, items, addressId, couponId, remark = '', shippingMethodId, paymentMethodId }) {
   const db = getDb();
 
   db.exec('BEGIN');
   try {
-    const draft = previewOrder({ userId, items, addressId, couponId });
+    const draft = previewOrder({ userId, items, addressId, couponId, shippingMethodId, paymentMethodId });
     const orderId = makeOrderId(db);
 
     db.prepare(`
       INSERT INTO orders
         (id, user_id, status, total_amount, product_amount, shipping_fee, discount_amount,
-         coupon_id, address_id, remark, created_at, paid_at)
-      VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, datetime('now'), NULL)
+         coupon_id, address_id, remark, shipping_method_id, payment_method_id, shipping_eta,
+         created_at, paid_at)
+      VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), NULL)
     `).run(
       orderId, userId, draft.payAmount, draft.productAmount,
       draft.shippingFee, draft.discountAmount, couponId || null,
       draft.address.id, String(remark).slice(0, 120),
+      draft.shipping.id, draft.paymentMethodId, draft.shipping.eta,
     );
 
     const insItem = db.prepare(`
-      INSERT INTO order_items (order_id, product_id, sku_id, name, price, qty)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO order_items (order_id, product_id, sku_id, name, spec, price, qty)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     for (const l of draft.items) {
-      insItem.run(orderId, l.productId, l.skuId, l.spec ? `${l.name}（${l.spec}）` : l.name, l.price, l.qty);
+      // name 存纯商品名，规格单独存 spec：两处都塞规格会让订单详情显示
+      // 「墨方 自动铅笔 0.5mm（0.5mm / 灰） / SKU：0.5mm / 灰」这种重复。
+      // 历史订单的 name 里已经拼过规格，前端在 spec 为空时只显示名称，不做猜测解析。
+      insItem.run(orderId, l.productId, l.skuId, l.name, l.spec || '', l.price, l.qty);
       if (l.skuId) {
         const updated = db
           .prepare('UPDATE product_skus SET stock = stock - ? WHERE id = ? AND stock >= ?')
@@ -157,19 +200,22 @@ export function getOrder(orderId, userId) {
   const db = getDb();
   const row = db
     .prepare(`
-      SELECT o.*, a.receiver, a.phone, a.region, a.detail
-      FROM orders o LEFT JOIN addresses a ON a.id = o.address_id
+      SELECT o.*, a.receiver, a.phone, a.region, a.detail, c.title AS coupon_title
+      FROM orders o
+      LEFT JOIN addresses a ON a.id = o.address_id
+      LEFT JOIN coupons c ON c.id = o.coupon_id
       WHERE o.id = ? AND o.user_id = ?
     `)
     .get(orderId, userId);
   if (!row) return null;
   const items = db
-    .prepare('SELECT product_id, sku_id, name, price, qty FROM order_items WHERE order_id = ?')
+    .prepare('SELECT product_id, sku_id, name, spec, price, qty FROM order_items WHERE order_id = ?')
     .all(orderId)
     .map((i) => ({
       productId: i.product_id,
       skuId: i.sku_id,
       name: i.name,
+      spec: i.spec || '',
       price: i.price,
       qty: i.qty,
       subtotal: i.price * i.qty,
@@ -184,6 +230,11 @@ export function getOrder(orderId, userId) {
     shippingFee: row.shipping_fee ?? 0,
     discountAmount: row.discount_amount ?? 0,
     payAmount: row.total_amount,
+    couponId: row.coupon_id || '',
+    couponTitle: row.coupon_title || '',
+    shippingMethodId: row.shipping_method_id || '',
+    paymentMethodId: row.payment_method_id || '',
+    shippingEta: row.shipping_eta || '',
     remark: row.remark || '',
     logisticsCompany: row.logistics_company,
     trackingNo: row.tracking_no,
@@ -209,4 +260,45 @@ export function payOrder(orderId, userId) {
   if (row.status !== 'pending') throw Object.assign(new Error('该订单无需重复支付'), { status: 409 });
   db.prepare("UPDATE orders SET status = 'paid', paid_at = datetime('now') WHERE id = ?").run(orderId);
   return getOrder(orderId, userId);
+}
+
+/** 可取消的状态：已发货/已完成的订单必须先走售后，不能直接取消 */
+const CANCELABLE = new Set(['pending', 'paid']);
+
+/**
+ * 取消订单（事务）：置 closed + 把该单用掉的券退回并顺延，两步同生共死。
+ *
+ * 为什么不能拆开：「订单关了但券没退」用户直接损失一张券；
+ * 「券退了但订单没关」用户可以拿同一张券再下一单，等于无限用。
+ * 券的顺延规则取自运营配置，与前端展示同一份。
+ *
+ * 幂等：已关闭的订单再取消一次直接返回成功，不重复顺延（否则「取消两次」就能把有效期刷长）。
+ *
+ * @returns {{order:object, coupon:{restored:number, extended:number, graceDays:number}}}
+ */
+export function cancelOrder(orderId, userId) {
+  const db = getDb();
+  db.exec('BEGIN');
+  try {
+    const row = db.prepare('SELECT id, status FROM orders WHERE id = ? AND user_id = ?').get(orderId, userId);
+    if (!row) throw Object.assign(new Error('订单不存在'), { status: 404 });
+    if (row.status === 'closed') {
+      db.exec('COMMIT');
+      return { order: getOrder(orderId, userId), coupon: { restored: 0, extended: 0, graceDays: 0 } };
+    }
+    if (!CANCELABLE.has(row.status)) {
+      throw Object.assign(new Error('该订单已发货，请通过售后流程处理'), { status: 409 });
+    }
+    db.prepare("UPDATE orders SET status = 'closed' WHERE id = ?").run(orderId);
+    const coupon = userRepo.refundCouponByOrder(userId, orderId);
+    db.exec('COMMIT');
+    return { order: getOrder(orderId, userId), coupon };
+  } catch (e) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* 不掩盖原始错误 */
+    }
+    throw e;
+  }
 }

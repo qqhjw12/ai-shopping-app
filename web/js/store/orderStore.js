@@ -8,31 +8,26 @@
 //      个人中心的列表就不需要为「数据从哪来」写两套渲染。
 //
 // 存储键刻意不带用户 ID 前缀以外的语义：换账号 = 换键，天然隔离，无需额外过滤。
+//
+// 运费与配送方式不再是本模块的常量：它们是**运营可配参数**，真源在服务端
+// （GET /api/config），本模块只通过 store/config.js 读取，
+// 保证结算页展示、下单请求、订单快照三处拿到的是同一组数字。
+import { findShipping, shippingFeeOf, shippingMethods } from './config.js';
 
 const KEY_PREFIX = 'maison_orders::';
 
 /** 每个账户最多保留的订单条数，避免 localStorage 无限膨胀 */
 const MAX_ORDERS = 60;
 
-/** 配送方式（mock）：运费与时效都写死，真实项目里应来自运费模板接口 */
-export const SHIPPING_METHODS = [
-  {
-    id: 'standard',
-    name: '标准配送',
-    fee: 0,
-    eta: '预计 3–5 个工作日送达',
-    note: '全场包邮 · 顺丰/京东随机',
-  },
-  {
-    id: 'express',
-    name: '加急配送',
-    fee: 18,
-    eta: '预计次日 18:00 前送达',
-    note: '限一二线城市 · 加收 ¥18',
-  },
-];
+/**
+ * 配送方式：从运营配置读（服务端 app_settings.shipping，离线用内置默认）。
+ * 返回的是快照数组，调用方不要缓存跨渲染使用——运营改价后要能立刻看到新值。
+ */
+export function getShippingMethods() {
+  return shippingMethods();
+}
 
-/** 支付方式（mock）：只记录选择，不接真实支付 */
+/** 支付方式（mock）：只记录选择，不接真实支付。运营不用调价，所以留在前端常量。 */
 export const PAYMENT_METHODS = [
   { id: 'online', name: '在线支付', note: '微信 / 支付宝（演示环境不产生真实扣款）' },
   { id: 'cod', name: '货到付款', note: '签收时向配送员付款' },
@@ -51,7 +46,7 @@ export function statusText(status) {
 }
 
 export function shippingById(id) {
-  return SHIPPING_METHODS.find((m) => m.id === id) || SHIPPING_METHODS[0];
+  return findShipping(id);
 }
 
 export function paymentById(id) {
@@ -184,9 +179,10 @@ export function createOrder(userId, draft = {}) {
     pic: i.pic || '',
     coverColor: i.coverColor || '',
   }));
+  const goods = items.reduce((s, i) => s + i.subtotal, 0);
   const amounts = draft.amounts || computeAmounts({
-    productAmount: items.reduce((s, i) => s + i.subtotal, 0),
-    shippingFee: shipping.fee,
+    productAmount: goods,
+    shippingFee: shippingFeeOf(shipping, goods),
   });
 
   const order = {
@@ -201,12 +197,16 @@ export function createOrder(userId, draft = {}) {
       detail: draft.address.detail || '',
       postal: draft.address.postal || '',
     } : null,
-    shippingMethod: { id: shipping.id, name: shipping.name, fee: shipping.fee, eta: shipping.eta },
+    // 运费记「实收」而不是「配送方式标价」：券后达到包邮门槛时实收是 0，
+    // 卡片上写 ¥18 而金额明细里是 ¥0 会让人以为算错了。
+    shippingMethod: { id: shipping.id, name: shipping.name, fee: amounts.shippingFee, eta: shipping.eta },
     paymentMethod: { id: payment.id, name: payment.name },
     remark: String(draft.remark || '').trim(),
     amounts,
     status: draft.status || 'pending',
     createdAt: draft.createdAt || new Date().toISOString(),
+    // remote=true 表示这条是服务端订单的本地镜像（核销/取消都以服务端为准）
+    ...(draft.remote ? { remote: true } : {}),
   };
 
   write(userId, [order, ...list]);
@@ -245,16 +245,19 @@ export function countOrders(userId) {
 
 /**
  * 网关订单 → 本地订单结构。
- * 字段名差异（orderId / payAmount 平铺）在这一层吃掉，
+ * 字段名差异（orderId / payAmount 平铺 / shippingMethodId）在这一层吃掉，
  * 个人中心与订单详情就能只写一套渲染逻辑。
  */
 export function normalizeRemote(raw = {}) {
   const shipping = raw.shippingMethod && raw.shippingMethod.id
     ? raw.shippingMethod
-    : shippingById(raw.shippingId || 'standard');
+    : {
+      ...shippingById(raw.shippingMethodId || raw.shippingId || 'standard'),
+      ...(raw.shippingEta ? { eta: raw.shippingEta } : {}),
+    };
   const payment = raw.paymentMethod && raw.paymentMethod.id
     ? raw.paymentMethod
-    : paymentById(raw.paymentId || 'online');
+    : paymentById(raw.paymentMethodId || raw.paymentId || 'online');
   const items = (raw.items || []).map((i) => ({
     productId: i.productId || i.id,
     skuId: i.skuId ?? null,
@@ -271,13 +274,15 @@ export function normalizeRemote(raw = {}) {
     userId: raw.userId || '',
     items,
     address: raw.address || null,
-    shippingMethod: { id: shipping.id, name: shipping.name, fee: shipping.fee || 0, eta: shipping.eta || '' },
+    shippingMethod: { id: shipping.id, name: shipping.name, fee: raw.shippingFee ?? shipping.fee ?? 0, eta: shipping.eta || '' },
     paymentMethod: { id: payment.id, name: payment.name },
     remark: raw.remark || '',
     amounts: raw.amounts || computeAmounts({
       productAmount: raw.productAmount ?? items.reduce((s, i) => s + i.subtotal, 0),
       shippingFee: raw.shippingFee ?? 0,
       couponDiscount: raw.discountAmount ?? 0,
+      couponTitle: raw.couponTitle || '',
+      couponId: raw.couponId || '',
     }),
     status: raw.status || 'pending',
     createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),

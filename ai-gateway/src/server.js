@@ -1,5 +1,6 @@
 import './quiet.js';
 import http from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
@@ -27,6 +28,7 @@ import * as productRepo from './repositories/productRepo.js';
 import * as cartRepo from './repositories/cartRepo.js';
 import * as userRepo from './repositories/userRepo.js';
 import * as orderService from './services/orderService.js';
+import * as settingsService from './services/settingsService.js';
 import * as reviewRepo from './repositories/reviewRepo.js';
 import * as storage from './storage/index.js';
 import * as authService from './auth/service.js';
@@ -92,6 +94,17 @@ function sendError(res, status, message, reqId) {
   send(res, status, { error: message, reqId });
 }
 
+/**
+ * 常量时间字符串比较：密钥校验不能用 ===，否则响应时间会随匹配前缀长度变化，
+ * 攻击者可以逐字节猜出来。长度不同直接返回 false（长度本身不是秘密）。
+ */
+function safeEqual(a, b) {
+  const left = Buffer.from(String(a == null ? '' : a));
+  const right = Buffer.from(String(b == null ? '' : b));
+  if (!left.length || left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
+}
+
 // ===== 买家秀上传 =====
 const UPLOAD_DIR = resolve(process.cwd(), 'data/uploads');
 const UPLOAD_LIMIT = config.upload.maxBytes; // 单张原始上限（默认 6MB，可由 UPLOAD_MAX_BYTES 覆盖）
@@ -139,8 +152,10 @@ function userIdOf(req, explicit) {
   return req.authUserId || explicit || 'anonymous';
 }
 
-// 强制鉴权（AUTH_REQUIRED=true）时仍放行的路径：登录与刷新本身
-const AUTH_PUBLIC_PATHS = new Set(['/api/auth/login', '/api/auth/refresh']);
+// 强制鉴权（AUTH_REQUIRED=true）时仍放行的路径：登录与刷新本身，
+// 外加 /api/config —— 运费与配送方式是公开信息（未登录的结算页也要显示），
+// 写入另有 X-Admin-Key 独立校验，不靠用户登录态。
+const AUTH_PUBLIC_PATHS = new Set(['/api/auth/login', '/api/auth/refresh', '/api/config']);
 const isAuthPublicPath = (p) => AUTH_PUBLIC_PATHS.has(p);
 
 // ===== SSE（流式）辅助 =====
@@ -326,6 +341,34 @@ async function route(req, res, url) {
     }
   };
 
+  // ===== 运营配置：运费/配送方式 + 券返还顺延规则 =====
+  // 读：公开（未登录的结算页也要显示运费）；写：需 X-Admin-Key（env ADMIN_API_KEY，未设置则只读）。
+  // 做成运行时配置而不是编译期常量：这类参数按大促节奏调整，改一个数字不该发一次版，
+  // 更不该出现「服务端改了、前端没改」的错位（同一张券在两台设备上算出不同到期日）。
+  if (url.pathname === '/api/config') {
+    if (req.method === 'GET') {
+      return guarded(() => ({ settings: settingsService.getSettings() }));
+    }
+    if (req.method === 'PUT' || req.method === 'POST') {
+      const expected = config.adminApiKey;
+      if (!expected) return sendError(res, 403, '配置写入未启用：未设置 ADMIN_API_KEY', req.reqId);
+      if (!safeEqual(req.headers['x-admin-key'], expected)) {
+        log.warn('config.write_denied', { reqId: req.reqId, ip: req.ip });
+        return sendError(res, 401, '管理员密钥不正确', req.reqId);
+      }
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      // 允许 { settings: {...} } 或直接 {...}，两种写法都常见，少一次踩坑
+      const patch = parsed.settings && typeof parsed.settings === 'object' ? parsed.settings : parsed;
+      const actor = String(req.headers['x-admin-actor'] || 'admin').slice(0, 40);
+      return guarded(() => {
+        const next = settingsService.updateSettings(patch, { by: actor });
+        log.info('config.updated', { reqId: req.reqId, actor, sections: Object.keys(patch).join(',') });
+        return { settings: next };
+      });
+    }
+  }
+
   // 评价列表：主评价 + 嵌套追评 + 概览（分布/好评率），支持筛选、排序与分页
   // 必须放在 /api/products/:id 之前注册（后者是 startsWith 前缀匹配）
   const reviewListMatch = url.pathname.match(/^\/api\/products\/([^/]+)\/reviews$/);
@@ -414,6 +457,8 @@ async function route(req, res, url) {
           addressId: parsed.addressId || null,
           couponId: parsed.couponId || null,
           remark: parsed.remark || '',
+          shippingMethodId: parsed.shippingMethodId || null,
+          paymentMethodId: parsed.paymentMethodId || null,
         });
         return { order: { ...order, _preview: undefined } };
       }, 201);
@@ -428,7 +473,18 @@ async function route(req, res, url) {
       items: parsed.items,
       addressId: parsed.addressId || null,
       couponId: parsed.couponId || null,
+      shippingMethodId: parsed.shippingMethodId || null,
+      paymentMethodId: parsed.paymentMethodId || null,
     }));
+  }
+
+  // 取消订单：服务端事务里「关单 + 返券顺延」一起完成。
+  // 前端本地单（无网关时的降级路径）不走这里，仍用本地返还 + 发件箱补推。
+  const cancelMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/cancel$/);
+  if (cancelMatch && req.method === 'POST') {
+    const userId = userIdOf(req, url.searchParams.get('userId'));
+    const orderId = decodeURIComponent(cancelMatch[1]);
+    return guarded(() => orderService.cancelOrder(orderId, userId));
   }
 
   const payMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/pay$/);
@@ -961,9 +1017,11 @@ async function route(req, res, url) {
         'GET /api/brands (可按 category 过滤)',
         'GET /api/stats (商品/SKU/类目/品牌规模)',
         'GET|POST|PATCH|DELETE /api/cart?userId= (购物车：增删改查，服务端持久化)',
-        'POST /api/orders/preview {userId, items?, addressId?, couponId?} (结算预览)',
-        'GET /api/orders?userId= · POST /api/orders {userId, items, addressId?, couponId?}',
+        'GET|PUT /api/config (运营配置：配送/运费 + 券返还顺延；写入需 X-Admin-Key)',
+        'POST /api/orders/preview {userId, items?, addressId?, couponId?, shippingMethodId?} (结算预览)',
+        'GET /api/orders?userId= · POST /api/orders {userId, items, addressId?, couponId?, shippingMethodId?, paymentMethodId?}',
         'GET /api/orders/:id?userId= · POST /api/orders/:id/pay?userId=',
+        'POST /api/orders/:id/cancel?userId= (取消订单事务：关单 + 券返还顺延)',
         'GET|POST|DELETE /api/favorites?userId= (收藏夹：POST 为切换)',
         'GET /api/coupons/catalog (券目录，前端离线兜底同构)',
         'GET /api/coupons?userId=&amount=&all=1 (卡包；all=1 含已用/已过期)',

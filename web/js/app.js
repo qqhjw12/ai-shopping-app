@@ -17,6 +17,7 @@ import { getUserId, loadCart, onCartChange } from './state.js';
 import { ensureSession } from './auth.js';
 import { isProtectedPath, loginTarget } from './guard.js';
 import { getCurrentUser, initials, onUserChange } from './user.js';
+import { loadRuntimeConfig } from './store/config.js';
 
 // 仅在显式直连网关（?api=...）时自动建立会话：
 // 纯静态演示（GitHub Pages 无后端）跳过，避免每页产生无谓的 404 请求。
@@ -148,5 +149,8 @@ export function renderNotFound(v) {
 
 /* ---------------- 启动 ---------------- */
 initAssistant();
+// 运营配置（运费/配送/券规则）先拉一次：不阻塞首屏（缓存里已有上次的值），
+// 拉到新值会通知订阅者（结算页据此重绘运费），其余页面下一次渲染自然用新值。
+loadRuntimeConfig().catch(() => {});
 const router = createRouter(dispatch);
 router.start();

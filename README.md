@@ -60,7 +60,7 @@
 | 🛒 商品列表 | `#/products` | 共享检索引擎：品类/子类/品牌 **多选**、价格区间多选（档位左闭右开不重不漏）、颜色/规格属性（从 SKU 规格自动归一）、仅看有货；排序「综合 / 价格升降 / 销量 / 上新」下拉；已选条件胶囊行（单个移除 + 清空全部）；结果数、继续浏览分批、无结果安静空态；全部条件走 hash URL，刷新/分享还原，移动端筛选收进底部弹层 |
 | 🛒 购物车 | 顶栏抽屉 + `#/cart` | 服务端持久化，换设备/清缓存不丢；数量增减（受库存夹逼，边界置灰）、行内小计、删除后可撤销、库存不足拦截结算；抽屉与整页互通，运费/券统一在结算页确认 |
 | 🎟️ 优惠券中心 | `#/coupons` + `#/account?tab=coupons` | 可领取券列表（面额 / 门槛 / 有效期 / 适用范围，票券卡带齿孔虚线），已领取按钮置灰、重复领取被拒；未登录点领取跳登录并回跳。我的券包分**未使用 / 已使用 / 已过期**三 Tab（状态由到期时间实时推导），未使用的可直接「去使用」，已使用的标注订单号。**券包与网关卡包双向同步**：换设备登录同一手机号即看到同一份券，核销/返还顺延以服务端为准，离线领的券联网后补推 |
-| 🧾 结算下单 | `#/checkout` | 左右两栏（移动端单栏）：收货地址（**与个人中心共用同一份地址簿，可新增**，未选地址禁提交）+ 配送方式（标准免运费 / 加急 ¥18，含时效 mock）+ 支付方式（在线支付 / 货到付款 mock）+ **优惠券（自动选最优，随金额实时重算；可手动更换/取消，未达门槛显示差额）** + 订单备注 + 商品清单（**行内 −/+ 改数量（库存夹逼）/ 删除**，也可返回购物袋修改）+ 金额汇总（`tabular-nums`，券名与抵扣实时联动）；提交香槟金按钮防重复点击 |
+| 🧾 结算下单 | `#/checkout` | 左右两栏（移动端单栏）：收货地址（**与个人中心共用同一份地址簿，可新增**，未选地址禁提交）+ 配送方式（**运费与时效来自运营配置** `GET /api/config`，默认标准免运费 / 加急 ¥18）+ 支付方式（在线支付 / 货到付款 mock）+ **优惠券（自动选最优，随金额实时重算；可手动更换/取消，未达门槛显示差额）** + 订单备注 + 商品清单（**行内 −/+ 改数量（库存夹逼）/ 删除**，也可返回购物袋修改）+ 金额汇总（`tabular-nums`，券名与抵扣实时联动）；提交香槟金按钮防重复点击，**下单走 `POST /api/orders` 由服务端事务完成建单与核销**（无网关时降级本地单 + 发件箱补推） |
 | 🎉 订单成功 | `#/order-success/:id` | 订单号 + 应付金额 + 订单要素（状态 / 时间 / 配送 / 支付 / 收货），「查看订单」进详情、「继续购物」回商城；刷新不丢（本地订单簿兜底） |
 | 📦 我的订单 | `#/orders` + `#/account?tab=orders` | 本地订单簿与网关订单合并展示；待付款 / 已付款 / 已发货 / 已完成状态机，演示模式可模拟支付，再次购买、物流信息；订单详情 `#/account/order/:id` 还原商品 / 地址 / 配送 / 金额 |
 | ❤️ 我的收藏 | `#/favorites` | 服务端收藏夹，详情页「♡ 收藏」同步，可取消 |
@@ -92,6 +92,7 @@
 | `review_votes` | 有用投票：主键 `(review_id, user_id)`，天然幂等——同一用户重复请求在「赞 / 取消」间切换 |
 | `cart_items` | 购物车（服务端持久化，按 user+sku 唯一，重复加购累加） |
 | `favorites` | 收藏夹 |
+| `app_settings` | 运营配置（`shipping` 配送方式与运费 / `coupon` 券顺延规则），JSON 文本 + 更新时间与操作人。迁移 v11 建表；表空则用代码里的默认值 |
 | `coupons` / `user_coupons` | 优惠券模板与用户卡包（满减 / 折扣，领用核销）。迁移 v10 给券实例补了 `expires_at`（落库而不是各端现算，返还顺延才有唯一真源）与 `extension_count`；券模板补 `scope_text`，并把 id 与前端券目录对齐 |
 | `faqs` / `policies` | 客服 FAQ 与退换货 / 物流 / 质保 / 发票 / 支付政策 |
 | `conversations` / `messages` | 会话与消息（多轮上下文、可回放，重启不丢） |
@@ -152,7 +153,7 @@
 
 ### 优惠券（领取 → 券包 → 抵扣 → 核销 → 返还顺延）
 
-券域全部收敛在 `web/js/store/couponStore.js`（前端）与 `ai-gateway/src/services/couponRules.js`（服务端，同口径孪生），页面只负责渲染：
+券域全部收敛在 `web/js/store/couponStore.js`（前端）与 `ai-gateway/src/services/couponRules.js`（服务端），页面只负责渲染。**规则值只有服务端一份真源**（`app_settings` → `GET /api/config` → 前端 `store/config.js` 缓存），前端那份只是离线兜底，不再靠「记得两边同时改」：
 
 | 环节 | 实现 |
 |---|---|
@@ -161,8 +162,9 @@
 | 状态 | 落盘只存事实（`couponId / claimedAt / expiresAt / usedOrderId / extensionCount`），`unused / used / expired` 由到期时间推导——不需要定时任务把券「跑成过期」；服务端 `expires_at` 落库，不再各端用 `claimed_at + expire_days` 各算一遍 |
 | 可用性 | `decorateMine(list, productAmount)` 同时给出 `usable`、可省金额 `worth`、门槛差额 `gap` 与人话原因 `reason`；不可用券在结算页原样展示原因而不是隐藏 |
 | 最优 | `bestCouponId` 按省得最多排序、平手取门槛高的；结算页首次进入自动选中，改数量后若用户没手动干预过就按新金额重选，手动点选即接管 |
-| 核销 | 下单快照写入 `couponId / couponDiscount / couponTitle` 并标为已用，同时 `POST /api/coupons/use`（幂等）；**操作先进本地发件箱再发**，`keepalive` 让请求活过「下单后跳成功页」的导航 |
-| 返还 | `refundCouponsByOrder` 退回未使用并**顺延有效期 7 天**（`REFUND_GRACE_DAYS`），从 `max(原到期, 现在)` 起算——券在订单占用期间过期了也能退回来立刻可用；每张券最多顺延 3 次（`MAX_EXTENSIONS`），防「下单→取消」白刷 |
+| 核销 | **在服务端下单事务里做**：`POST /api/orders` 的 `createOrder` 依次校验 → 扣库存 → 建单 → 核销券，任一失败全回滚。前端不再发核销请求，只在下单成功后 `syncWallet` 拉回服务端状态；无网关时降级本地核销 + 发件箱（`keepalive` 让请求活过跳转） |
+| 返还 | **在服务端取消事务里做**：`POST /api/orders/:id/cancel` 一个事务里置 closed + 退券 + 顺延，幂等（已关闭再取消不会重复顺延）。顺延从 `max(原到期, 现在)` 起算——券在订单占用期间过期了也能退回来立刻可用 |
+| 顺延规则 | 顺延天数与次数上限是**运营可配**的（`GET/PUT /api/config`，默认 7 天 / 3 次），不再写死；前端经 `store/config.js` 读同一份配置，服务端才是唯一真源 |
 
 **跨设备同步**（`syncWallet` + 纯函数 `mergeWallet`）：
 
@@ -175,6 +177,45 @@
 - **金额永不为负**：`computeAmounts` 对商品总额、运费、抵扣各做 `max(0, …)`，抵扣再 `min(…, 商品总额)` —— 券抵运费、抵成负数在结构上不可能出现。
 - **键 `maison_coupons::<userId>`**：换账号即换键；券包只存已领取的实例，券模板永远从目录读，改文案不用迁移数据。
 - **开户只送 3 张体验券**（`STARTER_COUPON_IDS`），其余要用户到券中心自己领——全量自动发放会让「领取」在服务端根本不存在，跨设备同步也就没有可同步的东西。
+
+### 运营配置（运费 / 配送方式 / 券顺延规则）
+
+这些参数以前写死在代码里（服务端一份、前端一份），改一个数字要发版，还必然出现「服务端改了前端没改」的错位——同一张券在两台设备上显示不同到期日。现在收敛成一张表 + 一个接口：
+
+| 配置项 | 默认值 | 约束 |
+|---|---|---|
+| `shipping.methods[]` | 标准配送 ¥0（全场包邮）/ 加急配送 ¥18 | 1–5 项；`id` 小写字母开头且唯一；`fee` 0–999 整数；`freeOver` 为 `null` 或 0–100000 |
+| `shipping.fallbackId` | `standard` | 必须是某个配送方式的 `id` |
+| `coupon.refundGraceDays` | `7` | 0–90 整数（配 0 = 返还但不顺延） |
+| `coupon.maxExtensions` | `3` | 0–10 整数（0 = 不允许顺延） |
+
+```bash
+# 读（公开，未登录的结算页也要显示运费）
+curl -s localhost:8080/api/config
+
+# 写（需要 X-Admin-Key = ADMIN_API_KEY，留空则只读）
+curl -s -X PUT localhost:8080/api/config \
+  -H 'content-type: application/json' -H "x-admin-key: $ADMIN_API_KEY" \
+  -d '{"coupon":{"refundGraceDays":10,"maxExtensions":2}}'
+```
+
+设计要点：
+
+- **默认值只有一份来源**：`settingsService.DEFAULT_SETTINGS`，表里没有就用它，迁移不插默认数据（否则「迁移插的旧默认值」会和「代码新默认值」长期打架）。前端 `store/config.js` 的 `DEFAULT_CONFIG` 是**离线兜底**，不是第二份真源。
+- **写接口只收白名单字段并逐项校验**：`refundGraceDay`（少个 s）会直接报错而不是静默忽略——配置错了一样能算出负运费、零元订单。
+- **读路径缓存 30 秒 + 写后失效**：本进程立刻看到新值，多实例部署最多等一个 TTL。库里某一项被手工改坏时只降级那一项并告警，不让结算页 500（收不了钱比算错钱更糟）。
+- **结算页强制刷新配置**（`loadRuntimeConfig({ force: true })`）：这一页是「按下单金额收钱」的地方，多一个 GET 换「展示的运费就是实收的运费」很值——缓存里的旧运费会让用户看到 104、实际被收 114。
+- **服务端与前端同公式**：`shippingFeeOf` 在两侧实现一致，包邮门槛按**券后商品金额**判断（先看商品总额会让用券把总额压到门槛以下的订单仍免运费，等于券抵了两次）。
+
+### 订单事务：建单与核销同生共死
+
+`POST /api/orders` 的 `createOrder` 在一个事务里完成：**校验库存 → 扣库存 → 建单 → 清购物车 → 核销优惠券**。任何一步失败整单回滚——不会出现「单建成了券还在手里」（用户白嫖一张券）或「券花掉了单没建成」（用户丢一张券）。
+
+`POST /api/orders/:id/cancel` 同理：**置 closed + 券返还并顺延**在一个事务里，幂等（已关闭再取消不会重复顺延，否则「取消两次」就能把有效期刷长）。已发货订单返回 409，必须走售后。
+
+前端因此不再自己发核销请求：结算页只调 `POST /api/orders`，成功后落一份本地镜像（编号/金额/状态全用服务端返回值）并 `syncWallet` 拉回券状态。`e2e-order-tx.mjs` 专门断言「全程没有 `POST /api/coupons/use`」——只要还能看到这条请求，就说明又退回两条腿走路了。
+
+**降级路径**：无网关（纯静态托管 / 离线）时本地下单 + 券核销进发件箱补推；业务拒绝（库存不足 409、券不可用 400）必须如实显示，不偷偷改成本地单——否则用户以为下了一单，服务端其实没有。
 
 ### 对话引擎（`src/services/chatEngine.js`）
 
@@ -272,7 +313,7 @@
 │       ├── demo.js          # 演示模式标志（网关不可达时置位）
 │       ├── demo-data.js     # 内置示例商品库（离线兜底，由 catalog 生成，256 款）
 │       ├── demo-real-data.js # 真实开放数据商品（离线兜底，由 ingest-real-data.mjs 生成）
-│       └── store/           # 领域服务层：cart / address / order / coupon / catalog / qa
+│       └── store/           # 领域服务层：cart / address / order / coupon / catalog / qa / config(运营配置)
 ├── ai-gateway/              # Node.js 后端网关（local / docker 双模式）
 │   ├── src/
 │   │   ├── db/              # SQLite：connection / schema(版本迁移 v1-v3) / seedDb(种子)
@@ -280,7 +321,8 @@
 │   │   │                    #          cart(购物车) / user(收藏·券·地址)
 │   │   ├── storage/         # 买家秀对象存储：s3Client(SigV4 手写) / index(驱动门面+签名解析)
 │   │   ├── services/        # chatEngine(对话引擎) / llmClient(可选大模型)
-│   │   │                    #          orderService(下单事务·金额·库存)
+│   │   │                    #          orderService(下单事务·金额·库存·取消)
+│   │   │                    #          settingsService(运营配置) / couponRules(券状态·顺延)
 │   │   ├── data/catalog.js  # 商品目录种子（256 款 / 16 一级类目 / 48 二级 / 556 SKU / 768 评价）
 │   │   └── server / config / middleware / search / copywrite / aftersale …
 │   ├── data/shop.db         # 本地数据库（gitignore，可 db:reset 重建）
@@ -422,6 +464,7 @@ bash scripts/setup-https-proxy.sh
 | `DIFY_*_API_KEY` | 各 AI 模块的 Dify App Key（配置后启用真实流式） |
 | `CORS_ORIGINS` | 显式允许来源，**生产严禁 `*`**；留空仅放行本地演示来源 |
 | `AI_GATEWAY_API_KEY` | 设置后所有业务接口需 `X-API-Key`；留空则对外开放（仅限演示） |
+| `ADMIN_API_KEY` | `PUT /api/config` 的 `X-Admin-Key`（运营改运费/券顺延规则）；**留空则配置接口只读**。生产务必设置，勿用示例值 |
 | `RATE_LIMIT_PER_MIN` | 每 IP 每分钟限流（0 = 不限流） |
 | `UPLOAD_MAX_BYTES` / `UPLOAD_RATE_PER_MIN` / `UPLOAD_DAILY_QUOTA` / `UPLOAD_MAX_CONCURRENT` | 上传加固：单张字节上限 / 每用户每分钟次数 / 每用户 24h 配额 / 全局并发上限 |
 | `AUTH_JWT_SECRET` | 访问令牌 HS256 密钥，**生产必须配置**；local 留空会生成临时密钥（重启后令牌失效） |
@@ -456,10 +499,13 @@ bash scripts/setup-https-proxy.sh
 | PATCH | `/api/cart` | 改数量 `{ userId, itemId, qty }`（≤0 视为移除） |
 | DELETE | `/api/cart` | 带 `itemId` 删单项，否则清空 |
 | POST | `/api/orders/preview` | 结算预览（不算钱不写库）：商品小计 / 运费 / 优惠 / 实付 |
-| POST | `/api/orders` | 下单（事务：校验库存→扣库存→建单→清购物车→核销券） |
+| POST | `/api/orders` | 下单（**单事务**：校验库存→扣库存→建单→清购物车→核销券，任一失败全回滚）。前端结算页走的就是它，不再自己补核销请求 |
 | GET  | `/api/orders?userId=` | 我的订单列表 |
 | GET  | `/api/orders/:id?userId=` | 订单详情（按用户隔离） |
 | POST | `/api/orders/:id/pay?userId=` | 支付（演示：pending → paid，幂等） |
+| POST | `/api/orders/:id/cancel?userId=` | 取消订单（**单事务**：置 closed + 券返还并顺延有效期），幂等；已发货返回 409 |
+| GET  | `/api/config` | 运营配置（配送方式与运费、券返还顺延规则），公开读，未登录的结算页也要用 |
+| PUT  | `/api/config` | 改运营配置，需请求头 `X-Admin-Key`（`ADMIN_API_KEY`，留空则只读）；只接受白名单字段并逐项校验范围 |
 | GET  | `/api/favorites?userId=` | 收藏列表 |
 | POST | `/api/favorites` | 收藏切换 `{ userId, productId }`，返回 `favorited` |
 | DELETE | `/api/favorites` | 取消收藏 `?userId=&productId=` |
@@ -467,7 +513,7 @@ bash scripts/setup-https-proxy.sh
 | GET  | `/api/coupons?userId=&amount=&all=1` | 卡券包（标注可用性与可省金额）；`all=1` 返回全部状态含已用/已过期，跨设备同步要靠它 |
 | POST | `/api/coupons` | 领券 `{ userId, couponId }`，重复领取 409，返回服务端实例（含 `expiresAt`） |
 | POST | `/api/coupons/use` | 核销 `{ userId, couponId, orderId }`，幂等（同单重复调用返回 `already:true`） |
-| POST | `/api/coupons/refund` | 取消订单返还 `{ userId, orderId }`，退回未使用并把有效期顺延 7 天（每券最多 3 次） |
+| POST | `/api/coupons/refund` | 取消订单返还 `{ userId, orderId }`，退回未使用并顺延有效期（天数/次数取运营配置；订单取消已走 `/api/orders/:id/cancel`，此接口留给无订单的补退场景） |
 | GET  | `/api/addresses?userId=` | 收货地址列表（默认地址排首位，含 `province` / `city` / `region` / `postal`） |
 | POST | `/api/addresses` | 新增/更新地址 `{ userId, id?, receiver, phone, province, city, detail, postal?, isDefault? }`；带 `id` 即更新，返回 `{ id, created, addresses }` |
 | POST | `/api/addresses/:id/default?userId=` | 设为默认（幂等，默认地址始终有且仅有一条） |
@@ -755,11 +801,16 @@ node scripts/e2e-sync.mjs       # 跨设备同步：两套独立 context 同号�
 node scripts/e2e-checkout.mjs   # 交易闭环
 node scripts/e2e-search.mjs     # 搜索 / 筛选 / 排序 / URL 往返
 node scripts/e2e-pdp.mjs        # 详情页评价与问答
+node scripts/e2e-order-tx.mjs   # 下单事务核销 + 取消返还 + 运营配置生效（真网关）
 ```
 
-> `e2e-sync.mjs` 是唯一会拉起真网关的一个（其余跑纯静态模式）。它验的是「另一台设备也认账」：
+> `e2e-sync.mjs` 与 `e2e-order-tx.mjs` 会拉起真网关（其余跑纯静态模式）。`e2e-sync` 验「另一台设备也认账」：
 > 领券上云、核销同步、取消后返还顺延、离线领券补推。两个 context 的 localStorage 完全隔离，
 > 只共享「同一手机号 → 同一 userId → 同一网关卡包」这一条链路。
+>
+> `e2e-order-tx.mjs` 验的是「钱与券不会再分家」：下单走 `POST /api/orders` 且**全程没有
+> `POST /api/coupons/use`**（核销在服务端事务里）、取消订单服务端事务关单+顺延、
+> 改 `PUT /api/config` 后页面运费与实收一起变、下单失败（库存不足/券已用）不落单也不动券。
 
 ---
 

@@ -8,7 +8,7 @@
 //   - 优惠券：本步骤只做占位，下一步接 /api/coupons。
 //   - 优惠券：券包在本地按 userId 隔离（store/couponStore.js），领取/核销/返还都在那里改，
 //     本页只做「按状态分栏 + 状态回显」，所以结算页用掉一张券，回到这里立刻是「已使用」。
-import { api } from './api.js';
+import { api, isMissingEndpoint } from './api.js';
 import { el, fmtPrice, loading, toast, productThumb } from './ui.js';
 import { navigate } from './router.js';
 import { logout as closeSession } from './auth.js';
@@ -23,7 +23,7 @@ import {
   getOrder, listOrders, mergeOrders, normalizeRemote, statusText, updateOrderStatus,
 } from './store/orderStore.js';
 import {
-  REFUND_GRACE_DAYS, STATE_TEXT, fmtCouponValue, onWalletChange, refundCouponsByOrder,
+  STATE_TEXT, fmtCouponValue, onWalletChange, refundCouponsByOrder,
   syncWallet, walletByState, walletStats,
 } from './store/couponStore.js';
 
@@ -685,6 +685,51 @@ export async function renderOrderDetail(view, orderId) {
   }));
 }
 
+/**
+ * 取消订单：服务端单走服务端事务，本地镜像单走本地返还。
+ *
+ * 为什么要分两条路：服务端订单的券是在**下单事务里**核销的，本地券包根本没有
+ * 「已使用」这条记录，本地 `refundCouponsByOrder` 找不到可退的券 → 用户会看到
+ * 「订单已取消」但券一直不回来。反过来，无网关时的本地单服务端没有这笔订单，
+ * 调 cancel 只会 404。用订单号前缀（SO = 服务端 / MS = 本地）判断，比猜更可靠。
+ *
+ * 服务端不可达时降级本地处理并交发件箱补推：取消动作是用户已经点下的，
+ * 不能因为网络抖一下就变成「请重试」——券最终会按服务端口径重新顺延。
+ *
+ * @returns {Promise<{ok:boolean, error?:string, refund?:object, sync?:Function}>}
+ */
+async function cancelOrderEverywhere(userId, order) {
+  const oid = String(order.id || '');
+  const isServerOrder = /^SO/.test(oid);
+
+  const doLocal = () => {
+    updateOrderStatus(userId, oid, 'closed');
+    return { ok: true, refund: refundCouponsByOrder(userId, oid) };
+  };
+
+  if (!isServerOrder) return doLocal();
+
+  try {
+    const d = await api(
+      `/api/orders/${encodeURIComponent(oid)}/cancel?userId=${encodeURIComponent(userId)}`,
+      { method: 'POST', retries: 0 },
+    );
+    // 服务端事务已完成：本地镜像只同步状态，券包交给 syncWallet 用服务端结果覆盖
+    updateOrderStatus(userId, oid, (d && d.order && d.order.status) || 'closed');
+    return {
+      ok: true,
+      refund: (d && d.coupon) || { restored: 0, extended: 0, graceDays: 0 },
+      sync: () => syncWallet(userId),
+    };
+  } catch (e) {
+    // 业务拒绝（已发货 409 / 订单不存在 404）要如实告诉用户，不能偷偷本地关掉
+    if (!isMissingEndpoint(e) && e.kind !== 'offline' && e.status !== 404) {
+      return { ok: false, error: (e && e.message) || '取消失败，请稍后重试' };
+    }
+    return doLocal();
+  }
+}
+
 function orderDetailCard(o, { user, repaint } = {}) {
   const addr = o.address;
   const a = o.amounts || {};
@@ -699,7 +744,9 @@ function orderDetailCard(o, { user, repaint } = {}) {
       el('div', { class: 'od-item-thumb' }, productThumb({ id: it.productId, name: it.name, coverColor: it.coverColor, pic: it.pic }, { fade: false })),
       el('div', { class: 'od-item-info' }, [
         el('div', { class: 'od-item-name' }, it.name),
-        el('div', { class: 'od-item-sku' }, it.spec ? `SKU：${it.spec}` : 'SKU：默认规格'),
+        // 规格单独存了才显示：历史订单把规格拼在名称里（spec 为空），
+        // 这里再补一行「默认规格」只会制造噪音。
+        it.spec ? el('div', { class: 'od-item-sku' }, `SKU：${it.spec}`) : null,
         el('div', { class: 'od-item-price num' }, `${fmtPrice(it.price)} × ${it.qty}`),
       ]),
       el('span', { class: 'od-item-sub num' }, fmtPrice(Number(it.price || 0) * Number(it.qty || 0))),
@@ -716,13 +763,16 @@ function orderDetailCard(o, { user, repaint } = {}) {
   // 取消订单（仅待付款）：状态关闭 + 券退回券包。
   // 两步都要做：只改状态不返还券，用户会觉得「券被吃了」；
   // 只返还券不改状态，订单还挂着待付款，券就可能被重复使用。
+  //
+  // 服务端订单走 POST /api/orders/:id/cancel —— 关单与返券在同一个事务里完成，
+  // 前端不需要（也不应该）再自己返一次；本地镜像单才用本地返还 + 发件箱补推。
   const cancelBtn = o.status === 'pending'
     ? el('button', { class: 'od-cancel', type: 'button' }, '取消订单')
     : null;
   if (cancelBtn) {
     let armed = false;
     let timer = null;
-    cancelBtn.addEventListener('click', () => {
+    cancelBtn.addEventListener('click', async () => {
       if (!armed) {
         armed = true;
         cancelBtn.textContent = '确认取消？';
@@ -736,14 +786,23 @@ function orderDetailCard(o, { user, repaint } = {}) {
       }
       if (timer) clearTimeout(timer);
       cancelBtn.disabled = true;
-      updateOrderStatus(user.id, o.id, 'closed');
-      const refund = refundCouponsByOrder(user.id, o.id);
+      cancelBtn.textContent = '取消中…';
+      const done = await cancelOrderEverywhere(user.id, o);
+      if (!done.ok) {
+        cancelBtn.disabled = false;
+        cancelBtn.textContent = '取消订单';
+        cancelBtn.classList.remove('is-confirm');
+        toast(done.error || '取消失败，请稍后重试', 'warn');
+        return;
+      }
+      const refund = done.refund || { restored: 0, extended: 0, graceDays: 0 };
       toast(
         refund.restored
-          ? `订单已取消，${refund.restored} 张优惠券已退回券包${refund.extended ? `（有效期顺延 ${REFUND_GRACE_DAYS} 天）` : ''}`
+          ? `订单已取消，${refund.restored} 张优惠券已退回券包${refund.extended ? `（有效期顺延 ${refund.graceDays} 天）` : ''}`
           : '订单已取消',
         'ok',
       );
+      if (typeof done.sync === 'function') await done.sync();
       if (repaint) repaint();
     });
   }

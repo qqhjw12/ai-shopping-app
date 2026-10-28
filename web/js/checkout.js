@@ -4,22 +4,28 @@
 //   1) 地址来自「步骤 2」的地址簿（store/addressStore.js，服务端为准 + 本地缓存），
 //     所以个人中心里维护的默认地址，进结算页就是已选中的那一条；
 //   2) 金额只在 store/orderStore.js 里算一次，页面不再另写一套，避免「预览一个价、下单另一个价」；
-//   3) 提交后订单写入 orderStore（localStorage，按 userId 隔离），并清掉已结算的商品，
-//      然后跳 #/order-success/:id —— 成功页只认这个 id，刷新也能靠本地订单复原。
+//   3) 提交优先走网关 POST /api/orders —— 服务端在**一个事务里**完成
+//      校验 → 算钱 → 扣库存 → 建单 → 核销优惠券，前端只落一份本地镜像；
+//      无网关（纯静态托管 / 离线）时降级本地下单 + 券核销发件箱补推；
+//   4) 提交后跳 #/order-success/:id —— 成功页只认这个 id，刷新也能靠订单簿复原。
 //
 // 未登录由 app.js 的路由守卫拦下并带 redirect；这里再兜一次，防止被直接调用绕过。
 import { el, fmtPrice, toast, updateCartBadge, productThumb } from './ui.js';
 import { getCart, removeFromCart, setQty } from './state.js';
 import { navigate } from './router.js';
 import { getCurrentUser } from './user.js';
+import { api, isMissingEndpoint } from './api.js';
 import {
-  PAYMENT_METHODS, SHIPPING_METHODS, computeAmounts, createOrder, paymentById, shippingById,
+  PAYMENT_METHODS, computeAmounts, createOrder, getShippingMethods, normalizeRemote, paymentById,
+  shippingById,
 } from './store/orderStore.js';
+import { loadRuntimeConfig, shippingFeeOf } from './store/config.js';
 import {
   getAddress, hydrateAddresses, listAddresses, saveAddress, validateAddress,
 } from './store/addressStore.js';
 import {
   bestCouponId, decorateMine, fmtCouponValue, hydrateWallet, listWallet, markCouponUsed, sortForCheckout,
+  syncWallet,
 } from './store/couponStore.js';
 
 export async function renderCheckout(view) {
@@ -47,7 +53,8 @@ export async function renderCheckout(view) {
   const state = {
     addresses: listAddresses(user.id),
     addressId: null,
-    shippingId: SHIPPING_METHODS[0].id,
+    // 配送方式来自运营配置（服务端 app_settings.shipping，离线用内置默认）
+    shippingId: getShippingMethods()[0].id,
     paymentId: PAYMENT_METHODS[0].id,
     remark: '',
     submitting: false,
@@ -99,10 +106,13 @@ export async function renderCheckout(view) {
     .find((c) => String(c.id) === String(state.couponId) && c.usable) || null;
   const amounts = () => {
     const c = pickedCoupon();
+    const goods = productAmount();
+    const discount = c ? c.worth : 0;
     return computeAmounts({
-      productAmount: productAmount(),
-      shippingFee: shippingById(state.shippingId).fee,
-      couponDiscount: c ? c.worth : 0,
+      productAmount: goods,
+      // 运费按配置算，包邮门槛看「券后商品金额」——与服务端 settingsService.shippingFeeOf 同公式
+      shippingFee: shippingFeeOf(shippingById(state.shippingId), Math.max(0, goods - discount)),
+      couponDiscount: discount,
       couponTitle: c ? c.title : '',
       couponId: c ? c.couponId : '',
     });
@@ -264,10 +274,12 @@ export async function renderCheckout(view) {
   /* ---------------- 2. 配送方式 ---------------- */
   function paintShipping() {
     shipCard.innerHTML = '';
-    shipCard.appendChild(cardHead('配送方式', '运费与时效为演示数据'));
+    shipCard.appendChild(cardHead('配送方式', '运费与时效由运营配置'));
     const box = el('div', { class: 'co2-picks' });
-    SHIPPING_METHODS.forEach((m) => {
+    getShippingMethods().forEach((m) => {
       const on = m.id === state.shippingId;
+      // 展示「本单实收运费」而不是标价：配了满额包邮时，标价 ¥18 的加急也可能免运费
+      const fee = shippingFeeOf(m, Math.max(0, productAmount() - (pickedCoupon() || { worth: 0 }).worth));
       box.appendChild(
         el('button', {
           class: `co2-pick${on ? ' is-on' : ''}`,
@@ -285,7 +297,7 @@ export async function renderCheckout(view) {
             el('span', { class: 'co2-pick-title' }, m.name),
             el('span', { class: 'co2-pick-note' }, `${m.eta} · ${m.note}`),
           ]),
-          el('span', { class: 'co2-pick-fee num' }, m.fee ? fmtPrice(m.fee) : '免运费'),
+          el('span', { class: 'co2-pick-fee num' }, fee ? fmtPrice(fee) : '免运费'),
         ]),
       );
     });
@@ -553,6 +565,10 @@ export async function renderCheckout(view) {
   }
 
   /* ---------------- 7. 提交 ---------------- */
+  /**
+   * 提交入口：只做前置校验，真正的下单是异步的。
+   * 校验与网络分开，是因为「没选地址」属于用户可改的错误，不该把按钮卡在「提交中…」。
+   */
   function submit() {
     if (state.submitting) return;
     const cart = getCart();
@@ -571,28 +587,113 @@ export async function renderCheckout(view) {
     state.submitting = true;
     state.error = '';
     paintSum();
+    void placeOrder(cart, address);
+  }
+
+  /** 下单成功后的统一收尾：清购物袋 → 同步券 → 跳成功页 */
+  function finish(order) {
+    // 只清掉已结算的商品：结算期间在别处新加的东西不该被一起清空
+    getCart().forEach((i) => removeFromCart(i.__key || i.id));
+    updateCartBadge();
+    state.submitting = false;
+    // 服务端订单的券是在事务里核销的：拉一次卡包让本机立刻显示「已使用」。
+    // 失败不影响下单结果——下次进券包还会再同步一次。
+    if (order && order.remote) syncWallet(user.id).catch(() => {});
+    toast(`订单 ${order.id} 已提交`, 'ok');
+    navigate(`#/order-success/${encodeURIComponent(order.id)}`);
+  }
+
+  /**
+   * 下单：优先服务端事务，失败降级本地。
+   *
+   * 为什么优先走服务端：券核销必须与建单原子。客户端「先建单、再补一条核销请求」的做法
+   * 中间只要断一次网，就会出现「单建成了、券还在手里」或者「券花掉了、单没建成」，
+   * 而这两件事用户都能感知到。服务端一个事务做完，客户端不再自己动券。
+   *
+   * 降级条件只认「这个部署没有后端」（404/405/501）与离线——
+   * 业务拒绝（库存不足 409、券不可用 400）必须如实显示，不能偷偷改成本地单，
+   * 否则用户以为下了一单，服务端其实没有。
+   *
+   * 取舍：网络中途断开（请求可能已到达服务端）时也降级本地单，
+   * 理论上可能同时存在一张服务端单和一张本地单。演示站选「宁可重复也不要丢单」，
+   * 真实系统应带幂等键（IDEMPOTENCY-KEY）由服务端去重。
+   */
+  async function placeOrder(cart, address) {
+    const amt = amounts();
+    const draft = {
+      items: cart,
+      address,
+      shippingMethod: shippingById(state.shippingId),
+      paymentMethod: paymentById(state.paymentId),
+      remark: state.remark,
+      amounts: amt,
+    };
+
     try {
-      const order = createOrder(user.id, {
-        items: cart,
-        address,
-        shippingMethod: shippingById(state.shippingId),
-        paymentMethod: paymentById(state.paymentId),
-        remark: state.remark,
-        amounts: amounts(),
+      const d = await api('/api/orders', {
+        method: 'POST',
+        // 下单不重试：重试可能重复建单（服务端没有幂等去重）
+        retries: 0,
+        body: {
+          userId: user.id,
+          items: cart.map((i) => ({
+            productId: i.productId || i.id,
+            skuId: i.skuId ?? null,
+            qty: Math.max(1, Number(i.qty) || 1),
+          })),
+          addressId: address.id || null,
+          couponId: amt.couponId || null,
+          shippingMethodId: state.shippingId,
+          paymentMethodId: state.paymentId,
+          remark: state.remark,
+        },
       });
-      // 只清掉已结算的商品：结算期间在别处新加的东西不该被一起清空
-      cart.forEach((i) => removeFromCart(i.__key || i.id));
-      updateCartBadge();
-      // 券核销：只有真的下单成功才标记已使用，失败路径（上面 catch）不会动券包
-      if (order.amounts && order.amounts.couponId) {
-        markCouponUsed(user.id, order.amounts.couponId, order.id);
+      const remote = normalizeRemote({ ...(d && d.order), userId: user.id });
+      if (!remote.id) throw new Error('服务端未返回订单号');
+
+      // 本地只落一份镜像：编号/金额/状态全部用服务端的值，
+      // 名称与 SKU 也用服务端返回的（按服务端库里现查的价格，比购物袋里的旧快照可信）。
+      const mirror = createOrder(user.id, {
+        id: remote.id,
+        items: remote.items.length ? remote.items : cart,
+        address,
+        shippingMethod: remote.shippingMethod,
+        paymentMethod: remote.paymentMethod,
+        remark: state.remark,
+        amounts: remote.amounts,
+        status: remote.status,
+        createdAt: remote.createdAt,
+        remote: true,
+      });
+
+      // 服务端金额与页面预览不一致（价格更新、库存档位变化）：以服务端为准，并明确告知
+      const gap = Number(remote.amounts.payAmount) - Number(amt.payAmount);
+      if (Math.abs(gap) >= 0.01) {
+        toast(`订单已提交，金额按最新价格调整为 ${fmtPrice(remote.amounts.payAmount)}`, 'warn');
+        finish(mirror);
+        return;
       }
-      toast(`订单 ${order.id} 已提交`, 'ok');
-      navigate(`#/order-success/${encodeURIComponent(order.id)}`);
+      finish(mirror);
     } catch (e) {
-      state.submitting = false;
-      state.error = e.message || '提交失败，请重试';
-      paintSum();
+      const noBackend = isMissingEndpoint(e) || e.kind === 'offline' || !e.status;
+      if (!noBackend) {
+        state.submitting = false;
+        state.error = (e && e.message) || '提交失败，请重试';
+        paintSum();
+        return;
+      }
+      // 降级：本地单 + 券核销进发件箱，联网后由 syncWallet 补推
+      try {
+        const order = createOrder(user.id, draft);
+        if (order.amounts && order.amounts.couponId) {
+          markCouponUsed(user.id, order.amounts.couponId, order.id);
+        }
+        finish(order);
+      } catch (err) {
+        state.submitting = false;
+        state.error = (err && err.message) || '提交失败，请重试';
+        paintSum();
+      }
     }
   }
 
@@ -629,5 +730,21 @@ export async function renderCheckout(view) {
     paintSum();
   }).catch((e) => {
     console.warn('[checkout] 券包加载失败', e && e.message);
+  });
+
+  // 运营配置（配送方式 / 运费 / 券顺延规则）：拉到新值就重绘配送与金额。
+  // 这里用 force 绕过缓存 TTL —— 结算页是「按下单金额收钱」的页面，
+  // 多一个 GET 换「展示的运费就是实收的运费」很值：缓存里的旧运费会让用户
+  // 看到 104、实际被收 114，这种事一次都不能有。
+  loadRuntimeConfig({ force: true }).then(({ changed }) => {
+    if (!changed) return;
+    // 配送方式整份被换掉时，原来选的 id 可能已不存在
+    if (!getShippingMethods().some((m) => m.id === state.shippingId)) {
+      state.shippingId = getShippingMethods()[0].id;
+    }
+    paintShipping();
+    paintSum();
+  }).catch(() => {
+    /* 配置拉不到就用离线默认，不打断结算 */
   });
 }
