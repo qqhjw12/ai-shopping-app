@@ -53,6 +53,7 @@ export const ORDER_STATUS_TEXT = {
   shipped: '已发货',
   completed: '已完成',
   refunding: '售后中',
+  refunded: '已退款',
   closed: '已取消',
 };
 
@@ -86,7 +87,8 @@ export function orderStage(order = {}) {
   }));
   // 本地单可能只有 status 没有时间戳（历史数据 / 服务端没返回字段）：
   // 用状态兜底，避免「已发货的单流转条停在第 1 步」。
-  const rank = { pending: 0, paid: 1, shipped: 2, completed: 3 }[order.status];
+  // refunded 按「已完成」算：退款前货一定已经送到，流转条该是四步走满而不是退回一半
+  const rank = { pending: 0, paid: 1, shipped: 2, completed: 3, refunded: 3 }[order.status];
   if (rank != null) {
     for (let i = 0; i <= rank && i < steps.length; i += 1) steps[i].done = true;
   }

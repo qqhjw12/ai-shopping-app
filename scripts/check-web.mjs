@@ -1733,5 +1733,167 @@ if (failed === 0) {
   }
 }
 
+/* ---------------- 售后审核断言（结论展示 / 三种落点 / 运营台门禁） ---------------- */
+// 服务端的事务与守卫由 e2e-aftersale-review 用真库验；这里守的是前端这一半：
+//   1) 三种结论都要显示得出来，且**换货不能出现退款金额**（换的是货不是钱）；
+//   2) 驳回后订单要回到能用的状态，用户能再申请——工单不是一次性消耗品；
+//   3) 服务端返回的空串不能把本地刚拿到的结论冲掉（merge 的坑踩过一次）；
+//   4) 运营台在没钥匙 / 网关不可达时都要有话说，不能白屏。
+if (failed === 0) {
+  console.log('\n售后审核断言（结论展示 / 三种落点 / 运营台门禁）');
+  try {
+    const dir = (f) => pathToFileURL(join(WEB_DIR, f)).href;
+    const orders = await import(dir('store/orderStore.js'));
+    const as = await import(dir('store/aftersaleStore.js'));
+    const userMod = await import(dir('user.js'));
+    const { renderOrderDetail } = await import(dir('orderDetail.js'));
+    const { renderAdminAftersales } = await import(dir('adminAftersales.js'));
+    const tick = (ms = 25) => new Promise((r) => setTimeout(r, ms));
+    const hasCls = (node, c) => Boolean(node && node.classList && node.classList.contains(c));
+
+    localStorage.clear();
+    sessionStorage.clear();
+    const uid = 'u_asreview_test';
+    userMod.setCurrentUser({ id: uid, nickname: '审核测试', phone: '13800005678' });
+
+    const base = {
+      userId: uid,
+      items: [{ productId: 'p244', name: '审核测试签字笔', spec: '0.5mm / 灰', price: 29, qty: 2, subtotal: 58 }],
+      address: { receiver: '审核', phone: '13800005678', region: '浙江省 杭州市', detail: '文三路 88 号' },
+      shippingMethod: { id: 'standard', name: '标准配送', fee: 0, eta: '3-5 天' },
+      paymentMethod: { id: 'online', name: '在线支付' },
+      amounts: { productAmount: 58, shippingFee: 0, couponDiscount: 0, payAmount: 58 },
+      createdAt: '2026-10-27 10:00:00',
+      paidAt: '2026-10-27 10:01:00',
+      shippedAt: '2026-10-27 18:00:00',
+      completedAt: '2026-10-28 09:00:00',
+    };
+
+    /* 1) 词表：三种类型、退款类、已退款终态 */
+    const typeCodes = as.AFTERSALE_TYPES.map((t) => t.code).join(',');
+    const wordOk = typeCodes === 'refund,return,exchange'
+      && as.AFTERSALE_STATUS_TEXT.rejected === '已驳回'
+      && as.REFUNDABLE_TYPES.join(',') === 'refund,return'
+      && orders.statusText('refunded') === '已退款';
+
+    /* 2) 三笔订单，三种结论 */
+    const put = (id, status, record) => {
+      orders.upsertOrder(uid, { ...base, id, status });
+      as.saveAftersale(uid, { ...record, orderId: id });
+    };
+    put('MS202610280011', 'refunded', {
+      id: 'AS00000001', type: 'return', reason: 'damaged', note: '外箱破损',
+      evidence: [{ name: 'proof-1.jpg', size: 2048 }],
+      status: 'approved', refundAmount: 58, reviewNote: '破损属实',
+      reviewedAt: '2026-10-28 15:00:00',
+      handleNote: '已同意退货退款，退款 ¥58.00 将在 3 个工作日内退回原支付账户',
+    });
+    // 换货通过后订单回到「已发货」：新货要重新发一趟，收货流程从头再走
+    put('MS202610280012', 'shipped', {
+      id: 'AS00000002', type: 'exchange', reason: 'quality', note: '笔尖分叉',
+      status: 'approved', refundAmount: null, reviewNote: '',
+      reviewedAt: '2026-10-28 15:10:00',
+      handleNote: '已同意换货，新商品已通过顺丰速运发出（SF1234567890），请注意查收',
+    });
+    put('MS202610280013', 'completed', {
+      id: 'AS00000003', type: 'refund', reason: 'not_fit', note: '颜色不合适',
+      status: 'rejected', refundAmount: null, reviewNote: '凭证不足以判定问题',
+      reviewedAt: '2026-10-28 16:00:00',
+      handleNote: '很抱歉，您的仅退款申请未通过：凭证不足以判定问题',
+    });
+
+    const vRefund = new El('main');
+    await renderOrderDetail(vRefund, 'MS202610280011');
+    await tick();
+    const refundText = vRefund.textContent || '';
+    const refundOk = ((vRefund.querySelectorAll('.od-pill')[0] || {}).textContent || '').trim() === '已退款'
+      && /审核结果/.test(refundText) && /已同意/.test(refundText)
+      && /退款 ¥58/.test(refundText)
+      && /审核意见：破损属实/.test(refundText)
+      && /3 个工作日内退回/.test(refundText)
+      // 退款入终态后不能再申请：钱已经退回去了，那颗按钮没有意义
+      && vRefund.querySelectorAll('.od-line-btn').filter((n) => /申请退款/.test(n.textContent)).length === 0
+      // 终态仍要能看到履约进度：流程走完了，不是凭空变成已退款
+      && vRefund.querySelectorAll('.od-step').filter((n) => hasCls(n, 'is-done')).length === 4;
+
+    const vExchange = new El('main');
+    await renderOrderDetail(vExchange, 'MS202610280012');
+    await tick();
+    const exText = vExchange.textContent || '';
+    const exchangeOk = ((vExchange.querySelectorAll('.od-pill')[0] || {}).textContent || '').trim() === '已发货'
+      && /已同意/.test(exText)
+      // 换货显示不出「退款 ¥」：这一行只给真的退了钱的工单
+      && !/退款 ¥/.test(exText)
+      && /顺丰速运/.test(exText) && /SF1234567890/.test(exText)
+      && vExchange.querySelectorAll('.od-track-item').filter((n) => hasCls(n, 'is-done')).length === 2;
+
+    const vReject = new El('main');
+    await renderOrderDetail(vReject, 'MS202610280013');
+    await tick();
+    const rejText = vReject.textContent || '';
+    const rejectOk = ((vReject.querySelectorAll('.od-pill')[0] || {}).textContent || '').trim() === '已完成'
+      && /已驳回/.test(rejText)
+      && /审核意见：凭证不足以判定问题/.test(rejText)
+      && /很抱歉/.test(rejText)
+      // 驳回后订单回到「已完成」，入口要能再用——工单不是一次性消耗品
+      && vReject.querySelectorAll('.od-line-btn').filter((n) => /申请退款/.test(n.textContent)).length === 1;
+
+    /* 3) 可申请条件：终态不可，驳回退回的「已完成」可以 */
+    const guardOk = !as.canApply({ status: 'refunded' }).ok
+      && as.canApply({ status: 'completed' }).ok
+      && as.canApply({ status: 'shipped' }).ok
+      && !as.canApply({ status: 'refunding' }).ok
+      && /已退款/.test(as.canApply({ status: 'refunded' }).reason || '');
+
+    /* 4) 与服务端合并：空串不冲掉本地已有结论 */
+    const localRec = { id: 'AS00000009', orderId: 'MS_M1', status: 'approved', refundAmount: 58, reviewNote: '破损属实', reviewedAt: '2026-10-28 15:00:00', handleNote: '已同意' };
+    const remoteRec = { id: 'AS00000009', orderId: 'MS_M1', status: 'approved', refundAmount: null, reviewNote: '', reviewedAt: '', handleNote: '' };
+    const merged = as.mergeAftersales([localRec], [remoteRec])[0];
+    const mergeOk = merged.refundAmount === 58 && merged.reviewNote === '破损属实'
+      && merged.reviewedAt === '2026-10-28 15:00:00';
+    const mergedTwo = as.mergeAftersales([localRec], [{ ...remoteRec, id: 'AS00000010' }]);
+    const mergeLenOk = mergedTwo.length === 2;
+
+    /* 5) 运营台：没钥匙看到的只能是钥匙门，不是空列表 */
+    const vGate = new El('main');
+    await renderAdminAftersales(vGate, {});
+    await tick();
+    const gateOk = vGate.querySelectorAll('.adm-key-form').length === 1
+      && vGate.querySelectorAll('.adm-card').length === 0
+      && /ADMIN_API_KEY/.test((vGate.querySelectorAll('.adm-key-input')[0] || {}).attrs?.placeholder || '')
+      && /当前标签页/.test(vGate.textContent || '');
+
+    /* 6) 有钥匙但网关不可达（静态部署）：给空态和重试，不是白屏也不是抛异常 */
+    sessionStorage.setItem('maison_admin_key', 'k');
+    const vDown = new El('main');
+    await renderAdminAftersales(vDown, {});
+    await tick(60);
+    const downText = vDown.textContent || '';
+    const downOk = vDown.querySelectorAll('.adm-filters').length === 1
+      && vDown.querySelectorAll('.adm-empty').length === 1
+      && /没有取到工单/.test(downText)
+      && vDown.querySelectorAll('.adm-line-btn').filter((n) => /重试/.test(n.textContent)).length === 1;
+
+    const cases = [
+      ['词表（三种售后类型 / 退款类 / 已退款终态）', wordOk],
+      ['同意退款：已退款 + 结论 + 金额 + 意见', refundOk],
+      ['同意换货：回到已发货且不带退款金额', exchangeOk],
+      ['驳回：回到已完成 + 意见 + 可再次申请', rejectOk],
+      ['可申请条件（终态不可 / 驳回后可再申请）', guardOk],
+      ['合并时服务端空值不冲掉本地结论', mergeOk],
+      ['合并保留本地独有的工单', mergeLenOk],
+      ['无钥匙时显示钥匙门', gateOk],
+      ['网关不可达时给空态与重试（不白屏）', downOk],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 售后审核${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 售后审核断言异常: ${String(e.message).split('\n')[0]}`);
+    console.log(String(e.stack).split('\n').slice(1, 4).join('\n'));
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

@@ -19,8 +19,8 @@ import {
 } from './store/orderStore.js';
 import { fmtWhen, logisticsOf } from './store/logistics.js';
 import {
-  AFTERSALE_REASONS, AFTERSALE_TYPES, MAX_EVIDENCE, MAX_NOTE, canApply, listByOrder,
-  mergeAftersales, saveAftersale, validateAftersale,
+  AFTERSALE_REASONS, AFTERSALE_TYPES, MAX_EVIDENCE, MAX_NOTE, REFUNDABLE_TYPES,
+  canApply, listByOrder, mergeAftersales, saveAftersale, validateAftersale,
 } from './store/aftersaleStore.js';
 import { refundCouponsByOrder, syncWallet } from './store/couponStore.js';
 
@@ -391,6 +391,13 @@ function logisticsBlock(logi, o) {
 
 /* ---------------- 售后记录 ---------------- */
 
+/**
+ * 售后记录。
+ *
+ * 待处理时只显示客服话术——此时没有结论可说，硬凑一行「审核结果：待审核」没意义。
+ * 有结论后先给结论（同意 / 驳回 + 退款金额 + 时间），再给审核意见与处理说明：
+ * 用户最想知道的是「我的钱什么时候回来」，理由排在第二位。
+ */
 function aftersaleBlock(list) {
   if (!list.length) return null;
   return el('section', { class: 'od-as' }, [
@@ -398,18 +405,33 @@ function aftersaleBlock(list) {
       el('h3', {}, '售后记录'),
       el('span', { class: 'od-sec-meta' }, `${list.length} 条`),
     ]),
-    ...list.map((r) => el('article', { class: `od-as-item is-${r.status}`, 'data-aftersale': r.id }, [
-      el('div', { class: 'od-as-head' }, [
-        el('span', { class: 'od-as-type' }, `${r.typeLabel} · ${r.reasonLabel}`),
-        el('span', { class: `od-as-status s-${r.status}` }, r.statusLabel),
-      ]),
-      r.note ? el('p', { class: 'od-as-note' }, r.note) : null,
-      r.evidence && r.evidence.length
-        ? el('p', { class: 'od-as-ev' }, `凭证 ${r.evidence.length} 份：${r.evidence.map((f) => f.name).join('、')}`)
-        : null,
-      el('p', { class: 'od-as-handle' }, `处理说明：${r.handleNote || '客服处理中'}`),
-      el('p', { class: 'od-as-meta' }, `申请单 ${r.id} · ${fmtDate(r.createdAt)}`),
-    ])),
+    ...list.map((r) => {
+      const settled = r.status !== 'reviewing';
+      const refundable = REFUNDABLE_TYPES.includes(r.type);
+      return el('article', { class: `od-as-item is-${r.status}`, 'data-aftersale': r.id }, [
+        el('div', { class: 'od-as-head' }, [
+          el('span', { class: 'od-as-type' }, `${r.typeLabel} · ${r.reasonLabel}`),
+          el('span', { class: `od-as-status s-${r.status}` }, r.statusLabel),
+        ]),
+        settled
+          ? el('p', { class: 'od-as-verdict' }, [
+            el('span', { class: 'od-as-vlabel' }, '审核结果'),
+            el('span', { class: 'od-as-vtext' }, [
+              r.statusLabel,
+              refundable && r.refundAmount != null ? ` · 退款 ${fmtPrice(r.refundAmount)}` : '',
+              r.reviewedAt ? ` · ${fmtDate(r.reviewedAt)}` : '',
+            ].join('')),
+          ])
+          : null,
+        r.note ? el('p', { class: 'od-as-note' }, r.note) : null,
+        r.evidence && r.evidence.length
+          ? el('p', { class: 'od-as-ev' }, `凭证 ${r.evidence.length} 份：${r.evidence.map((f) => f.name).join('、')}`)
+          : null,
+        r.reviewNote ? el('p', { class: 'od-as-review' }, `审核意见：${r.reviewNote}`) : null,
+        el('p', { class: 'od-as-handle' }, `处理说明：${r.handleNote || '客服处理中'}`),
+        el('p', { class: 'od-as-meta' }, `申请单 ${r.id} · ${fmtDate(r.createdAt)}`),
+      ]);
+    }),
   ]);
 }
 

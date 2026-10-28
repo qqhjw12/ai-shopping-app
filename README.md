@@ -62,8 +62,9 @@
 | 🎟️ 优惠券中心 | `#/coupons` + `#/account?tab=coupons` | 可领取券列表（面额 / 门槛 / 有效期 / 适用范围，票券卡带齿孔虚线），已领取按钮置灰、重复领取被拒；未登录点领取跳登录并回跳。我的券包分**未使用 / 已使用 / 已过期**三 Tab（状态由到期时间实时推导），未使用的可直接「去使用」，已使用的标注订单号。**券包与网关卡包双向同步**：换设备登录同一手机号即看到同一份券，核销/返还顺延以服务端为准，离线领的券联网后补推 |
 | 🧾 结算下单 | `#/checkout` | 左右两栏（移动端单栏）：收货地址（**与个人中心共用同一份地址簿，可新增**，未选地址禁提交）+ 配送方式（**运费与时效来自运营配置** `GET /api/config`，默认标准免运费 / 加急 ¥18）+ 支付方式（**来自运营配置** `GET /api/config`，默认在线支付 / 货到付款 mock）+ **优惠券（自动选最优，随金额实时重算；可手动更换/取消，未达门槛显示差额）** + 订单备注 + 商品清单（**行内 −/+ 改数量（库存夹逼）/ 删除**，也可返回购物袋修改）+ 金额汇总（`tabular-nums`，券名与抵扣实时联动）；提交香槟金按钮防重复点击，**下单走 `POST /api/orders` 由服务端事务完成建单与核销**（无网关时降级本地单 + 发件箱补推） |
 | 🎉 订单成功 | `#/order-success/:id` | 订单号 + 应付金额 + 订单要素（状态 / 时间 / 配送 / 支付 / 收货），「查看订单」进详情、「继续购物」回商城；刷新不丢（本地订单簿兜底） |
-| 📦 我的订单 | `#/orders` + `#/account?tab=orders` | 本地订单簿与网关订单合并展示；**待付款 / 待发货 / 已发货 / 已完成 / 售后中 / 已取消**状态机，演示模式可模拟支付，再次购买、物流信息；点卡片进订单详情 |
-| 🚚 订单详情 | `#/account/order/:id` | **状态流转条**（四段细线金节点，阶段由时间戳推导——售后中的订单不会因此丢掉进度；已取消不画进度只留一行说明）+ **物流卡**（快递公司 / 运单号 + 四段式时间线：已揽收 / 运输中 / 派送中 / 已签收，未到达节点灰显「待更新」，未发货显示「待发货」占位）+ 商品清单 / 收货信息 / 金额（`tabular-nums`）+ **售后记录**（类型 / 原因 / 说明 / 凭证文件名 / 处理说明 / 状态胶囊）+ 动作区（去支付为主按钮，申请售后与取消为细线按钮）。**申请售后弹层**：售后类型（仅退款 / 退货退款）、原因下拉、问题说明（≤200 字）、凭证占位（只记文件名，最多 5 份）；提交后订单转「售后中」并生成售后单。卡片底部有不显眼的「演示用 · 模拟发货 / 模拟签收」文字按钮，仅用于演示状态流转 |
+| 📦 我的订单 | `#/orders` + `#/account?tab=orders` | 本地订单簿与网关订单合并展示；**待付款 / 待发货 / 已发货 / 已完成 / 售后中 / 已退款 / 已取消**状态机，演示模式可模拟支付，再次购买、物流信息；点卡片进订单详情 |
+| 🚚 订单详情 | `#/account/order/:id` | **状态流转条**（四段细线金节点，阶段由时间戳推导——售后中的订单不会因此丢掉进度；已取消不画进度只留一行说明）+ **物流卡**（快递公司 / 运单号 + 四段式时间线：已揽收 / 运输中 / 派送中 / 已签收，未到达节点灰显「待更新」，未发货显示「待发货」占位）+ 商品清单 / 收货信息 / 金额（`tabular-nums`）+ **售后记录**（类型 / 原因 / 说明 / 凭证文件名 / 处理说明 / 状态胶囊）+ 动作区（去支付为主按钮，申请售后与取消为细线按钮）。**申请售后弹层**：售后类型（仅退款 / 退货退款 / 换货）、原因下拉、问题说明（≤200 字）、凭证占位（只记文件名，最多 5 份）；提交后订单转「售后中」并生成售后单。售后处理完后记录里显示**审核结果**（同意 / 驳回 + 退款金额 + 时间）、审核意见与处理说明。卡片底部有不显眼的「演示用 · 模拟发货 / 模拟签收」文字按钮，仅用于演示状态流转 |
+| 🛠 售后审核台 | `#/admin/aftersales`（**不在买家导航内，直接访问进入**） | 运营侧工单台：管理密钥门禁（存 sessionStorage，关标签页即失效）、默认停在「待处理」、状态筛选与分页走路由（刷新不丢）、卡片展示订单实付与商品摘要；同意退款要填金额（默认实付、上限实付）、同意换货不带金额、驳回必须写理由。审核结果是**服务端事务**：同意退款 → 订单「已退款」，同意换货 → 订单回到「已发货」并换新运单号，驳回 → 退回申请时的状态 |
 | ❤️ 我的收藏 | `#/favorites` | 服务端收藏夹，详情页「♡ 收藏」同步，可取消 |
 | 🎨 商品视觉 | 全局 | **程序化 SVG 商品图**：按商品数据生成「渐变底 + 类目线稿」，零外部依赖、离线可用 |
 | 📊 分析看板 | 顶栏「📊 分析」 | 渠道占比 / 行为分布 / Top 商品 / 最近事件流，按渠道着色，数据来自埋点聚合 |
@@ -90,7 +91,7 @@
 | `users` / `addresses` | 演示用户与收货地址（下单时自动为新用户建档 + **三张体验优惠券**，避免新访客卡包为空导致优惠券区永远显示「暂无可用」）。地址按 `user_id` 隔离存在服务端，同一账号换设备登录即跟随；迁移 v8 补齐 `province` / `city` / `postal` / `updated_at`，老数据按 `region` 空格自动回填省市 |
 | `orders` / `order_items` | 订单与订单项（含物流公司、运单号、状态机、金额拆分、配送/支付方式快照、`shipped_at` / `completed_at` 履约时间戳；`idempotency_key` + `(user_id, idempotency_key)` 部分唯一索引防重复下单） |
 | `order_logistics_events` | 物流事件流水（`code` / `title` / `detail` / `happened_at` / `seq`，一次揽收、一次中转、一次派送、一次签收各一行）。时间线靠它渲染；`seq` 单独存是因为 mock 时同一分钟可能发生两件事，只按时间排会颠倒 |
-| `aftersales` | 售后单（`type` 仅退款/退货退款、`reason`、`note`、`evidence` 凭证文件名 JSON、`status` 待处理/已同意/已拒绝、`handle_note` 处理说明）。`(order_id) WHERE status='reviewing'` 部分唯一索引保证同一订单只有一条待处理申请 |
+| `aftersales` | 售后单（`type` 仅退款/退货退款/换货、`reason`、`note`、`evidence` 凭证文件名 JSON、`status` 待处理/已同意/已驳回、`handle_note` 处理说明、`origin_status` 申请时的订单状态、`refund_amount` 退款金额（换货为 NULL）、`review_note` / `reviewer` / `reviewed_at` 审核留痕）。`(order_id) WHERE status='reviewing'` 部分唯一索引保证同一订单只有一条待处理申请 |
 | `reviews` | 商品评价（**768 条，覆盖全部 256 款**，每款 3 条带作者与星级，供问答引用口碑）。迁移 v6 起支持 `parent_id`（追评）/ `images`（买家秀）/ `sku_spec` / `source` |
 | `review_votes` | 有用投票：主键 `(review_id, user_id)`，天然幂等——同一用户重复请求在「赞 / 取消」间切换 |
 | `cart_items` | 购物车（服务端持久化，按 user+sku 唯一，重复加购累加） |
@@ -278,7 +279,7 @@ CREATE UNIQUE INDEX idx_orders_idem ON orders(user_id, idempotency_key)
 
 ### 订单履约与售后（状态流转 / 物流时间线 / 售后单）
 
-订单状态机：`pending`（待付款）→ `paid`（待发货）→ `shipped`（已发货）→ `completed`（已完成）；`closed`（已取消）与 `refunding`（售后中）是两条侧枝。
+订单状态机：`pending`（待付款）→ `paid`（待发货）→ `shipped`（已发货）→ `completed`（已完成）；`closed`（已取消）与 `refunding`（售后中）是两条侧枝，售后审完再落到 `refunded`（已退款）或退回原状态。
 
 **阶段不看 status，看时间戳**。详情页那条四段流转条由 `created_at / paid_at / shipped_at / completed_at` 推导，`status` 只负责右上角那个胶囊：
 
@@ -296,13 +297,35 @@ CREATE UNIQUE INDEX idx_orders_idem ON orders(user_id, idempotency_key)
 | 规则 | 取值 | 为什么 |
 |---|---|---|
 | 可申请状态 | `shipped` / `completed` | 没发货的单直接取消就行，取消路径已经会退券 |
-| 类型 | 仅退款 / 退货退款 | 后者要寄回，处理链路不同 |
+| 类型 | 仅退款 / 退货退款 / 换货 | 三种的终态不同：前两种退钱，换货换成货 |
 | 原因 | 质量问题 / 与描述不符 / 运输破损 / 不合适 / 其他 | 固定枚举，客服才能按原因分流 |
 | 说明 | ≤200 字 | |
 | 凭证 | 最多 5 份，**只存文件名** | 演示站没有对象存储与审核后台，假装上传只会让人以为图真到了客服那边；表单里直接写明这一点 |
 | 同一订单待处理申请 | 最多 1 条（`WHERE status='reviewing'` 部分唯一索引） | 连点几次提交会堆出一串重复工单 |
 
 提交走 `POST /api/orders/:id/aftersale`，**一个事务里落售后单 + 把订单置 `refunding`**：只落单不改状态，顶部胶囊还显示「已完成」，用户以为申请没生效；只改状态不落单，售后入口就变成一颗只改标签的按钮。业务拒绝（已有待处理申请 409、状态不支持 400）如实显示，不偷偷降级成本地记录——否则用户以为提交成功了，客服那边根本没有这条工单。
+
+#### 售后审核（`PATCH /api/aftersales/:id`）
+
+审核把 `approved` / `rejected` 从两个词变成真的会搬动订单的流程，**改工单与改订单在同一个事务里**：
+
+| 动作 | 工单 → | 订单 → | 退款金额 |
+|---|---|---|---|
+| 同意（仅退款 / 退货退款） | `approved` | `refunded`（已退款，终态） | 必填，默认订单实付，**上限实付**（手滑多打一个 0 就是真实损失，没有资金流兜） |
+| 同意（换货） | `approved` | `shipped`（重新发一趟） | 不产生，存 `NULL` 而不是 0（0 会被当成「全额用券抵扣」） |
+| 驳回 | `rejected` | 退回 `origin_status` | — |
+
+- `origin_status` 在**提交申请那一刻**存下来：等审核时订单已经是 `refunding`，原状态在库里查不到了，不单独存一列就只能靠猜「它之前大概到哪了」，猜错就是把已签收的单退回在途。迁移 v15 给存量工单按 `completed_at` 补过，没有的兜 `completed`。
+- 换货同意会换新运单号、更新 `shipped_at`、清空 `completed_at`，并**追加**两条物流事件：新货确实从仓库重新发出，而上一趟的物流是既成事实，擦掉它等于篡改历史。
+- 驳回的理由**必填**，且会作为处理说明展示给用户：「已驳回」三个字没有信息量，只会招来下一通投诉。
+- 三道守卫：工单非 `reviewing` → 409（连点两次同意不该产生两条审核记录）；订单非 `refunding` → 409（说明有人绕过工单直接改了订单，此时审核就不是处理申请而是覆盖别人的结果）；金额不合法 → 400。
+- 读也要鉴权：工单里有收货地址、电话和用户原话，匿名可读等于把投诉内容挂在公网上。
+
+运营侧审核台在 `#/admin/aftersales`（**不在买家导航里出现**，直接访问地址进入）：
+
+- 门禁是服务端的管理密钥（`X-Admin-Key`），存在 **sessionStorage** 而不是 localStorage——写进 localStorage 的凭据会一直躺在硬盘上，谁打开这台电脑谁就是管理员；
+- 默认停在「待处理」，筛选与分页都走路由（`?status=&page=`），刷新与前进后退都停在同一处；
+- 网关不可达 / 密钥被拒时给空态与重试，或退回密钥门，不白屏。
 
 **演示按钮**（模拟发货 / 模拟签收）只在「这一步确实可推进」时出现，样式是卡片底部最低对比的小号下划线文字。`DEMO_ACTIONS=false` 时整组端点关掉（服务端 403，不是只把按钮藏起来——藏起来只防手滑，防不了直接调接口的人）；支付、取消、售后这些真实路径不受影响。纯静态站点没有服务端可以推进状态，前端对本地单（`MS…`）用同一套规则本地生成事件，保证离线演示也能走完整条路。
 
@@ -397,6 +420,7 @@ CREATE UNIQUE INDEX idx_orders_idem ON orders(user_id, idempotency_key)
 │       ├── checkout.js      # 结算页：地址 + 优惠券 + 金额明细 + 提交 + 支付
 │       ├── coupons.js       # 优惠券中心（领券 / 券包摘要 / 领取状态回显）
 │       ├── orderDetail.js   # 订单详情：状态流转 / 物流时间线 / 售后申请与记录
+│       ├── adminAftersales.js # 运营售后审核台（#/admin/aftersales，管理密钥门禁）
 │       ├── account.js       # 我的订单 / 我的收藏
 │       ├── track.js         # 埋点上报（fire-and-forget）+ stats 拉取
 │       ├── analytics.js     # 分析看板（渠道占比 / 行为分布 / Top 商品 / 事件流）
@@ -407,7 +431,7 @@ CREATE UNIQUE INDEX idx_orders_idem ON orders(user_id, idempotency_key)
 │                            #          logistics(物流阶段词表·时间线推导) / aftersale(售后单本地仓)
 ├── ai-gateway/              # Node.js 后端网关（local / docker 双模式）
 │   ├── src/
-│   │   ├── db/              # SQLite：connection / schema(版本迁移 v1-v14) / seedDb(种子)
+│   │   ├── db/              # SQLite：connection / schema(版本迁移 v1-v15) / seedDb(种子)
 │   │   ├── repositories/    # 仓储层：product / order / conversation / track
 │   │   │                    #          cart(购物车) / user(收藏·券·地址)
 │   │   ├── storage/         # 买家秀对象存储：s3Client(SigV4 手写) / index(驱动门面+签名解析)
@@ -416,7 +440,7 @@ CREATE UNIQUE INDEX idx_orders_idem ON orders(user_id, idempotency_key)
 │   │   │                    #          settingsService(运营配置) / couponRules(券状态·顺延)
 │   │   │                    #          couponCatalogService(券目录运营写入·影响面校验)
 │   │   │                    #          logisticsService(物流事件·运单号·时间线回填)
-│   │   │                    #          aftersaleService(售后单：类型/原因/唯一待处理约束)
+│   │   │                    #          aftersaleService(售后单：类型/原因/唯一待处理约束/审核事务)
 │   │   ├── data/catalog.js  # 商品目录种子（256 款 / 16 一级类目 / 48 二级 / 556 SKU / 768 评价）
 │   │   └── server / config / middleware / search / copywrite / aftersale …
 │   ├── data/shop.db         # 本地数据库（gitignore，可 db:reset 重建）
@@ -602,6 +626,8 @@ bash scripts/setup-https-proxy.sh
 | POST | `/api/orders/:id/ship?userId=` | **演示**：模拟发货 `paid → shipped`，生成快递公司与运单号 + 揽收/运输两条事件，幂等（重复调用不重新生成运单号）。`DEMO_ACTIONS=false` 时 403 |
 | POST | `/api/orders/:id/complete?userId=` | **演示**：模拟签收 `shipped → completed`，追加派送中/已签收两条事件，幂等。`DEMO_ACTIONS=false` 时 403 |
 | POST | `/api/orders/:id/aftersale` | 申请售后 `{ userId, type, reason, note?, evidence? }`（**单事务**：落售后单 + 订单置 `refunding`）。仅已发货 / 已完成可申请，同一订单已有待处理申请返回 409 |
+| GET  | `/api/aftersales?status=&page=&size=` | **运营侧**工单列表（需 `X-Admin-Key`）。待处理排最前；带订单实付与商品摘要（一次 IN 查询取回，不做 N+1）。`total` / `page` / `size` 用于分页，size 上限 50 |
+| PATCH | `/api/aftersales/:id` | **运营侧审核**（需 `X-Admin-Key`）`{ action: approve\|reject, note, refundAmount? }`。**单事务**：工单改状态 + 订单落位。同意退款 → `refunded`（金额默认实付、上限实付）；同意换货 → `shipped`（换新运单号并追加事件、清空签收时间）；驳回 → 退回申请时的状态。已处理过 409、订单不在售后中 409、驳回不写理由 400 |
 | GET  | `/api/config` | 运营配置（配送方式与运费、支付方式、券返还顺延规则），公开读，未登录的结算页也要用 |
 | PUT  | `/api/config` | 改运营配置，需请求头 `X-Admin-Key`（`ADMIN_API_KEY`，留空则 403）；只接受白名单字段并逐项校验范围 |
 | GET  | `/api/favorites?userId=` | 收藏列表 |
@@ -903,6 +929,7 @@ node scripts/e2e-pdp.mjs        # 详情页评价与问答
 node scripts/e2e-order-tx.mjs   # 下单事务核销 + 取消返还 + 运营配置生效（真网关）
 node scripts/e2e-idempotency.mjs # 下单幂等键 + 支付方式配置 + 券目录写入（真网关，独立临时库）
 node scripts/e2e-fulfillment.mjs # 付款→发货→签收→售后全链路 + 演示开关（真网关，独立临时库）
+node scripts/e2e-aftersale-review.mjs # 售后审核闭环：同意退款/换货 + 驳回 + 鉴权守卫（真网关，独立临时库）
 ```
 
 > `e2e-sync.mjs` 与 `e2e-order-tx.mjs` 会拉起真网关（其余跑纯静态模式）。`e2e-sync` 验「另一台设备也认账」：
@@ -921,6 +948,12 @@ node scripts/e2e-fulfillment.mjs # 付款→发货→签收→售后全链路 + 
 > （服务端持久化，不是前端临时状态）→ 模拟签收 → 申请售后 → 订单变售后中且记录可见 →
 > 重复申请被服务端 409 拒绝。它还另起一个 `DEMO_ACTIONS=false` 的网关，断言模拟端点 403
 > 而查单 / 售后路径照常——「演示按钮不影响正常用户路径」只有这样才证明得了。
+>
+> `e2e-aftersale-review.mjs` 验的是「审核真的搬动了订单」：四笔订单各提一条工单，
+> 分别走同意退款（入 `refunded` + 金额夹到实付上限）、同意换货（回 `shipped` + 换新运单号 +
+> 旧事件保留）、驳回（退回 `completed` + 理由必填）、页面同意（金额默认带出实付）。
+> 鉴权那几项刻意直接用 `fetch` 打接口：没钥匙 / 错钥匙都要 401，工单里有地址和电话，
+> 匿名可读等于把隐私挂在公网上。
 
 ---
 

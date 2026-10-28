@@ -12,6 +12,7 @@ import { renderCoupons } from './coupons.js';
 import { renderLogin } from './login.js';
 import { renderTools } from './tools.js';
 import { renderAnalytics } from './analytics.js';
+import { renderAdminAftersales } from './adminAftersales.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
 import { createRouter, navigate, parseHash } from './router.js';
 import { getUserId, loadCart, onCartChange } from './state.js';
@@ -124,6 +125,8 @@ function dispatch({ path, query }) {
   else if (path.startsWith('/order-success/')) {
     renderOrderSuccess(view, decodeURIComponent(path.slice('/order-success/'.length)));
   }
+  // 运营侧：不进登录守卫（运营不是买家），门禁在页面内部用管理密钥
+  else if (path === '/admin/aftersales') renderAdminAftersales(view, query);
   else if (path === '/orders') renderOrders(view);
   else if (path === '/favorites') renderFavorites(view);
   else renderNotFound(view);

@@ -4359,6 +4359,7 @@ textarea { resize: vertical; }
 .acct-status.s-completed { background: rgba(46, 125, 80, 0.1); color: #2e7d50; }
 .acct-status.s-closed,
 .acct-status.s-refunding { color: var(--muted); }
+.acct-status.s-refunded { background: rgba(46, 125, 80, 0.06); color: #4a8a63; }
 .acct-order-body { display: flex; align-items: center; gap: 14px; }
 .acct-order-thumbs { display: flex; gap: 6px; }
 .acct-thumb { width: 52px; height: 52px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); }
@@ -6023,6 +6024,8 @@ body.flt-sheet-open { overflow: hidden; }
 .od-pill.s-shipped { background: rgba(38, 84, 138, 0.08); color: #26548a; }
 .od-pill.s-completed { background: rgba(46, 125, 80, 0.09); color: #2e7d50; }
 .od-pill.s-refunding { background: var(--gold-weak); color: var(--gold-deep); }
+/* 已退款与「已完成」用同一个绿但更浅一档：同是终态，但这一单的钱是往回走的 */
+.od-pill.s-refunded { background: rgba(46, 125, 80, 0.06); color: #4a8a63; }
 .od-pill.s-closed { background: rgba(26, 26, 26, 0.04); color: var(--muted); }
 
 /* ---- 状态流转条 ---- */
@@ -6297,6 +6300,38 @@ body.flt-sheet-open { overflow: hidden; }
 .as-error { min-height: 14px; margin: 0; color: #a6453b; font-size: 11px; }
 .as-actions { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 2px; }
 .as-submit { flex: none; min-width: 148px; }
+/* 退款金额：与整站金额一样等宽数字，运营核对时上下两行能竖着对齐 */
+.as-amount {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+}
+.as-amount:focus { outline: none; border-color: var(--gold); }
+
+/* 售后记录里的审核结论：结论单独一行，压在处理说明之上 */
+.od-as-verdict {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 7px 10px;
+  border-radius: var(--r-btn);
+  background: rgba(26, 26, 26, 0.04);
+}
+.od-as-vlabel {
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.od-as-vtext { color: var(--ink); font-size: 11.5px; }
+.od-as-review { margin: 6px 0 0; color: var(--body); font-size: 11px; line-height: 1.7; }
 
 @media (max-width: 640px) {
   .od-steps::before { top: 22px; }
@@ -6311,3 +6346,162 @@ body.flt-sheet-open { overflow: hidden; }
 
 /* 售后弹层用窄版弹窗：表单只有一列，用 720px 会空出半张卡片 */
 .modal.is-narrow { width: min(520px, 92vw); }
+
+/* ============================================================
+   运营侧：售后审核台
+   与前台同一套色板，但不加玻璃与光晕——后台是干活的界面，
+   每页都反光会让「这条要不要处理」的注意力被质感分走。
+   ============================================================ */
+.adm-page { padding: 26px 0 60px; }
+.adm-crumb { margin-bottom: 14px; }
+.adm-crumb a { color: var(--muted); font-size: 11px; }
+.adm-crumb a:hover { color: var(--ink); }
+.adm-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.adm-title { margin: 2px 0 0; color: var(--ink); font-family: var(--serif); font-size: 25px; font-weight: 500; }
+.adm-sub { margin: 6px 0 0; color: var(--body); font-size: 12px; line-height: 1.7; }
+.adm-hint { margin: 10px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.7; }
+
+.adm-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.adm-filter {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--body);
+  font-size: 11px;
+  cursor: pointer;
+}
+.adm-filter:hover { border-color: var(--line-strong); color: var(--ink); }
+.adm-filter.is-on { border-color: var(--gold); background: var(--gold-weak); color: var(--gold-deep); }
+
+.adm-summary { margin-top: 16px; color: var(--muted); font-size: 10.5px; }
+.adm-card {
+  margin-top: 10px;
+  padding: 15px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+/* 待处理不额外描边：右侧状态徽章已经说了「待处理」，
+   再给卡片加一条 2px 金边会和四周的 1px 细线对不上，看起来像少画了一条边 */
+.adm-card.is-reviewing { border-color: var(--line-strong); }
+.adm-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.adm-as-id { color: var(--ink); font-size: 12.5px; letter-spacing: 0.02em; }
+.adm-order-id { margin-left: 8px; color: var(--muted); font-size: 10.5px; }
+
+.adm-status {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.adm-status.s-approved { background: rgba(46, 125, 80, 0.09); color: #2e7d50; }
+.adm-status.s-rejected { background: rgba(26, 26, 26, 0.05); color: var(--muted); }
+
+.adm-goods { display: flex; align-items: baseline; gap: 10px; margin-top: 10px; }
+.adm-goods-name {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adm-goods-meta { flex: none; color: var(--muted); font-size: 10.5px; }
+.adm-reason { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--body); font-size: 11.5px; }
+.adm-type {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-size: 10px;
+}
+.adm-note { margin: 8px 0 0; color: var(--body); font-size: 11.5px; line-height: 1.7; }
+.adm-ev { margin: 5px 0 0; color: var(--muted); font-size: 10.5px; }
+.adm-meta { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+
+.adm-verdict {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  color: var(--body);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.adm-verdict-main { color: var(--ink); }
+.adm-verdict-note { display: block; margin-top: 4px; }
+
+.adm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+.adm-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--ink);
+  border-radius: var(--r-btn);
+  background: var(--ink);
+  color: #fff;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.adm-btn:hover { background: #000; }
+.adm-line-btn {
+  padding: 8px 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-btn);
+  background: transparent;
+  color: var(--body);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.adm-line-btn:hover { border-color: var(--ink); color: var(--ink); }
+.adm-btn:disabled,
+.adm-line-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.adm-pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 18px; }
+.adm-pager-info { color: var(--muted); font-size: 11px; }
+
+.adm-empty {
+  margin-top: 26px;
+  padding: 34px 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  text-align: center;
+}
+.adm-empty h2 { margin: 0; color: var(--ink); font-family: var(--serif); font-size: 19px; font-weight: 500; }
+.adm-empty p { margin: 8px 0 0; color: var(--body); font-size: 11.5px; }
+.adm-empty .adm-line-btn { margin-top: 14px; }
+
+/* ---- 密钥门 ---- */
+.adm-key-card {
+  max-width: 400px;
+  margin: 48px auto 0;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+.adm-key-form { display: flex; flex-direction: column; gap: 10px; }
+.adm-key-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+}
+.adm-key-input:focus { outline: none; border-color: var(--gold); }
+.adm-error { min-height: 14px; margin: 0; color: #a6453b; font-size: 11px; }
+
+@media (max-width: 640px) {
+  .adm-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .adm-title { font-size: 21px; }
+  .adm-card { padding: 13px 14px; }
+  .adm-goods { flex-direction: column; gap: 2px; }
+  .adm-actions { justify-content: stretch; }
+  .adm-btn, .adm-line-btn { flex: 1; }
+  .adm-key-card { margin-top: 16px; padding: 20px; }
+}

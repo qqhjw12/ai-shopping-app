@@ -1,4 +1,4 @@
-// 售后单服务：退款 / 退货申请的落库与查询。
+// 售后单服务：退款 / 退货 / 换货申请的落库、审核与查询。
 //
 // 边界（写在这里是因为前端也要按同一套规则显示可申请/不可申请）：
 //   1) 只有「已发货 / 已完成」的订单能申请——没发货的单直接取消就行，走售后反而绕远；
@@ -7,13 +7,18 @@
 //   3) 提交后订单状态置为 refunding（售后中），但履约阶段不受影响：
 //      前端画流转条看的是 shipped_at / completed_at 时间戳，不是 status。
 //
-// 本轮不接真实退款：没有资金流，也没有审核后台。售后单只记录「用户提了什么」，
-// 处理说明写的是客服受理话术，不假装已经审核通过。
+// 审核（本轮新增）：approved / rejected 之前只是两个词，现在它们真的会搬动订单——
+//   同意退款 → 订单入终态 refunded（已退款）；
+//   同意换货 → 订单回到 shipped（新货要重新发一趟，时间戳与运单号都换新的）；
+//   驳回     → 订单退回 origin_status（申请那一刻的状态，单独存了一列）。
+// 三步都在同一个事务里：只改售后单不改订单，详情页会「工单显示已退款、顶部还挂着售后中」。
 import { getDb } from '../db/connection.js';
+import { appendEvents, dbTime, newShipment } from './logisticsService.js';
 
 export const AFTERSALE_TYPES = [
   { code: 'refund', label: '仅退款' },
   { code: 'return', label: '退货退款' },
+  { code: 'exchange', label: '换货' },
 ];
 
 export const AFTERSALE_REASONS = [
@@ -27,8 +32,21 @@ export const AFTERSALE_REASONS = [
 export const AFTERSALE_STATUS = [
   { code: 'reviewing', label: '待处理' },
   { code: 'approved', label: '已同意' },
-  { code: 'rejected', label: '已拒绝' },
+  { code: 'rejected', label: '已驳回' },
 ];
+
+export const REVIEW_ACTIONS = ['approve', 'reject'];
+
+/**
+ * 审核通过后订单落到哪。
+ *
+ * 退款类入终态 refunded：用户看到的应该是「钱回来了」，显示「已完成」会让人以为这笔交易成了。
+ * 换货回到 shipped：新商品要重新发一趟，收货流程从头再走一遍。
+ */
+const APPROVE_TARGET = { refund: 'refunded', return: 'refunded', exchange: 'shipped' };
+
+/** 只有退款类产生退款金额；换货没有，存 NULL 而不是 0（0 会被当成「全额用券抵扣」） */
+const REFUNDABLE = new Set(['refund', 'return']);
 
 /** 可申请售后的订单状态：已发货 / 已完成 */
 export const APPLICABLE_ORDER_STATUS = ['shipped', 'completed'];
@@ -39,6 +57,8 @@ const STATUS_MAP = new Map(AFTERSALE_STATUS.map((s) => [s.code, s.label]));
 
 const MAX_EVIDENCE = 5;
 const MAX_NOTE = 200;
+const MAX_REVIEW_NOTE = 200;
+const MAX_PAGE_SIZE = 50;
 
 function bad(message, status = 400) {
   return Object.assign(new Error(message), { status });
@@ -57,7 +77,7 @@ function makeAftersaleId(db) {
 
 /**
  * 凭证只存文件名与大小，不存图片内容。
- * 演示环境没有对象存储，也没有审核人员去看图；存个名字足以表达「这里有一份凭证」，
+ * 演示环境没有对象存储，也没有人真的去看图；存个名字足以表达「这里有一份凭证」，
  * 同时避免把几 MB 的 base64 塞进业务表（买家秀那条路已经证明这会把库撑大）。
  */
 function normalizeEvidence(raw) {
@@ -66,6 +86,11 @@ function normalizeEvidence(raw) {
     name: String((f && f.name) || '凭证').slice(0, 60),
     size: Math.max(0, Number((f && f.size) || 0)),
   }));
+}
+
+function money(n) {
+  const v = Number(n || 0);
+  return `¥${v.toFixed(2)}`;
 }
 
 function mapRow(row) {
@@ -87,6 +112,12 @@ function mapRow(row) {
     status: row.status,
     statusLabel: STATUS_MAP.get(row.status) || row.status,
     handleNote: row.handle_note || '',
+    originStatus: row.origin_status || '',
+    // 退款金额对换货是 null：前端据此决定「要不要显示退款金额」这一行
+    refundAmount: row.refund_amount == null ? null : Number(row.refund_amount),
+    reviewNote: row.review_note || '',
+    reviewer: row.reviewer || '',
+    reviewedAt: row.reviewed_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -105,10 +136,73 @@ export function getAftersale(id, db = getDb()) {
 }
 
 /**
+ * 运营侧工单列表。
+ *
+ * 待处理的排在前面：审核台打开就该先看到要做的事，按时间排会让新提交的工单
+ * 混在已处理的历史里往下沉。
+ * 商品摘要单独一次 IN 查询取回，不为每单再查一次明细（列表页的 N+1 与订单列表同理）。
+ */
+export function listForAdmin({ status = '', page = 1, size = 20 } = {}, db = getDb()) {
+  const code = String(status || '').trim();
+  const filtered = STATUS_MAP.has(code);
+  const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(size) || 20));
+  const offset = (Math.max(1, Number(page) || 1) - 1) * limit;
+
+  const total = db
+    .prepare(`SELECT COUNT(*) AS n FROM aftersales${filtered ? ' WHERE status = ?' : ''}`)
+    .get(...(filtered ? [code] : [])).n;
+
+  const rows = db
+    .prepare(`
+      SELECT a.*, o.total_amount AS order_total, o.status AS order_status
+      FROM aftersales a
+      JOIN orders o ON o.id = a.order_id
+      ${filtered ? 'WHERE a.status = ?' : ''}
+      ORDER BY CASE a.status WHEN 'reviewing' THEN 0 ELSE 1 END, a.created_at DESC
+      LIMIT ? OFFSET ?
+    `)
+    .all(...(filtered ? [code] : []), limit, offset);
+
+  const ids = rows.map((r) => r.order_id);
+  const byOrder = new Map();
+  if (ids.length) {
+    const items = db
+      .prepare(`SELECT order_id, name, qty FROM order_items WHERE order_id IN (${ids.map(() => '?').join(',')})`)
+      .all(...ids);
+    items.forEach((i) => {
+      const list = byOrder.get(i.order_id) || [];
+      list.push({ name: i.name, qty: i.qty });
+      byOrder.set(i.order_id, list);
+    });
+  }
+
+  return {
+    total,
+    page: Math.max(1, Number(page) || 1),
+    size: limit,
+    items: rows.map((r) => {
+      const mapped = mapRow(r);
+      const goods = byOrder.get(r.order_id) || [];
+      return {
+        ...mapped,
+        orderTotal: Number(r.order_total || 0),
+        orderStatus: r.order_status,
+        // 只带前两件：审核台要的是「这单买的是什么」，不是完整清单
+        items: goods.slice(0, 2),
+        itemCount: goods.reduce((n, i) => n + Number(i.qty || 0), 0),
+      };
+    }),
+  };
+}
+
+/**
  * 提交售后申请（事务）：落售后单 + 订单置「售后中」。
  *
  * 两步同生共死：只落单不改状态，详情页顶部还挂着「已完成」，用户以为申请没生效；
  * 只改状态不落单，售后入口就变成了一颗只改标签的按钮。
+ *
+ * origin_status 在这一刻存下来：等审核驳回时订单已经是 refunding，
+ * 原状态在库里查不到了（后面还有没有第二次申请，不该影响这次能不能退回去）。
  */
 export function createAftersale({ orderId, userId, type, reason, note = '', evidence = [] }) {
   const db = getDb();
@@ -141,14 +235,125 @@ export function createAftersale({ orderId, userId, type, reason, note = '', evid
 
     const id = makeAftersaleId(db);
     db.prepare(`
-      INSERT INTO aftersales (id, order_id, user_id, type, reason, note, evidence, status, handle_note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'reviewing', ?)
+      INSERT INTO aftersales (id, order_id, user_id, type, reason, note, evidence, status, handle_note, origin_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'reviewing', ?, ?)
     `).run(
       id, orderId, userId, typeCode, reasonCode, text,
       JSON.stringify(normalizeEvidence(evidence)),
       '已收到申请，客服会在 24 小时内联系你确认处理方式',
+      order.status,
     );
     db.prepare("UPDATE orders SET status = 'refunding' WHERE id = ?").run(orderId);
+    db.exec('COMMIT');
+    return getAftersale(id, db);
+  } catch (e) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* 不掩盖原始错误 */
+    }
+    throw e;
+  }
+}
+
+/**
+ * 审核售后单（事务）：改工单状态 + 搬动订单，两件事一起成或一起败。
+ *
+ * 三道守卫，缺一道都会出现「数据看起来对但流程是坏的」：
+ *   1) 工单必须还在 reviewing——连点两次「同意」不该产生两条审核记录；
+ *   2) 订单必须还在 refunding——否则说明有人绕过了工单直接改了订单状态，
+ *      这时候审核就不是「处理申请」而是「覆盖别人的结果」；
+ *   3) 金额必须不超过订单实付——手滑多打一个 0 就是真实损失，且没有资金流可以兜。
+ *
+ * @param {object} p
+ * @param {string} p.id        售后单号
+ * @param {'approve'|'reject'} p.action
+ * @param {string} [p.note]    审核意见（驳回必填，会作为给用户看的理由）
+ * @param {number} [p.refundAmount] 退款金额，不给则按订单实付
+ * @param {string} [p.by]      操作人（只进日志与审计字段，不参与鉴权）
+ */
+export function reviewAftersale({ id, action, note = '', refundAmount = null, by = 'admin' }) {
+  const db = getDb();
+
+  const act = String(action || '').trim();
+  if (!REVIEW_ACTIONS.includes(act)) throw bad('审核动作只能是 approve / reject');
+  const text = String(note || '').trim();
+  if (text.length > MAX_REVIEW_NOTE) throw bad(`审核意见不能超过 ${MAX_REVIEW_NOTE} 字`);
+  // 驳回必须给理由：「已驳回」三个字对用户没有任何信息量，只能招来二次投诉。
+  if (act === 'reject' && !text) throw bad('驳回必须填写理由');
+
+  db.exec('BEGIN');
+  try {
+    const row = db.prepare('SELECT * FROM aftersales WHERE id = ?').get(id);
+    if (!row) throw bad('售后单不存在', 404);
+    if (row.status !== 'reviewing') {
+      throw bad(`这笔售后已经处理过了（${STATUS_MAP.get(row.status) || row.status}）`, 409);
+    }
+
+    const order = db
+      .prepare('SELECT id, status, total_amount FROM orders WHERE id = ?')
+      .get(row.order_id);
+    if (!order) throw bad('关联订单不存在', 404);
+    if (order.status !== 'refunding') {
+      throw bad('订单当前不在售后中，无法审核', 409);
+    }
+
+    const typeLabel = TYPE_MAP.get(row.type) || row.type;
+    let handleNote = '';
+    let amount = null;
+    const now = dbTime(new Date());
+
+    if (act === 'reject') {
+      // 退回申请那一刻的状态。origin_status 为空是迁移前就存在的老工单，
+      // 迁移已按 completed_at 补过，这里再兜一层 completed（宁可退回终态，也别退回「待发货」）。
+      const back = row.origin_status || 'completed';
+      db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(back, order.id);
+      handleNote = `很抱歉，您的${typeLabel}申请未通过：${text}`;
+    } else {
+      const target = APPROVE_TARGET[row.type] || 'refunded';
+      if (target === 'shipped') {
+        // 换货：新货重新发一趟。运单号换成新的，已签收的时间清掉——
+        // 留着旧的会让详情页显示「已签收」，而新货其实刚从仓库出来。
+        // 时间线是**追加**而不是改写：上一趟的物流是既成事实，擦掉它等于篡改历史。
+        const shipment = newShipment();
+        db
+          .prepare(`
+            UPDATE orders
+            SET status = ?, shipped_at = ?, completed_at = NULL,
+                logistics_company = ?, tracking_no = ?
+            WHERE id = ?
+          `)
+          .run('shipped', now, shipment.company, shipment.trackingNo, order.id);
+        appendEvents(db, order.id, shipment.events);
+        handleNote = `已同意换货，新商品已通过${shipment.company}发出（${shipment.trackingNo}），请注意查收`;
+      } else {
+        const paid = Number(order.total_amount || 0);
+        const raw = refundAmount == null || refundAmount === '' ? paid : Number(refundAmount);
+        if (!Number.isFinite(raw) || raw < 0) throw bad('退款金额不合法');
+        // 只允许少退，不允许多退
+        amount = Math.round(Math.min(raw, paid) * 100) / 100;
+        db.prepare('UPDATE orders SET status = ? WHERE id = ?').run('refunded', order.id);
+        handleNote = `已同意${typeLabel}，退款 ${money(amount)} 将在 3 个工作日内退回原支付账户`;
+      }
+    }
+
+    db
+      .prepare(`
+        UPDATE aftersales
+        SET status = ?, handle_note = ?, review_note = ?, reviewer = ?,
+            reviewed_at = ?, refund_amount = ?, updated_at = datetime('now')
+        WHERE id = ?
+      `)
+      .run(
+        act === 'approve' ? 'approved' : 'rejected',
+        handleNote,
+        text,
+        String(by || 'admin').slice(0, 40),
+        now,
+        amount,
+        id,
+      );
+
     db.exec('COMMIT');
     return getAftersale(id, db);
   } catch (e) {

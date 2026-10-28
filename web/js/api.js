@@ -88,7 +88,7 @@ function markBackendMissing(path) {
 
 /**
  * @param {string} path  相对路径，如 /api/products
- * @param {{method?: string, body?: any, retries?: number, keepalive?: boolean}} [opts]
+ * @param {{method?: string, body?: any, retries?: number, keepalive?: boolean, headers?: object}} [opts]
  */
 export async function api(path, opts = {}) {
   if (!navigator.onLine) throw new ApiError('当前网络不可用，请检查连接后重试', 'offline');
@@ -107,7 +107,10 @@ export async function api(path, opts = {}) {
   while (true) {
     try {
       const headers = { 'Content-Type': 'application/json' };
-      // 有访问令牌且身份一致就带上；过期不影响——下面的 401 分支会自动刷新重试
+      // 调用方附加头（运营侧的 X-Admin-Key 走这里），先于鉴权头写入
+      if (opts.headers) Object.assign(headers, opts.headers);
+      // 有访问令牌且身份一致就带上；过期不影响——下面的 401 分支会自动刷新重试。
+      // 写在附加头之后：附加头不允许顶掉 Authorization，否则业务身份会被换掉。
       const auth = authHeader();
       if (auth) Object.assign(headers, auth);
       const resp = await fetch(`${API_BASE}${path}`, {

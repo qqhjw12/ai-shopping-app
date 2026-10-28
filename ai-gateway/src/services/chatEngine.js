@@ -350,6 +350,7 @@ function trackingHint(order) {
     shipped: '包裹在途，可凭运单号在快递官网查看实时轨迹',
     completed: '已签收，如商品有问题可在 7 天内申请售后',
     refunding: '退款处理中，3-5 个工作日到账',
+    refunded: '退款已完成，款项已退回原支付账户',
     closed: '订单已关闭',
   };
   return map[order.status] || '暂无轨迹';

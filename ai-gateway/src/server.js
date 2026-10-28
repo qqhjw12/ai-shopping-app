@@ -563,6 +563,48 @@ async function route(req, res, url) {
     }, 201);
   }
 
+  // ===== 售后工单（运营侧） =====
+  // 读写都要 X-Admin-Key：工单里是收货地址、电话和用户的原话，
+  // 匿名可读等于把隐私和投诉内容挂在公网上。ADMIN_API_KEY 未配置时 requireAdmin 直接 403。
+  if (url.pathname === '/api/aftersales' && req.method === 'GET') {
+    if (!requireAdmin(req, res)) return;
+    return guarded(() => aftersaleService.listForAdmin({
+      status: url.searchParams.get('status') || '',
+      page: url.searchParams.get('page'),
+      size: url.searchParams.get('size'),
+    }));
+  }
+
+  /**
+   * 审核工单：approve / reject。
+   * 用 PATCH 而不是 POST /review——动作是对既有资源的部分更新，
+   * 且 PATCH 不会被中间层当成「创建」而缓存。
+   * 返回结果直接是工单对象：审核台据此把这张卡片从待处理挪到已处理。
+   */
+  const asReviewMatch = url.pathname.match(/^\/api\/aftersales\/([^/]+)$/);
+  if (asReviewMatch && req.method === 'PATCH') {
+    if (!requireAdmin(req, res)) return;
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    const id = decodeURIComponent(asReviewMatch[1]);
+    const actor = adminActor(req);
+    return guarded(() => {
+      const aftersale = aftersaleService.reviewAftersale({
+        id,
+        action: parsed.action,
+        note: parsed.note || '',
+        refundAmount: parsed.refundAmount,
+        by: actor,
+      });
+      log.info('aftersale.reviewed', {
+        reqId: req.reqId, actor, id,
+        action: aftersale.status,
+        refund: aftersale.refundAmount,
+      });
+      return { aftersale };
+    });
+  }
+
   if (url.pathname.startsWith('/api/orders/') && req.method === 'GET') {
     const userId = userIdOf(req, url.searchParams.get('userId'));
     const orderId = decodeURIComponent(url.pathname.slice('/api/orders/'.length));

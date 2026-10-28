@@ -13,6 +13,7 @@ const MAX_RECORDS = 40;
 export const AFTERSALE_TYPES = [
   { code: 'refund', label: '仅退款' },
   { code: 'return', label: '退货退款' },
+  { code: 'exchange', label: '换货' },
 ];
 
 export const AFTERSALE_REASONS = [
@@ -26,8 +27,11 @@ export const AFTERSALE_REASONS = [
 export const AFTERSALE_STATUS_TEXT = {
   reviewing: '待处理',
   approved: '已同意',
-  rejected: '已拒绝',
+  rejected: '已驳回',
 };
+
+/** 只有退款类会产生退款金额；换货是换一件货，页面不显示这一行 */
+export const REFUNDABLE_TYPES = ['refund', 'return'];
 
 export const MAX_EVIDENCE = 5;
 export const MAX_NOTE = 200;
@@ -119,12 +123,33 @@ export function saveAftersale(userId, record = {}) {
     evidence: Array.isArray(record.evidence) ? record.evidence.slice(0, MAX_EVIDENCE) : [],
     status: record.status || 'reviewing',
     handleNote: record.handleNote || '',
+    // 审核结论：本地仓也要存一份，断网时详情页才能显示「已同意 / 退款 ¥xx」
+    refundAmount: record.refundAmount == null ? null : Number(record.refundAmount),
+    reviewNote: record.reviewNote || '',
+    reviewer: record.reviewer || '',
+    reviewedAt: record.reviewedAt || '',
     createdAt: record.createdAt || new Date().toISOString(),
     updatedAt: record.updatedAt || '',
   });
   const next = [item, ...list.filter((r) => String(r.id) !== String(item.id))];
   write(userId, next);
   return item;
+}
+
+/**
+ * 后写的记录覆盖先写的，但空值不覆盖有值：
+ * 服务端返回的 JSON 里文本字段一律存在（可能是空串），照单全收会把本地刚拿到的
+ * 审核结论冲掉——表现为「刷新后退款金额不见了」。
+ */
+const KEEP_IF_EMPTY = ['note', 'handleNote', 'reviewNote', 'reviewer', 'reviewedAt'];
+
+function mergeRecord(prev, next) {
+  const out = { ...prev, ...next };
+  KEEP_IF_EMPTY.forEach((k) => {
+    if (!next[k]) out[k] = prev[k] || '';
+  });
+  if (next.refundAmount == null) out.refundAmount = prev.refundAmount == null ? null : prev.refundAmount;
+  return out;
 }
 
 /**
@@ -136,7 +161,7 @@ export function mergeAftersales(local = [], remote = []) {
   [...local, ...remote].forEach((r) => {
     if (!r || !r.id) return;
     const prev = seen.get(String(r.id));
-    seen.set(String(r.id), prev ? { ...prev, ...r } : decorate(r));
+    seen.set(String(r.id), prev ? mergeRecord(prev, r) : decorate(r));
   });
   return [...seen.values()].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
@@ -151,6 +176,7 @@ export function canApply(order) {
   const status = (order && order.status) || '';
   if (status === 'shipped' || status === 'completed') return { ok: true };
   if (status === 'refunding') return { ok: false, reason: '这笔订单已有售后在处理中' };
+  if (status === 'refunded') return { ok: false, reason: '这笔订单已退款完成' };
   if (status === 'closed') return { ok: false, reason: '订单已取消，无需申请售后' };
   return { ok: false, reason: '订单发货后可申请售后' };
 }

@@ -478,6 +478,34 @@ const MIGRATIONS = [
         ON aftersales(order_id) WHERE status = 'reviewing';
     `,
   },
+  {
+    version: 15,
+    name: 'aftersale-review',
+    sql: `
+      -- 售后审核：让 approved / rejected 从词表变成真的会动订单的流程。
+      --
+      -- origin_status 存提交申请那一刻的订单状态（shipped / completed）。
+      -- 驳回要把它退回去，而此时订单已经是 refunding，原状态在库里查不到了——
+      -- 不单独存一列就只能靠「猜它之前大概到哪了」，猜错就是把已签收的订单退回在途。
+
+      -- refund_amount 允许 NULL：换货不产生退款，没有就是没有，
+      -- 写 0 会和「退款 0 元（全额用券抵扣的订单）」混淆。
+      ALTER TABLE aftersales ADD COLUMN origin_status TEXT NOT NULL DEFAULT '';
+      ALTER TABLE aftersales ADD COLUMN refund_amount REAL;
+      ALTER TABLE aftersales ADD COLUMN review_note  TEXT NOT NULL DEFAULT '';
+      ALTER TABLE aftersales ADD COLUMN reviewer     TEXT NOT NULL DEFAULT '';
+      ALTER TABLE aftersales ADD COLUMN reviewed_at  TEXT;
+
+      -- 存量工单补 origin_status：订单此刻已经是 refunding，只能从时间戳反推申请前走到哪一步。
+      -- 有 completed_at 说明申请前已签收（退到 completed），否则还在途（退到 shipped）。
+      UPDATE aftersales SET origin_status = (
+        SELECT CASE WHEN o.completed_at IS NOT NULL THEN 'completed' ELSE 'shipped' END
+        FROM orders o WHERE o.id = aftersales.order_id
+      ) WHERE origin_status = '';
+
+      CREATE INDEX IF NOT EXISTS idx_as_status ON aftersales(status, created_at DESC);
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

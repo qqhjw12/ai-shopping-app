@@ -10,6 +10,7 @@ export const STATUS_LABEL = {
   shipped: '已发货',
   completed: '已完成',
   refunding: '售后中',
+  refunded: '已退款',
   closed: '已取消',
 };
 
