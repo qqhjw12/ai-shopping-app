@@ -212,7 +212,8 @@
 │   └── dify-workflows/      # Dify 工作流 spec（售后 / 文案）
 ├── mall-ai/                 # macrozheng/mall 的 AI 增强模块（Java）
 ├── nginx/                   # 反代模板（envsubst，密钥不入库）
-├── scripts/                 # dev-local.sh(一键起前后端) / check-web.mjs(前端自检) / setup-https-proxy.sh / setup-mall-ai-env.sh
+├── scripts/                 # dev-local.sh(一键起前后端) / dev_server.py·static-server.mjs(静态开发服务)
+│                            #   / check-web.mjs(前端自检) / setup-https-proxy.sh / setup-mall-ai-env.sh
 ├── docker-compose*.yml      # 网关 / nginx / dify / 全家桶
 ├── docs/                    # 实施记录与方案文档
 ├── .env.example             # 环境变量模板（真实密钥勿提交）
@@ -236,6 +237,23 @@ bash scripts/dev-local.sh
 # 网关 :8080 + 前端 :5500 一起起，就绪后打印访问地址；Ctrl+C 一并停止
 ```
 
+脚本做的事：起网关 → 轮询 `/health` 直到就绪（最多 20s，失败直接报错并给出日志位置）→
+起静态前端 → 轮询 `index.html` 确认能访问 → 打印横幅。端口被占用时会直接告诉你怎么换端口/查占用进程。
+
+可调环境变量：
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `PORT` | `8080` | 网关端口 |
+| `WEB_PORT` | `5500` | 前端端口 |
+| `WEB_BIND` | `127.0.0.1` | 前端绑定地址（局域网调试可设 `0.0.0.0`） |
+| `SKIP_GATEWAY` | `0` | 设 `1` 只起前端（网关已在跑或连远程网关时用） |
+
+```bash
+PORT=9090 WEB_PORT=5501 bash scripts/dev-local.sh   # 换端口
+SKIP_GATEWAY=1 bash scripts/dev-local.sh            # 只起前端
+```
+
 手动分两步：
 
 ```bash
@@ -245,13 +263,19 @@ npm start            # 等价于 node --disable-warning=ExperimentalWarning src/
 #    首次启动会自动建库 + 种子：data/shop.db（256 商品 / 556 SKU / 48 二级类目 / 订单 / 评价 / FAQ）
 
 # 2) 另开终端，启动静态前端（任意静态服务器均可）
-cd web
-python -m http.server 5500        # 或 npx serve .
+python scripts/dev_server.py --port 5500 --directory web   # 有 Python 用它（推荐）
+node scripts/static-server.mjs --port 5500 --root web      # 没 Python 的等价实现
 
 # 3) 打开浏览器
 #    同源时直接访问 http://localhost:5500
 #    跨端口时显式指定网关：http://localhost:5500/?api=http://localhost:8080
 ```
+
+> 为什么不用 `python -m http.server`：它依赖系统 mimetypes，Windows 上常把 `.js` 报成
+> `text/plain`，ES Module 会被浏览器以严格 MIME 检查拒绝执行；也不会发 `no-store`，
+> 改完 CSS/JS 容易拿到缓存旧版。`scripts/dev_server.py` 与 `scripts/static-server.mjs`
+> 都强制 `text/javascript` + `Cache-Control: no-store`，并拦截 `.git`/`.env` 等隐藏路径。
+> `dev-local.sh` 优先用 Python，Python 缺失或启动失败会自动降级到 Node 版本。
 
 数据库维护命令：
 

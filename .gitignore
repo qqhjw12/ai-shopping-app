@@ -27,5 +27,9 @@ target/
 Thumbs.db
 *.log
 
+# Python 缓存（scripts/dev_server.py 运行时可能生成）
+__pycache__/
+*.pyc
+
 # 本地记忆 / 工作区元数据（非项目代码）
 .workbuddy/
