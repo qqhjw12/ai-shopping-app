@@ -6,6 +6,8 @@
 //   - 地址：服务端为准 + 本地缓存（store/addressStore.js），同一账号换设备自动跟随；
 //     与结算页共用同一份存储，默认地址会被结算页优先选中。
 //   - 优惠券：本步骤只做占位，下一步接 /api/coupons。
+//   - 优惠券：券包在本地按 userId 隔离（store/couponStore.js），领取/核销/返还都在那里改，
+//     本页只做「按状态分栏 + 状态回显」，所以结算页用掉一张券，回到这里立刻是「已使用」。
 import { api } from './api.js';
 import { el, fmtPrice, loading, toast, productThumb } from './ui.js';
 import { navigate } from './router.js';
@@ -18,8 +20,12 @@ import {
   saveAddress, setDefaultAddress, validateAddress,
 } from './store/addressStore.js';
 import {
-  getOrder, listOrders, mergeOrders, normalizeRemote, statusText,
+  getOrder, listOrders, mergeOrders, normalizeRemote, statusText, updateOrderStatus,
 } from './store/orderStore.js';
+import {
+  STATE_TEXT, fmtCouponValue, hydrateWallet, onWalletChange, refundCouponsByOrder,
+  walletByState, walletStats,
+} from './store/couponStore.js';
 
 const TABS = [
   { key: 'orders', label: '我的订单' },
@@ -70,7 +76,7 @@ export function renderAccount(view, { tab = 'orders' } = {}) {
       // 校准失败不该影响已渲染的缓存内容，但要在控制台留下线索便于排查
       console.warn('[addresses] 服务端校准失败', e && e.message);
     });
-  } else paintCoupons(panel);
+  } else paintCoupons(panel, user, bento);
 
   // 登录态变化（退出 / 换号）时重绘本页，避免停在一份过期资料上
   const off = onUserChange((u) => {
@@ -129,7 +135,8 @@ function buildBento(user, { addresses }) {
   const addrStat = stat('收货地址', addresses.length, addresses.length ? '按账户隔离存储' : '新增后自动带默认');
   // 订单计数由 paintOrders 在数据取回后回填；其他 Tab 不发请求，保持安静占位
   const orderStat = stat('我的订单', '—', '下单后在此留档');
-  const couponStat = stat('优惠券', 0, '优惠券中心即将上线');
+  // 券包是本地同步读，进页面就能给出真实张数，不用等接口
+  const couponStat = stat('优惠券', walletStats(user.id).unused, '结算时可抵扣');
 
   const node = el('div', { class: 'acct-bento' }, [hero, addrStat.node, orderStat.node, couponStat.node]);
 
@@ -148,6 +155,11 @@ function buildBento(user, { addresses }) {
       heroNote.textContent = def2
         ? `默认收货：${def2.receiver} ${maskIdentifier(def2.phone)} · ${def2.region}`
         : '还没有收货地址，新增一个即可带到结算页';
+    },
+    /** 券包变化（领取 / 核销 / 取消订单返还）后同步顶部块 */
+    setCoupons: (n) => {
+      couponStat.valueNode.textContent = String(n);
+      couponStat.hintNode.textContent = n ? '结算时可抵扣' : '去券中心领一张';
     },
   };
 }
@@ -475,23 +487,146 @@ function addressForm({ user, editing, onDone }) {
 }
 
 /* ============================================================
-   Tab 3：我的优惠券（占位）
+   Tab 3：我的优惠券（未使用 / 已使用 / 已过期）
    ============================================================ */
 
-function paintCoupons(box) {
+const COUPON_TABS = [
+  { key: 'unused', label: '未使用' },
+  { key: 'used', label: '已使用' },
+  { key: 'expired', label: '已过期' },
+];
+
+const COUPON_EMPTY = {
+  unused: {
+    title: '还没有可用的优惠券',
+    text: '去券中心领一张，结算时会在你的券包里自动挑出最省的那张。',
+    primary: '去券中心',
+    to: '#/coupons',
+  },
+  used: {
+    title: '还没有用过优惠券',
+    text: '下单抵扣过的券会留在这里，附上核销的那笔订单号，方便回看。',
+    primary: '查看我的订单',
+    to: '#/account?tab=orders',
+  },
+  expired: {
+    title: '没有过期的券',
+    text: '券到期后会落进这一栏，不占卡包用量，也不会被结算页选中。',
+    primary: '去券中心逛逛',
+    to: '#/coupons',
+  },
+};
+
+function fmtDay(ms) {
+  if (!ms) return '';
+  const d = new Date(Number(ms));
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+}
+
+function paintCoupons(box, user, bento) {
   box.innerHTML = '';
+  let active = 'unused';
+
+  const sub = el('span', { class: 'acct-panel-sub' }, '');
   box.appendChild(el('div', { class: 'acct-panel-head' }, [
     el('h2', {}, '我的优惠券'),
-    el('span', { class: 'acct-panel-sub' }, '即将上线'),
+    sub,
+    el('a', { class: 'acct-add', href: '#/coupons' }, '去券中心领取'),
   ]));
-  box.appendChild(el('div', { class: 'acct-coupon-wrap' }, [
-    emptyCard({
-      title: '优惠券中心在建',
-      text: '下一步接入 /api/coupons：可用 / 已用 / 已过期分栏，结算页自动挑最省的那张。',
-      primary: '去结算试试',
-      onPrimary: () => navigate('#/checkout'),
-    }),
-  ]));
+
+  const tabs = el('div', { class: 'mycp-tabs', role: 'tablist' });
+  const listBox = el('div', { class: 'mycp-list' });
+  box.appendChild(tabs);
+  box.appendChild(listBox);
+
+  function render() {
+    const s = walletStats(user.id);
+    sub.textContent = `${s.unused} 张可用 · ${s.used} 张已用 · ${s.expired} 张过期`;
+    if (bento && bento.setCoupons) bento.setCoupons(s.unused);
+
+    tabs.innerHTML = '';
+    COUPON_TABS.forEach((t) => {
+      const on = t.key === active;
+      tabs.appendChild(el('button', {
+        class: `mycp-tab${on ? ' is-on' : ''}`,
+        type: 'button',
+        role: 'tab',
+        'aria-selected': on ? 'true' : 'false',
+        onclick: () => {
+          active = t.key;
+          render();
+        },
+      }, [
+        el('span', {}, t.label),
+        el('span', { class: 'mycp-tab-n num' }, String(s[t.key])),
+      ]));
+    });
+
+    listBox.innerHTML = '';
+    const rows = walletByState(user.id, active);
+    if (!rows.length) {
+      const e = COUPON_EMPTY[active];
+      listBox.appendChild(emptyCard({
+        title: e.title,
+        text: e.text,
+        primary: e.primary,
+        onPrimary: () => navigate(e.to),
+      }));
+      return;
+    }
+    rows.forEach((w) => listBox.appendChild(myCouponCard(w)));
+  }
+
+  render();
+
+  // 结算页核销、取消订单返还都会改券包：停留在本页时自动跟随，不必手动刷新
+  const off = onWalletChange((uid) => {
+    if (String(uid) !== String(user.id)) return;
+    render();
+  });
+  window.addEventListener('hashchange', off, { once: true });
+
+  // 网关卡包校准（静态托管下静默失败，本地券包照常可用）
+  hydrateWallet(user.id).then(() => render())
+    .catch((e) => console.warn('[coupons] 卡包校准失败', e && e.message));
+}
+
+function myCouponCard(w) {
+  const state = w.state || 'unused';
+  const isDiscount = w.kind === 'discount';
+  const num = isDiscount ? String(10 - Number(w.amount) / 10).replace(/\.0$/, '') : String(w.amount);
+
+  const stateLine = state === 'used'
+    ? `已使用${w.orderId ? ` · 订单 ${w.orderId}` : ''}${w.usedAt ? ` · ${fmtDay(Date.parse(w.usedAt))}` : ''}`
+    : state === 'expired'
+      ? `${fmtDay(w.expiresAt)} 已过期`
+      : `有效期至 ${fmtDay(w.expiresAt)}`;
+
+  const act = state === 'unused'
+    ? el('a', { class: 'mycp-act', href: '#/products' }, '去使用')
+    : w.orderId
+      ? el('a', { class: 'mycp-act', href: `#/account/order/${encodeURIComponent(w.orderId)}` }, '查看订单')
+      : null;
+
+  return el('article', { class: `mycp is-${state}`, 'data-coupon': w.couponId }, [
+    el('div', { class: 'mycp-val' }, [
+      el('span', { class: 'mycp-num num' }, [
+        isDiscount ? null : el('span', { class: 'mycp-cur' }, '¥'),
+        el('b', {}, num),
+        isDiscount ? el('span', { class: 'mycp-unit' }, '折') : null,
+      ]),
+      el('span', { class: 'mycp-cond' }, `满 ${fmtCouponValue({ kind: 'cash', amount: w.threshold })} 可用`),
+    ]),
+    el('div', { class: 'mycp-line', 'aria-hidden': 'true' }),
+    el('div', { class: 'mycp-body' }, [
+      el('h3', { class: 'mycp-title' }, w.title),
+      el('p', { class: 'mycp-meta' }, `${stateLine} · ${w.scopeText || '全场通用'}`),
+      el('p', { class: 'mycp-state' }, STATE_TEXT[state] || ''),
+      act,
+    ]),
+  ]);
 }
 
 /* ============================================================
@@ -543,10 +678,14 @@ export async function renderOrderDetail(view, orderId) {
     }));
     return;
   }
-  host.appendChild(orderDetailCard(order));
+  host.appendChild(orderDetailCard(order, {
+    user,
+    // 状态变更后整页重绘：金额/状态/按钮可见性都要跟着变，局部改容易漏
+    repaint: () => renderOrderDetail(view, id),
+  }));
 }
 
-function orderDetailCard(o) {
+function orderDetailCard(o, { user, repaint } = {}) {
   const addr = o.address;
   const a = o.amounts || {};
   const infoRow = (label, value) => el('div', { class: 'od-info-row' }, [
@@ -573,6 +712,41 @@ function orderDetailCard(o) {
     ['优惠券' + (a.couponTitle ? `（${a.couponTitle}）` : ''),
       a.couponDiscount ? `- ${fmtPrice(a.couponDiscount)}` : '- ¥0'],
   ];
+
+  // 取消订单（仅待付款）：状态关闭 + 券退回券包。
+  // 两步都要做：只改状态不返还券，用户会觉得「券被吃了」；
+  // 只返还券不改状态，订单还挂着待付款，券就可能被重复使用。
+  const cancelBtn = o.status === 'pending'
+    ? el('button', { class: 'od-cancel', type: 'button' }, '取消订单')
+    : null;
+  if (cancelBtn) {
+    let armed = false;
+    let timer = null;
+    cancelBtn.addEventListener('click', () => {
+      if (!armed) {
+        armed = true;
+        cancelBtn.textContent = '确认取消？';
+        cancelBtn.classList.add('is-confirm');
+        timer = setTimeout(() => {
+          armed = false;
+          cancelBtn.textContent = '取消订单';
+          cancelBtn.classList.remove('is-confirm');
+        }, 3000);
+        return;
+      }
+      if (timer) clearTimeout(timer);
+      cancelBtn.disabled = true;
+      updateOrderStatus(user.id, o.id, 'closed');
+      const refund = refundCouponsByOrder(user.id, o.id);
+      toast(
+        refund.restored
+          ? `订单已取消，${refund.restored} 张优惠券已退回券包`
+          : '订单已取消',
+        'ok',
+      );
+      if (repaint) repaint();
+    });
+  }
 
   return el('article', { class: 'od-card' }, [
     el('div', { class: 'od-head' }, [
@@ -607,6 +781,7 @@ function orderDetailCard(o) {
       ]),
     ])),
     el('div', { class: 'od-actions' }, [
+      cancelBtn,
       el('a', { class: 'acct-save', href: '#/account?tab=orders' }, '回到订单列表'),
       el('a', { class: 'acct-cancel', href: '#/products' }, '继续购物'),
     ]),

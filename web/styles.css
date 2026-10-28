@@ -5625,3 +5625,370 @@ body.flt-sheet-open { overflow: hidden; }
   .pdp-qa-item { padding: 12px 13px; }
   .pdp-empty-art { width: 84px; }
 }
+
+/* ============================================================
+   优惠券：券中心（#/coupons）· 我的券包 · 结算页券卡
+   票券感的做法只有两件事：面额区 + 齿孔虚线，不做插画、不铺金色。
+   ============================================================ */
+
+/* ---------------- 券中心 ---------------- */
+.cp-page { max-width: var(--page); margin: 0 auto; padding: 34px var(--gutter) 78px; }
+.cp-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 26px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 26px;
+}
+.cp-hero-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cp-hero-note { margin: 0; color: var(--body); font-size: 12.5px; line-height: 1.7; max-width: 46ch; }
+
+.cp-wallet { display: flex; flex-direction: column; gap: 10px; min-width: 232px; }
+.cp-wallet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.cp-wallet-label { color: var(--ink); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+.cp-wallet-link { color: var(--gold-deep); font-size: 11px; text-decoration: none; white-space: nowrap; }
+.cp-wallet-link:hover { color: var(--ink); text-decoration: underline; }
+.cp-wallet-hint { color: var(--muted); font-size: 11px; }
+.cp-wallet-guest {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+}
+.cp-stats { display: flex; gap: 8px; }
+.cp-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  padding: 9px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  text-decoration: none;
+  transition: border-color 0.2s var(--ease);
+}
+.cp-stat:hover { border-color: var(--gold); }
+.cp-stat-n { color: var(--ink); font-family: var(--serif); font-size: 20px; line-height: 1.1; }
+.cp-stat-unused .cp-stat-n { color: var(--gold-deep); }
+.cp-stat-label { color: var(--muted); font-size: 10px; }
+
+.cp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(336px, 1fr));
+  gap: 16px;
+}
+
+/* 票券本体：面额区 | 齿孔虚线 | 信息区 */
+.cp-ticket {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.03);
+  overflow: hidden;
+  transition: border-color 0.22s var(--ease), transform 0.22s var(--ease);
+}
+.cp-ticket:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.cp-ticket.is-claimed { opacity: 0.7; }
+.cp-ticket.is-claimed:hover { transform: none; border-color: var(--line); }
+
+.cp-ticket-val {
+  flex: none;
+  width: 122px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 8px;
+  background: linear-gradient(180deg, rgba(200, 169, 110, 0.09), rgba(200, 169, 110, 0.03));
+}
+.cp-ticket-num {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  color: var(--gold-deep);
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.cp-ticket-cur { font-size: 15px; font-weight: 500; }
+.cp-ticket-unit { font-size: 15px; font-weight: 500; margin-left: 2px; }
+.cp-ticket-cond { color: var(--muted); font-size: 9.5px; text-align: center; }
+
+/* 齿孔：两枚与卡片同色的小圆盖在上下边框上，看起来像被咬掉一口 */
+.cp-ticket-line {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 122px;
+  border-left: 1px dashed var(--line-strong);
+}
+.cp-ticket-line::before,
+.cp-ticket-line::after {
+  content: '';
+  position: absolute;
+  left: -7px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.cp-ticket-line::before { top: -21px; }
+.cp-ticket-line::after { bottom: -21px; }
+
+.cp-ticket-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px 18px;
+}
+.cp-ticket-title { margin: 0; color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.4; }
+.cp-ticket-meta { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.cp-ticket-meta li { color: var(--body); font-size: 10.5px; line-height: 1.6; }
+.cp-ticket-meta li.is-held { color: var(--gold-deep); }
+.cp-ticket-meta li.is-note { color: var(--muted); }
+.cp-ticket-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.cp-ticket-val-text { color: var(--muted); font-size: 10px; }
+
+.cp-claim {
+  flex: none;
+  padding: 7px 16px;
+  border: 1px solid var(--ink);
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: var(--canvas);
+  font-family: var(--sans);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.cp-claim:hover { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+.cp-claim:active { transform: scale(0.98); }
+.cp-claim.is-claimed,
+.cp-claim.is-claimed:hover {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--muted);
+  cursor: default;
+  transform: none;
+}
+
+.cp-foot-note {
+  margin: 26px 0 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.8;
+}
+
+/* ---------------- 我的券包（个人中心 Tab 3） ---------------- */
+.mycp-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.mycp-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.mycp-tab:hover { border-color: var(--line-strong); color: var(--ink); }
+.mycp-tab.is-on { background: var(--ink); border-color: var(--ink); color: var(--canvas); }
+.mycp-tab-n { font-size: 10px; opacity: 0.7; }
+
+.mycp-list { display: flex; flex-direction: column; gap: 10px; }
+.mycp {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.mycp.is-used,
+.mycp.is-expired { opacity: 0.55; }
+
+.mycp-val {
+  flex: none;
+  width: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px 6px;
+  background: linear-gradient(180deg, rgba(200, 169, 110, 0.09), rgba(200, 169, 110, 0.03));
+}
+.mycp-num {
+  display: flex;
+  align-items: baseline;
+  color: var(--gold-deep);
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+.mycp-cur, .mycp-unit { font-size: 12px; font-weight: 500; }
+.mycp-cond { color: var(--muted); font-size: 9px; text-align: center; }
+
+.mycp-line {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 96px;
+  border-left: 1px dashed var(--line-strong);
+}
+.mycp-line::before,
+.mycp-line::after {
+  content: '';
+  position: absolute;
+  left: -6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.mycp-line::before { top: -19px; }
+.mycp-line::after { bottom: -19px; }
+
+.mycp-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'title act' 'meta act' 'state act';
+  align-items: center;
+  gap: 2px 12px;
+  min-width: 0;
+  padding: 13px 16px;
+}
+.mycp-title { grid-area: title; margin: 0; color: var(--ink); font-size: 12.5px; font-weight: 500; }
+.mycp-meta { grid-area: meta; margin: 0; color: var(--body); font-size: 10.5px; }
+.mycp-state { grid-area: state; margin: 0; color: var(--gold-deep); font-size: 10px; letter-spacing: 0.04em; }
+.mycp.is-used .mycp-state,
+.mycp.is-expired .mycp-state { color: var(--muted); }
+.mycp-act {
+  grid-area: act;
+  align-self: center;
+  padding: 6px 14px;
+  border: 1px solid var(--gold);
+  border-radius: var(--r-pill);
+  color: var(--gold-deep);
+  font-size: 10.5px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.mycp-act:hover { background: var(--gold-weak); color: var(--ink); }
+
+/* ---------------- 结算页券卡（票券微调 + 状态） ---------------- */
+.co2-cp { position: relative; }
+.co2-cp::before,
+.co2-cp::after {
+  content: '';
+  position: absolute;
+  left: 62px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  pointer-events: none;
+}
+.co2-cp::before { top: -7px; }
+.co2-cp::after { bottom: -7px; }
+.co2-cp-worth { width: 54px; text-align: center; }
+.co2-cp.is-on { border-color: var(--gold); background: rgba(200, 169, 110, 0.05); }
+.co2-cp.is-off,
+.co2-cp.is-gap { cursor: default; opacity: 0.55; }
+.co2-cp.is-off:hover { border-color: var(--line); }
+.co2-cp-meta { color: var(--muted); font-size: 9.5px; line-height: 1.5; }
+.co2-coupon-empty { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.co2-coupon-link { color: var(--gold-deep); font-size: 11px; text-decoration: none; }
+.co2-coupon-link:hover { color: var(--ink); text-decoration: underline; }
+.co2-coupon-note { margin: 12px 0 0; color: var(--muted); font-size: 10.5px; }
+
+/* 订单详情里的「取消订单」：危险动作，用文字按钮，不做红色大块 */
+.od-cancel {
+  padding: 8px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.od-cancel:hover { border-color: var(--ink); color: var(--ink); }
+.od-cancel.is-confirm { border-color: var(--gold); color: var(--gold-deep); }
+
+@media (max-width: 900px) {
+  .cp-hero { flex-direction: column; align-items: flex-start; gap: 18px; }
+  .cp-wallet { width: 100%; }
+}
+
+@media (max-width: 640px) {
+  .cp-page { padding: 22px 16px 64px; }
+  .cp-grid { grid-template-columns: 1fr; }
+  .cp-ticket-val { width: 96px; }
+  .cp-ticket-line { left: 96px; }
+  .cp-ticket-num { font-size: 32px; }
+  .cp-ticket-body { padding: 14px 13px; }
+  .cp-ticket-foot { flex-wrap: wrap; gap: 8px; }
+  .mycp-val { width: 80px; }
+  .mycp-line { left: 80px; }
+  .mycp-num { font-size: 23px; }
+  .mycp-body {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'title' 'meta' 'state' 'act';
+    justify-items: start;
+    gap: 3px;
+    padding: 12px 13px;
+  }
+  .mycp-act { margin-top: 6px; }
+  .mycp-tabs { flex-wrap: wrap; }
+}
+
+.co2-coupon-toggle {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.co2-coupon-toggle:hover { border-color: var(--gold); color: var(--gold-deep); }

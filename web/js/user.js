@@ -17,7 +17,10 @@ export function onUserChange(fn) {
 }
 
 function emit(user) {
-  listeners.forEach((fn) => {
+  // 必须遍历快照：订阅者回调里常常会「先退订再重绘」，重绘又注册一个新回调。
+  // 直接遍历 Set 的话，新增的订阅者在同一轮里也会被访问，于是「退订→注册→再触发」
+  // 无限循环，表现为登录/换号后页面疯狂重绘直到卡死。
+  [...listeners].forEach((fn) => {
     try {
       fn(user);
     } catch {

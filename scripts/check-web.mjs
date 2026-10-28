@@ -483,6 +483,7 @@ if (failed === 0) {
     const { renderCart } = await import(dir('cart.js'));
     const { renderOrderSuccess } = await import(dir('orderSuccess.js'));
     const { renderOrderDetail } = await import(dir('accountCenter.js'));
+    const cp = await import(dir('store/couponStore.js'));
     const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms));
     const click = (node) => node && node.listeners && node.listeners.click && node.listeners.click();
     const fmt = (n) => `¥${Number(n).toLocaleString()}`;
@@ -494,6 +495,10 @@ if (failed === 0) {
     state.clearCart();
     state.addToCart({ id: 'co_x', name: '结算测试羊毛衫', price: 320, spec: '米白 / M', stock: 5 }, 2);
     state.addToCart({ id: 'co_y', name: '结算测试托特包', price: 180, spec: '牛皮 / 大号', stock: 3 }, 1);
+
+    /* 券包前置：券必须先领才能用（结算页只认「我的券包」，不再是目录临时拼的） */
+    for (const c of cp.COUPON_CATALOG) await cp.claimCoupon(uid, c.id);
+    const walletPrimed = cp.walletStats(uid).unused === cp.COUPON_CATALOG.length;
 
     /* 0) 购物袋整页：清单 + 去结算入口 */
     const bag = new El('main');
@@ -568,7 +573,6 @@ if (failed === 0) {
     const remarkBox = q('.co2-remark').length === 1;
 
     /* 4.2) 券纯函数：worth 公式 / 最优选择 / 门槛差额 */
-    const cp = await import(dir('store/couponStore.js'));
     const worthOk = cp.worthOf(cp.DEMO_COUPONS[2], 820) === 82 // 9 折
       && cp.worthOf(cp.DEMO_COUPONS[1], 640) === 80 // 满 599 减 80
       && cp.worthOf(cp.DEMO_COUPONS[0], 50) === 0; // 未达门槛
@@ -578,11 +582,15 @@ if (failed === 0) {
     const gapOk = cp.gapToThreshold(cp.DEMO_COUPONS[0], 50) === 49;
 
     /* 4.5) 券可切换 / 可取消；清单步进器：数量、库存夹逼、金额联动 */
-    click(q('.co2-cp')[0]); // 切到「满 99 减 30」
+    // 可用券按「省得多」排前，所以第一张是当前已选中的 9 折券；
+    // 要切到满减券必须按标题找，不能靠下标（排序规则一变下标就失效）。
+    const cpByTitle = (re) => [...v1.querySelectorAll('.co2-cp')]
+      .find((n) => re.test(n.textContent || ''));
+    click(cpByTitle(/满 99 减 30/));
     await tick(0);
     const switchCouponTotal = (v1.querySelectorAll('.co2-sum-money')[0] || {}).textContent || '';
     const switchOk = switchCouponTotal === fmt(820 - 30); // 790
-    click(v1.querySelectorAll('.co2-cp')[0]); // 再点一次 = 取消使用
+    click(cpByTitle(/满 99 减 30/)); // 再点一次 = 取消使用
     await tick(0);
     const couponOffTotal = (v1.querySelectorAll('.co2-sum-money')[0] || {}).textContent || '';
     const couponOffOk = couponOffTotal === fmt(820) && onCount() === 0;
@@ -662,6 +670,7 @@ if (failed === 0) {
       && order.amounts.couponDiscount === 82 && order.amounts.productAmount === 820
       && order.amounts.shippingFee === 18 && order.amounts.payAmount === 756
       && order.amounts.couponTitle === "尊享 9 折 · 满 199 可用"
+      && order.amounts.couponId === 'demo-c90'
       && Boolean(order.createdAt);
     const idPattern = Boolean(order) && /^MS\d{8}\d{4}$/.test(order.id);
     const isolatedOrders = orders.listOrders('u_someone_else').length === 0;
@@ -713,6 +722,7 @@ if (failed === 0) {
       ['券纯函数（自动选最优可切换满减）', bestOk],
       ['券纯函数（门槛差额）', gapOk],
       ['券卡自动选中最优（9 折省 82）', couponAutoOn],
+      ['券包前置：目录券全部领取', walletPrimed],
       ['金额行显示券名', couponTitleShown],
       ['券可切换为满减券', switchOk],
       ['券可取消（取消后无抵扣）', couponOffOk],
@@ -748,6 +758,187 @@ if (failed === 0) {
   } catch (e) {
     failed++;
     console.log(`  FAIL 交易闭环断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
+/* ---------------- 优惠券断言（券中心 / 券包分栏 / 结算抵扣 / 核销 / 取消返还） ---------------- */
+// 这一层守的是「券的三条边界」：
+//   1) 没领就不能用——否则券中心的领取动作是装饰品；
+//   2) 状态要自洽——用过/过期不能再被结算页选中，取消订单要退回；
+//   3) 金额不为负——券面额再大也不能抵过商品总额，运费也不能被抵掉。
+if (failed === 0) {
+  console.log('\n优惠券断言（领取 / 券包分栏 / 结算抵扣 / 核销 / 取消返还 / 防负数）');
+  try {
+    const dir = (f) => pathToFileURL(join(WEB_DIR, f)).href;
+    const cp = await import(dir('store/couponStore.js'));
+    const addr = await import(dir('store/addressStore.js'));
+    const orders = await import(dir('store/orderStore.js'));
+    const state = await import(dir('state.js'));
+    const userMod = await import(dir('user.js'));
+    const { renderCoupons } = await import(dir('coupons.js'));
+    const { renderAccount, renderOrderDetail } = await import(dir('accountCenter.js'));
+    const { renderCheckout } = await import(dir('checkout.js'));
+    const tick = (ms = 25) => new Promise((r) => setTimeout(r, ms));
+    const click = (n) => n && n.listeners && n.listeners.click && n.listeners.click();
+    const fmt = (n) => `¥${Number(n).toLocaleString()}`;
+
+    localStorage.clear();
+    userMod.clearCurrentUser();
+    userMod.setCurrentUser({ ...userMod.DEMO_ACCOUNT });
+    const uid = userMod.getCurrentUser().id;
+    state.clearCart();
+    const CID = cp.COUPON_CATALOG[0].id; // 券中心第一张（门槛最低，列表按门槛升序）
+    const GAPID = 'cp-home50'; // 门槛 399，用来验「还差多少钱」的不可用原因
+
+    /* 1) 券中心：目录全量、字段齐全、领取生效、按钮置灰、重复领取被拒 */
+    // 未登录也能看券（券是公开信息），但领取要先登录——先验访客视图再验登录视图
+    userMod.clearCurrentUser();
+    const vGuest2 = new El('main');
+    renderCoupons(vGuest2);
+    const guestHint = /登录后领取/.test(vGuest2.textContent || '')
+      && vGuest2.querySelectorAll('.cp-ticket').length === cp.COUPON_CATALOG.length;
+    userMod.setCurrentUser({ ...userMod.DEMO_ACCOUNT });
+
+    const vc = new El('main');
+    renderCoupons(vc);
+    const catalogShown = vc.querySelectorAll('.cp-ticket').length === cp.COUPON_CATALOG.length;
+    const metaShown = /有效期/.test(vc.textContent || '')
+      && /适用范围/.test(vc.textContent || '')
+      && /满 ¥99 可用/.test(vc.textContent || '');
+    click(vc.querySelectorAll('.cp-claim')[0]);
+    await tick(40);
+    await cp.claimCoupon(uid, GAPID); // 再领一张高门槛券，用于验「还差多少钱」
+    const twoClaimed = cp.walletStats(uid).unused === 2;
+    const claimedBtnOff = vc.querySelectorAll('.cp-claim').filter((n) => n.disabled === true).length === 2;
+    const heldLine = /已领取 · \d{4}\.\d{2}\.\d{2} 到期/.test(vc.textContent || '');
+    const dup = await cp.claimCoupon(uid, CID);
+    const dupRejected = dup.ok === false && /已在卡包/.test(dup.error || '');
+
+    /* 2) 我的券包：三 Tab + 计数 + 未使用有「去使用」 */
+    const va = new El('main');
+    renderAccount(va, { tab: 'coupons' });
+    const tabs3 = va.querySelectorAll('.mycp-tab').length === 3;
+    const tabText = va.querySelectorAll('.mycp-tab').map((n) => n.textContent).join('|');
+    const tabsLabeled = /未使用/.test(tabText) && /已使用/.test(tabText) && /已过期/.test(tabText);
+    const mineCard = va.querySelectorAll('.mycp').length === 2
+      && va.querySelectorAll('.mycp-act').length === 2;
+    const statsLine = /2 张可用/.test(va.textContent || '');
+    click(va.querySelectorAll('.mycp-tab')[1]); // 已使用
+    await tick(0);
+    const usedEmpty = va.querySelectorAll('.acct-empty').length === 1
+      && /还没有用过优惠券/.test(va.textContent || '');
+    click(va.querySelectorAll('.mycp-tab')[2]); // 已过期
+    await tick(0);
+    const expiredEmpty = /没有过期的券/.test(va.textContent || '');
+    click(va.querySelectorAll('.mycp-tab')[0]); // 回到未使用
+
+    /* 3) 结算页：只认已领取的券；未达门槛的给出原因；选中即抵扣 */
+    state.addToCart({ id: 'cp_x', name: '券测试香薰', price: 300, spec: '雪松 / 200ml', stock: 9 }, 1);
+    await addr.saveAddress(uid, {
+      receiver: '券测试', phone: '13700007777', province: '浙江省', city: '杭州市',
+      detail: '文二西路 66 号', isDefault: true,
+    });
+    const vco = new El('main');
+    await renderCheckout(vco);
+    await tick(40);
+    // 300 元：满 99 减 30 与 9 折都省 30，平手取门槛更高的一张（9 折）
+    const autoCoupon = /已自动为你选中最优/.test(vco.textContent || '');
+    const pickedTitle = cp.listWallet(uid).length > 0
+      && /已抵扣 ¥30/.test(vco.textContent || '');
+    const gapReason = /满 ¥399 可用 · 还差 ¥99/.test(vco.textContent || '');
+    const totalAfterCoupon = (vco.querySelectorAll('.co2-sum-money')[0] || {}).textContent === fmt(270);
+
+    /* 4) 提交 → 券核销为已使用（挂订单号） */
+    click(vco.querySelectorAll('.co2-submit')[0]);
+    await tick(80);
+    const order = orders.listOrders(uid)[0] || null;
+    const orderCoupon = Boolean(order) && order.amounts.couponDiscount === 30
+      && order.amounts.couponId === CID && order.amounts.payAmount === 270;
+    const usedNow = cp.listWallet(uid).find((w) => w.couponId === CID).state === 'used';
+    const usedOrderId = cp.listWallet(uid).find((w) => w.couponId === CID).orderId === (order && order.id);
+    const walletAfter = cp.walletStats(uid).used === 1;
+
+    /* 5) 券包 Tab 跟随：已使用里出现这张券，并带订单号 */
+    const va2 = new El('main');
+    renderAccount(va2, { tab: 'coupons' });
+    click(va2.querySelectorAll('.mycp-tab')[1]);
+    await tick(0);
+    const usedCard = va2.querySelectorAll('.mycp').length === 1
+      && new RegExp(order.id).test(va2.textContent || '');
+
+    /* 6) 取消订单 → 状态关闭 + 券退回券包 */
+    const vd = new El('main');
+    await renderOrderDetail(vd, order.id);
+    await tick(30);
+    const cancelBtn = vd.querySelectorAll('.od-cancel')[0];
+    click(cancelBtn); // 第一下进入确认态
+    const needConfirm = /确认取消/.test((cancelBtn || {}).textContent || '');
+    click(vd.querySelectorAll('.od-cancel')[0]); // 第二下真正取消
+    await tick(40);
+    const closedOk = orders.getOrder(uid, order.id).status === 'closed';
+    const refunded = cp.listWallet(uid).find((w) => w.couponId === CID).state === 'unused';
+    const refundCleared = cp.listWallet(uid).find((w) => w.couponId === CID).orderId === null;
+
+    /* 7) 过期由时间推导（不落盘）：把到期时间改到昨天，状态立刻是已过期 */
+    const rawKey = `maison_coupons::${uid}`;
+    const raw = JSON.parse(localStorage.getItem(rawKey) || '[]');
+    const expiredIdx = raw.findIndex((w) => w.couponId === CID);
+    raw[expiredIdx].expiresAt = Date.now() - 86400000;
+    localStorage.setItem(rawKey, JSON.stringify(raw));
+    const expiredDerived = cp.listWallet(uid).find((w) => w.couponId === CID).state === 'expired';
+    const expiredCounted = cp.walletStats(uid).expired === 1;
+    const expiredNotUsable = cp.decorateMine(cp.listWallet(uid), 999).find((c) => c.couponId === CID).usable === false;
+
+    /* 8) 金额防负数：抵扣不超过商品总额，运费不被抵掉 */
+    const overDiscount = orders.computeAmounts({ productAmount: 50, shippingFee: 0, couponDiscount: 1000 });
+    const floorZero = overDiscount.payAmount === 0 && overDiscount.couponDiscount === 50;
+    const shipKept = orders.computeAmounts({ productAmount: 50, shippingFee: 18, couponDiscount: 1000 }).payAmount === 18;
+    const noWorthBelowThreshold = cp.worthOf({ kind: 'discount', amount: 10, threshold: 200 }, 199) === 0;
+    const badInput = orders.computeAmounts({ productAmount: -100, shippingFee: -5, couponDiscount: -20 });
+    const sanitized = badInput.payAmount === 0 && badInput.productAmount === 0;
+
+    /* 9) 券包按用户隔离 */
+    const isolatedWallet = cp.walletStats('u_coupon_other').total === 0
+      && cp.listWallet('u_coupon_other').length === 0;
+
+    const cases = [
+      ['券中心列出目录全部券', catalogShown],
+      ['券卡显示门槛/有效期/适用范围', metaShown],
+      ['未登录可浏览、按钮为「登录后领取」', guestHint],
+      ['领取后进入券包', twoClaimed],
+      ['已领取按钮置灰', claimedBtnOff],
+      ['已领取显示到期日', heldLine],
+      ['重复领取被拒（该券已在卡包中）', dupRejected],
+      ['我的券包三个 Tab', tabs3 && tabsLabeled],
+      ['未使用 Tab 有券卡与「去使用」', mineCard],
+      ['面板统计与券包一致', statsLine],
+      ['已使用 Tab 空态', usedEmpty],
+      ['已过期 Tab 空态', expiredEmpty],
+      ['结算页自动选中最优券', autoCoupon && pickedTitle],
+      ['未达门槛的券写明差额', gapReason],
+      ['抵扣后应付 = 总额 − 抵扣', totalAfterCoupon],
+      ['下单后券核销（金额快照含 couponId）', orderCoupon],
+      ['下单后券变已使用', usedNow && walletAfter],
+      ['核销记录订单号', usedOrderId],
+      ['券包已使用 Tab 显示订单号', usedCard],
+      ['取消订单需二次确认', needConfirm],
+      ['取消后订单关闭', closedOk],
+      ['取消后券退回未使用', refunded && refundCleared],
+      ['过期由时间推导（不落盘）', expiredDerived && expiredCounted],
+      ['过期券不可在结算页使用', expiredNotUsable],
+      ['抵扣不超过商品总额（不为负）', floorZero],
+      ['运费不被券抵扣', shipKept],
+      ['未达门槛 worth 为 0', noWorthBelowThreshold],
+      ['负数输入被夹到 0', sanitized],
+      ['券包按用户隔离', isolatedWallet],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 优惠券${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+    state.clearCart();
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 优惠券断言异常: ${String(e.message).split('\n')[0]}`);
   }
 }
 

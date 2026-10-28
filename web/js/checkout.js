@@ -18,7 +18,9 @@ import {
 import {
   getAddress, hydrateAddresses, listAddresses, saveAddress, validateAddress,
 } from './store/addressStore.js';
-import { bestCouponId, decorate, fetchCoupons, gapToThreshold } from './store/couponStore.js';
+import {
+  bestCouponId, decorateMine, fmtCouponValue, hydrateWallet, listWallet, markCouponUsed, sortForCheckout,
+} from './store/couponStore.js';
 
 export async function renderCheckout(view) {
   const user = getCurrentUser();
@@ -51,13 +53,19 @@ export async function renderCheckout(view) {
     submitting: false,
     showForm: false,
     error: '',
-    couponRaw: [], // 原始券列表（不含可用性），按当前金额本地 decorate
-    couponId: null, // 选中的券 id；null = 不使用优惠券
+    couponRaw: [], // 我的券包快照（未使用 / 已使用 / 已过期都在里面，可用性按当前金额实时算）
+    couponId: null, // 选中的券 couponId；null = 不使用优惠券
     couponAuto: false, // 是否已做过「自动选最优」
+    couponShowAll: false, // 不可用券默认折叠，券多时不把商品清单顶到屏幕外
   };
   // 默认地址预选：没有默认地址时退化为第一条（订单必须挂一个真实地址）
   const def = state.addresses.find((a) => a.isDefault) || state.addresses[0] || null;
   state.addressId = def ? def.id : null;
+
+  // 券包先用本地同步读：首屏就能看到券（不闪一下「券包是空的」），
+  // 网关卡包随后在底部 hydrate 里合并进来。选券留给初始化时的 reconcileCoupon()。
+  state.couponRaw = listWallet(user.id);
+  state.couponAuto = true;
 
   /* ---------------- 骨架 ---------------- */
   const heading = el('header', { class: 'co2-heading' }, [
@@ -85,9 +93,10 @@ export async function renderCheckout(view) {
 
   const selectedAddress = () => getAddress(user.id, state.addressId);
   const productAmount = () => getCart().reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 0), 0);
-  // 券可用性与 worth 每次都按当前商品总额本地重算（改数量立即生效，无需重新请求）
-  const couponsNow = () => decorate(state.couponRaw, productAmount());
-  const pickedCoupon = () => couponsNow().find((c) => String(c.id) === String(state.couponId) && c.usable) || null;
+  // 券可用性、worth、不可用原因每次按当前商品总额本地重算（改数量立即生效，无需重新请求）
+  const couponsNow = () => sortForCheckout(decorateMine(state.couponRaw, productAmount()));
+  const pickedCoupon = () => couponsNow()
+    .find((c) => String(c.id) === String(state.couponId) && c.usable) || null;
   const amounts = () => {
     const c = pickedCoupon();
     return computeAmounts({
@@ -95,8 +104,24 @@ export async function renderCheckout(view) {
       shippingFee: shippingById(state.shippingId).fee,
       couponDiscount: c ? c.worth : 0,
       couponTitle: c ? c.title : '',
+      couponId: c ? c.couponId : '',
     });
   };
+  /**
+   * 券与金额对账：
+   *   - 还在自动模式（用户没手动干预）→ 按新金额重选最优；
+   *   - 手动选过 → 保留用户选择，但那张券因金额下降变得不可用时必须撤掉，
+   *     否则会出现「选着一张用不了的券、抵扣却是 0」的自相矛盾界面。
+   */
+  function reconcileCoupon() {
+    const coupons = couponsNow();
+    if (state.couponAuto) {
+      state.couponId = bestCouponId(coupons);
+      return;
+    }
+    const cur = coupons.find((c) => String(c.id) === String(state.couponId));
+    if (state.couponId && (!cur || !cur.usable)) state.couponId = null;
+  }
   // 数量变化后的统一刷新：清单 → 券（worth/可用性随金额变）→ 金额。
   // 仍处于「自动选最优」模式（用户没手动干预过）时，按新金额重选最优券——
   // 比如删掉一件后总额从 820 降到 640，满 599 减 80 就会反超 9 折。
@@ -105,10 +130,7 @@ export async function renderCheckout(view) {
       navigate('#/cart');
       return;
     }
-    if (state.couponAuto) {
-      const best = bestCouponId(couponsNow());
-      state.couponId = best;
-    }
+    reconcileCoupon();
     paintItems();
     paintCoupon();
     paintSum();
@@ -300,26 +322,41 @@ export async function renderCheckout(view) {
     payCard.appendChild(box);
   }
 
-  /* ---------------- 4. 优惠券（自动选最优） ---------------- */
+  /* ---------------- 4. 优惠券（券包 → 自动选最优 / 手动切换） ---------------- */
+  // 这里只展示「我卡包里的券」，不再是从券目录临时拼的——没领就是没有，
+  // 否则券中心的领取动作毫无意义。不可用的券也留在列表里，并写明原因（差多少钱 / 已过期 / 已使用）。
   function paintCoupon() {
     couponCard.innerHTML = '';
     const coupons = couponsNow();
     const usable = coupons.filter((c) => c.usable);
     const picked = pickedCoupon();
+    const autoOn = state.couponAuto && usable.length > 0;
 
     couponCard.appendChild(cardHead(
       '优惠券',
-      state.couponAuto && usable.length ? '已自动为你选中最优的一张，可点选更换' : (usable.length ? '点选使用' : '暂无可用优惠券'),
+      autoOn
+        ? '已自动为你选中最优的一张，可点选更换'
+        : (usable.length ? '点选使用 · 再点一次取消' : '暂无可用优惠券'),
     ));
 
     if (!coupons.length) {
-      couponCard.appendChild(el('p', { class: 'co2-empty' }, '卡包里还没有优惠券。'));
+      couponCard.appendChild(el('div', { class: 'co2-coupon-empty' }, [
+        el('p', { class: 'co2-empty' }, '券包还是空的，去券中心领一张再来结算。'),
+        el('a', { class: 'co2-coupon-link', href: '#/coupons' }, '去优惠券中心 →'),
+      ]));
       return;
     }
 
     const box = el('div', { class: 'co2-coupons' });
-    coupons.forEach((c) => {
-      const on = picked && String(picked.id) === String(c.id);
+    // 可用券全列；不可用券默认只露 3 张，其余折叠——券多时十几张灰卡会把商品清单推到屏幕外，
+    // 但「不可用」这件事本身不能被藏起来，所以每张都写明原因，只是分批展示。
+    const offs = coupons.filter((c) => !c.usable);
+    const shown = [...usable, ...(state.couponShowAll ? offs : offs.slice(0, 3))];
+    shown.forEach((c) => {
+      const on = Boolean(picked) && String(picked.couponId) === String(c.couponId);
+      const worthText = fmtCouponValue(c);
+      const meta = `满 ${fmtCouponValue({ kind: 'cash', amount: c.threshold })} 可用 · ${expiryText(c)}`;
+
       if (c.usable) {
         box.appendChild(
           el('button', {
@@ -327,36 +364,81 @@ export async function renderCheckout(view) {
             type: 'button',
             role: 'checkbox',
             'aria-checked': on ? 'true' : 'false',
+            'data-coupon': c.couponId,
             onclick: () => {
               // 再点一次已选中的 = 取消使用；任何手动点选都接管自动模式
               state.couponAuto = false;
-              state.couponId = on ? null : c.id;
+              state.couponId = on ? null : c.couponId;
               paintCoupon();
               paintSum();
             },
           }, [
-            el('span', { class: 'co2-cp-worth num' }, c.kind === 'discount' ? `${10 - c.amount / 10} 折` : `¥${c.amount}`),
+            el('span', { class: 'co2-cp-worth num' }, worthText),
             el('span', { class: 'co2-cp-body' }, [
               el('span', { class: 'co2-cp-title' }, c.title),
               el('span', { class: 'co2-cp-sub num' }, on ? `已抵扣 ${fmtPrice(c.worth)}` : `本单可省 ${fmtPrice(c.worth)}`),
+              el('span', { class: 'co2-cp-meta' }, meta),
             ]),
             el('span', { class: 'co2-cp-check', 'aria-hidden': 'true' }, on ? '✓' : ''),
           ]),
         );
-      } else {
-        const gap = gapToThreshold(c, productAmount());
-        box.appendChild(
-          el('div', { class: 'co2-cp is-gap', 'aria-disabled': 'true' }, [
-            el('span', { class: 'co2-cp-worth num' }, c.kind === 'discount' ? `${10 - c.amount / 10} 折` : `¥${c.amount}`),
-            el('span', { class: 'co2-cp-body' }, [
-              el('span', { class: 'co2-cp-title' }, c.title),
-              el('span', { class: 'co2-cp-sub num' }, `满 ${fmtPrice(c.threshold)} 可用 · 还差 ${fmtPrice(gap)}`),
-            ]),
-          ]),
-        );
+        return;
       }
+
+      // 不可用：把「为什么不能用」说清楚，用户才知道是去凑单还是换一张
+      const why = c.state === 'used'
+        ? '已使用'
+        : c.state === 'expired'
+          ? '已过期'
+          : `${c.reason} · 还差 ${fmtPrice(c.gap)}`;
+      box.appendChild(
+        el('div', {
+          class: `co2-cp is-off${c.state === 'expired' ? ' is-expired' : ''}`,
+          'aria-disabled': 'true',
+          'data-coupon': c.couponId,
+        }, [
+          el('span', { class: 'co2-cp-worth num' }, worthText),
+          el('span', { class: 'co2-cp-body' }, [
+            el('span', { class: 'co2-cp-title' }, c.title),
+            el('span', { class: 'co2-cp-sub' }, why),
+            el('span', { class: 'co2-cp-meta' }, meta),
+          ]),
+        ]),
+      );
     });
     couponCard.appendChild(box);
+
+    if (offs.length > 3) {
+      const hidden = offs.length - 3;
+      couponCard.appendChild(el('button', {
+        class: 'co2-coupon-toggle',
+        type: 'button',
+        onclick: () => {
+          state.couponShowAll = !state.couponShowAll;
+          paintCoupon();
+        },
+      }, state.couponShowAll ? '收起不可用券' : `展开其余 ${hidden} 张不可用券`));
+    }
+
+    const off = coupons.filter((c) => c.state !== 'unused').length;
+    if (off) {
+      couponCard.appendChild(el('p', { class: 'co2-coupon-note' }, [
+        `另有 ${off} 张已使用或已过期的券不参与本单 · `,
+        el('a', { class: 'co2-coupon-link', href: '#/account?tab=coupons' }, '查看券包'),
+      ]));
+    }
+  }
+
+  /** 券有效期一句话：7 天内到期要说「即将到期」，别让用户临门一脚才发现过期 */
+  function expiryText(c) {
+    const ms = Number(c.expiresAt) || 0;
+    if (!ms) return '长期有效';
+    const days = Math.ceil((ms - Date.now()) / 86400000);
+    if (days <= 0) return '已过期';
+    const d = new Date(ms);
+    const p = (n) => String(n).padStart(2, '0');
+    const day = `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+    return days <= 7 ? `${day} 到期 · 仅剩 ${days} 天` : `${day} 到期`;
   }
 
   /* ---------------- 5. 商品清单（行内改数量 / 删除） ---------------- */
@@ -499,6 +581,10 @@ export async function renderCheckout(view) {
       // 只清掉已结算的商品：结算期间在别处新加的东西不该被一起清空
       cart.forEach((i) => removeFromCart(i.__key || i.id));
       updateCartBadge();
+      // 券核销：只有真的下单成功才标记已使用，失败路径（上面 catch）不会动券包
+      if (order.amounts && order.amounts.couponId) {
+        markCouponUsed(user.id, order.amounts.couponId, order.id);
+      }
       toast(`订单 ${order.id} 已提交`, 'ok');
       navigate(`#/order-success/${encodeURIComponent(order.id)}`);
     } catch (e) {
@@ -511,6 +597,7 @@ export async function renderCheckout(view) {
   paintAddress();
   paintShipping();
   paintPayment();
+  reconcileCoupon(); // 自动选中当前金额下最省的一张（无可用券则保持不使用）
   paintCoupon();
   paintItems();
   paintRemark();
@@ -530,17 +617,15 @@ export async function renderCheckout(view) {
     console.warn('[checkout] 地址校准失败', e && e.message);
   });
 
-  // 卡包：拉一次原始券列表，之后可用性/worth 全部本地按当前金额重算。
+  // 券包：拉一次卡包（本地 + 网关卡包合并），之后可用性/worth 全部本地按当前金额重算。
   // 首次进入自动选最优券（省得最多），用户可手动更换或取消。
-  fetchCoupons(user.id).then((raw) => {
-    if (!Array.isArray(raw) || !raw.length) return;
-    state.couponRaw = raw;
-    const best = bestCouponId(decorate(raw, productAmount()));
-    state.couponId = best; // 无可用券时为 null（= 不使用）
-    state.couponAuto = true;
+  hydrateWallet(user.id).then(({ list }) => {
+    state.couponRaw = Array.isArray(list) ? list : [];
+    // 网关卡包可能带回本地没有的券：重选一次最优，但不覆盖用户已经手动做的选择
+    reconcileCoupon();
     paintCoupon();
     paintSum();
   }).catch((e) => {
-    console.warn('[checkout] 优惠券加载失败', e && e.message);
+    console.warn('[checkout] 券包加载失败', e && e.message);
   });
 }

@@ -102,6 +102,25 @@ try {
   const afterLogin = await hash();
   check('登录后回到结算页', afterLogin === '#/checkout', afterLogin);
 
+  /* 4.5) 券中心领券：结算页只认「我的券包」，没领的券不该出现在结算页 */
+  await page.evaluate(() => { location.hash = '#/coupons'; });
+  await page.waitForSelector('.cp-ticket', { timeout: 6000 });
+  const ticketN = await page.locator('.cp-ticket').count();
+  check('券中心列出可领取优惠券', ticketN >= 3, `${ticketN} 张`);
+  for (let i = 0; i < ticketN; i += 1) {
+    const btn = page.locator('.cp-claim:not([disabled])').first();
+    if ((await btn.count()) === 0) break;
+    await btn.click();
+    await page.waitForTimeout(160);
+  }
+  const claimedN = await page.locator('.cp-claim[disabled]').count();
+  check('领券后按钮置灰为「已领取」', claimedN === ticketN, `${claimedN}/${ticketN}`);
+  const walletStatText = (await page.locator('.cp-stats').textContent()) || '';
+  check('券包摘要显示未使用张数', walletStatText.includes(String(ticketN)), walletStatText.trim());
+
+  await page.evaluate(() => { location.hash = '#/checkout'; });
+  await page.waitForTimeout(420);
+
   /* 5) 结算页结构与门禁 */
   await page.waitForSelector('.co2-grid', { timeout: 6000 });
   const cols = await page.locator('.co2-grid').evaluate((n) => getComputedStyle(n).gridTemplateColumns.split(' ').length);
@@ -137,6 +156,21 @@ try {
   /* 8) 商品清单可返回购物袋 */
   const backHref = await page.locator('.co2-item-edit').getAttribute('href');
   check('清单可返回购物袋修改', backHref === '#/cart');
+
+  /* 8.5) 券卡：已领取券可见、自动选中一张、不可用券写明差额 */
+  const cpText = (await page.locator('.co2-coupons').textContent()) || '';
+  const couponOn = await page.locator('.co2-cp.is-on').count();
+  const couponCount = await page.locator('.co2-cp').count();
+  check('结算页显示券包里的券', couponCount >= 3, `${couponCount} 张`);
+  check('自动选中最优券并显示抵扣额', couponOn === 1 && /已抵扣 ¥\d+/.test(cpText), cpText.slice(0, 40));
+  // 这笔订单金额较高，所有券都达门槛；这里只保证「若有不可用券，必须写明原因」
+  const offCount = await page.locator('.co2-cp.is-off').count();
+  check('不可用券写明原因', offCount === 0 || /还差 ¥|已过期|已使用/.test(cpText), `不可用 ${offCount} 张`);
+  check('券卡用金色细边框标示选中',
+    await page.locator('.co2-cp.is-on').evaluate((n) => {
+      const c = getComputedStyle(n).borderColor;
+      return /200,\s*169,\s*110/.test(c);
+    }));
 
   /* 9) 备注 + 提交 */
   await page.locator('.co2-remark').fill('工作日送达，放前台');

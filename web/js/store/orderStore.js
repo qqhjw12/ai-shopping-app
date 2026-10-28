@@ -93,7 +93,8 @@ export function onOrdersChange(fn) {
 }
 
 function notify(userId) {
-  listeners.forEach((fn) => {
+  // 快照遍历：订阅者回调里可能再次写入并注册新订阅者，直接遍历会无限扩散
+  [...listeners].forEach((fn) => {
     try {
       fn(userId);
     } catch {
@@ -136,9 +137,14 @@ export function nextOrderId(userId, existing = null) {
  * 金额汇总：商品总额 + 运费 − 优惠券抵扣 = 应付金额。
  * 金额唯一入口：结算页预览、下单快照、订单详情展示都走这里，
  * 保证「预览一个价、下单另一个价」在结构上不可能发生。
- * couponTitle 随金额快照进订单，详情页无需再查券。
+ * couponTitle 随金额快照进订单，详情页无需再查券；couponId 用于取消订单时把券退回券包。
+ *
+ * 防负数三道闸：总额/运费先夹到 ≥0；抵扣夹到 [0, 商品总额]（券再多也不能抵过商品钱，
+ * 运费不参与抵扣——否则「满 99 减 100」的券会倒找钱）；应付 = 总额 + 运费 − 抵扣 ≥ 运费 ≥ 0。
  */
-export function computeAmounts({ productAmount = 0, shippingFee = 0, couponDiscount = 0, couponTitle = '' } = {}) {
+export function computeAmounts({
+  productAmount = 0, shippingFee = 0, couponDiscount = 0, couponTitle = '', couponId = '',
+} = {}) {
   const goods = Math.max(0, round(productAmount));
   const ship = Math.max(0, round(shippingFee));
   const discount = Math.min(Math.max(0, round(couponDiscount)), goods);
@@ -148,6 +154,7 @@ export function computeAmounts({ productAmount = 0, shippingFee = 0, couponDisco
     couponDiscount: discount,
     payAmount: round(goods + ship - discount),
     ...(couponTitle ? { couponTitle: String(couponTitle).slice(0, 40) } : {}),
+    ...(couponId ? { couponId: String(couponId) } : {}),
   };
 }
 
