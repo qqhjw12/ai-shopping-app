@@ -184,7 +184,7 @@ if (failed === 0) {
         ['AI 摘要 要点/顾虑条目', n('.pdp-ai-point') >= 3 && text.includes('人提及')],
         ['评价区 分布条(5档)', n('.pdp-reviews') === 1 && n('.pdp-dist-row') === 5],
         ['评价列表 条目', n('.review') >= 3],
-        ['评价 筛选+排序', n('.pdp-review-filter') === 4 && n('.pdp-review-sort') === 2],
+        ['评价 筛选+排序', n('.pdp-review-filter') === 5 && n('.pdp-review-sort') === 2],
         // 本步骤新增：写评价表单 + 有用投票
         ['写评价 入口+表单', n('.pdp-write-review') === 1 && n('.pdp-review-form') === 1],
         ['写评价 星级5+文本域+提交', n('.pdp-form-star') === 5 && n('.pdp-form-textarea') === 1 && n('.pdp-form-submit') === 1],
@@ -277,6 +277,53 @@ if (failed === 0) {
       }
     }
 
+    // 只看有图：切到 withPic 后列表只含带图评价；切换器文案带计数
+    const withPicBtn = pdp.querySelectorAll('.pdp-review-filter').find((b) => b.getAttribute('data-filter') === 'withPic');
+    withPicBtn.listeners.click();
+    const picRows = pdp.querySelectorAll('.review');
+    const withPicOk = /有图/.test(withPicBtn.textContent)
+      && picRows.length >= 1
+      && picRows.every((c) => c.querySelectorAll('.pdp-review-thumb').length >= 1);
+    // 恢复「全部」
+    pdp.querySelectorAll('.pdp-review-filter')[0].listeners.click();
+
+    // 问答：面板 + 内置问答 + mock 提问（自动商家回复）+ localStorage 持久化
+    const qaPanel = pdp.querySelectorAll('.pdp-qa')[0];
+    const qaItemsBefore = pdp.querySelectorAll('.pdp-qa-item').length;
+    const qaBuiltIn = qaItemsBefore >= 3 && /下单后多久能发货/.test(qaPanel.textContent || '');
+    const qaAsk = pdp.querySelectorAll('.pdp-qa-ask')[0];
+    qaAsk.listeners.click();
+    const qaForm = pdp.querySelectorAll('.pdp-qa-form')[0];
+    const qaArea = pdp.querySelectorAll('.pdp-qa-input')[0];
+    qaArea.value = '这个尺码偏大还是偏小？';
+    if (qaArea.listeners.input) qaArea.listeners.input();
+    if (qaForm.listeners.submit) qaForm.listeners.submit({ preventDefault() {} });
+    await new Promise((r) => setTimeout(r, 900)); // mock 商家回复延迟 600ms
+    const qaItemsAfter = pdp.querySelectorAll('.pdp-qa-item').length;
+    const firstQa = pdp.querySelectorAll('.pdp-qa-item')[0] || {};
+    const qaOk = qaItemsBefore >= 3 && qaItemsAfter === qaItemsBefore + 1
+      && /我的提问/.test(firstQa.textContent || '')
+      && /官方客服/.test(firstQa.textContent || '')
+      && (() => { try { const all = JSON.parse(localStorage.getItem('maison_pdp_qa_v1') || '{}'); return (all.p017 || []).length >= 1; } catch { return false; } })();
+
+    // AI 摘要卡口径标注
+    const aiFoot = pdp.querySelectorAll('.pdp-ai-foot')[0];
+    const aiNoteOk = Boolean(aiFoot) && /AI 生成，仅供参考/.test(aiFoot.textContent || '');
+
+    // 空态插画：某个筛选条件下无结果时出现金色细线插画 + 衬线文案
+    let emptyArtOk = false;
+    for (const b of pdp.querySelectorAll('.pdp-review-filter')) {
+      b.listeners.click();
+      if (pdp.querySelectorAll('.pdp-empty-art').length >= 1) {
+        emptyArtOk = /还没有评价|还没有/.test(pdp.querySelectorAll('.pdp-review-empty-text')[0].textContent || '');
+        break;
+      }
+    }
+    // 恢复「全部」并把分页展开回去（切筛选会重置 visible，别影响后续删除断言）
+    pdp.querySelectorAll('.pdp-review-filter')[0].listeners.click();
+    const moreRestore = pdp.querySelectorAll('.pdp-review-more')[0];
+    if (moreRestore && moreRestore.listeners.click && moreRestore.getAttribute('hidden') == null) moreRestore.listeners.click();
+
     // 删除本人评价闭环：mine 卡片带删除按钮，行内二次确认后从列表移除并回滚计数
     const cases = [
       ['投票计数 +1', voted === base + 1],
@@ -290,6 +337,11 @@ if (failed === 0) {
       ['概览总数同步更新', /条评价/.test(totalText)],
       ['写入 localStorage 可回读', persisted >= 1],
       ['买家秀选择入口 + 预览容器', fileInputs >= 1 && thumbBoxes >= 1],
+      ['「只看有图」筛选生效', withPicOk],
+      ['问答面板与内置问答', qaBuiltIn],
+      ['提问后自动回复并持久化', qaOk],
+      ['AI 摘要卡标注「仅供参考」', aiNoteOk],
+      ['空态金色细线插画 + 衬线文案', emptyArtOk],
       ['我的评价带追评入口', Boolean(fuToggle)],
       ['追评内容过短被拦截', followUpGate],
       ['追评发布后出现在卡片内', followUpDone],

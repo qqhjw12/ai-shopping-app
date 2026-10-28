@@ -5540,3 +5540,88 @@ body.flt-sheet-open { overflow: hidden; }
   text-underline-offset: 3px;
 }
 .co2-item-del:hover { color: #b4553f; }
+
+/* ============================================================
+   PDP 评价 / 问答补充：只看有图、空态插画、商品问答区
+   口径：白底细线卡延续评价区；金色只出现在星标、问答圆标与插画细线
+   ============================================================ */
+
+/* 空态：金色细线插画 + 衬线文案 */
+.pdp-empty-art {
+  display: block;
+  width: 96px;
+  margin: 2px auto 10px;
+  color: var(--gold);
+  opacity: 0.85;
+}
+.pdp-empty-art svg { display: block; width: 100%; height: auto; }
+.pdp-review-empty-text {
+  max-width: 360px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+/* 商品问答 */
+.pdp-qa { margin-top: 14px; }
+.pdp-qa-count { color: var(--muted); font-size: 11px; }
+.pdp-qa-form {
+  margin: 14px 0 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--canvas);
+}
+.pdp-qa-input {
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.pdp-qa-input::placeholder { color: var(--muted); }
+.pdp-qa-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-weak); }
+.pdp-qa-form .pdp-form-foot { justify-content: flex-end; margin-top: 10px; }
+.pdp-qa-submit { height: 36px; padding: 0 18px; font-size: 12px; }
+.pdp-qa-submit:active { transform: scale(0.98); }
+
+.pdp-qa-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.pdp-qa-item {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+.pdp-qa-item.is-mine { border-color: var(--line-strong); }
+.pdp-qa-q, .pdp-qa-a { display: flex; gap: 11px; }
+.pdp-qa-a { margin-top: 11px; padding-top: 11px; border-top: 1px dashed var(--line); }
+.pdp-qa-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 10.5px;
+  line-height: 1;
+}
+.pdp-qa-mark.q { border: 1px solid var(--gold); color: var(--gold-deep); background: var(--gold-weak); }
+.pdp-qa-mark.a { border: 1px solid var(--line-strong); color: var(--body); background: transparent; }
+.pdp-qa-q-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.pdp-qa-text { color: var(--ink); font-size: 12.5px; line-height: 1.65; }
+.pdp-qa-a .pdp-qa-text { color: var(--body); }
+.pdp-qa-date { color: var(--muted); font-size: 10px; }
+.pdp-qa-empty { padding: 26px 0 18px; }
+
+@media (max-width: 640px) {
+  .pdp-qa-item { padding: 12px 13px; }
+  .pdp-empty-art { width: 84px; }
+}

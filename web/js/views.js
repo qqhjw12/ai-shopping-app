@@ -38,6 +38,7 @@ import {
   uploadReviewImage,
   MAX_REVIEW_IMAGES,
 } from './store/productDetailStore.js';
+import { listQuestions, submitQuestion as submitQuestionApi } from './store/qaStore.js';
 
 // 真实开放数据商品（scripts/ingest-real-data.mjs 生成，体量可达数 MB）改为「按需懒加载」：
 // 仅当网关不可达、回退演示模式时才动态 import，正常连网关时不会下载这份大文件，保证首屏速度。
@@ -1461,10 +1462,11 @@ function buildDetailPage(p, from, presetRelated = []) {
         ]),
       );
     }
-    // 口径透明化：标注样本量与抽取方式，避免被误读为官方结论。
+    // 口径透明化：标注样本量、抽取方式与「AI 生成，仅供参考」，
+    // 避免被误读为官方结论。
     aiSummaryBody.appendChild(
       el('p', { class: 'pdp-ai-foot' },
-        `AI 基于 ${summary.sampleSize} 条评价抽取 · ${summary.mode === 'aspect' ? '买家侧写标注' : '正文关键词匹配'}`),
+        `AI 基于 ${summary.sampleSize} 条评价抽取 · ${summary.mode === 'aspect' ? '买家侧写标注' : '正文关键词匹配'} · AI 生成，仅供参考`),
     );
   }
 
@@ -1550,6 +1552,7 @@ function buildDetailPage(p, from, presetRelated = []) {
     if (listState.filter === 'good') list = list.filter((r) => r.rating >= 4);
     else if (listState.filter === 'mid') list = list.filter((r) => r.rating === 3);
     else if (listState.filter === 'bad') list = list.filter((r) => r.rating <= 2);
+    else if (listState.filter === 'withPic') list = list.filter((r) => (Array.isArray(r.images) ? r.images.length : 0) > 0);
     if (listState.sort === 'helpful') list.sort((a, b) => (Number(b.helpful) || 0) - (Number(a.helpful) || 0));
     else list.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     return list;
@@ -1647,8 +1650,14 @@ function buildDetailPage(p, from, presetRelated = []) {
     const shown = list.slice(0, listState.visible);
     reviewList.innerHTML = '';
     if (!shown.length) {
-      reviewList.appendChild(el('div', { class: 'pdp-review-empty' },
-        allReviews.length ? '该筛选条件下还没有评价。' : '还没有评价，购买体验后可以回来写下第一条感受。'));
+      const emptyBox = el('div', { class: 'pdp-review-empty' }, [
+        reviewEmptyArt(),
+        el('p', { class: 'pdp-review-empty-text serif' },
+          allReviews.length
+            ? '这个筛选条件下还没有评价，换个条件看看。'
+            : '还没有评价。购买体验后，欢迎回来写下第一条感受。'),
+      ]);
+      reviewList.appendChild(emptyBox);
     } else {
       shown.forEach((r) => reviewList.appendChild(reviewCard(r, voteReview, followUpHandler, deleteReviewHandler)));
     }
@@ -1846,11 +1855,13 @@ function buildDetailPage(p, from, presetRelated = []) {
     }
   }
 
+  const withPicCount = () => allReviews.filter((r) => (Array.isArray(r.images) ? r.images.length : 0) > 0).length;
   const filterMeta = [
     { key: 'all', label: (s) => `全部 ${s.total}` },
     { key: 'good', label: (s) => `好评 ${s.distribution[5] + s.distribution[4]}` },
     { key: 'mid', label: (s) => `中评 ${s.distribution[3]}` },
     { key: 'bad', label: (s) => `差评 ${s.distribution[2] + s.distribution[1]}` },
+    { key: 'withPic', label: () => `有图 ${withPicCount()}` },
   ];
 
   function syncActiveButton(btns, key, value) {
@@ -1947,6 +1958,111 @@ function buildDetailPage(p, from, presetRelated = []) {
   paintReviewList();
   refreshOverview();
   body.appendChild(reviewPanel);
+
+  /* ---- 商品问答：问题列表 + mock 提问（数据层见 store/qaStore.js） ---- */
+  const qaState = { submitting: false };
+  const qaList = el('div', { class: 'pdp-qa-list' });
+  const qaEmpty = el('div', { class: 'pdp-review-empty pdp-qa-empty' }, [
+    reviewEmptyArt(),
+    el('p', { class: 'pdp-review-empty-text serif' }, '还没有人提问，来问问材质、尺码，或者任何你在意的细节。'),
+  ]);
+  const qaCount = el('span', { class: 'pdp-qa-count' }, '');
+  const qaInput = el('textarea', {
+    class: 'pdp-qa-input',
+    rows: '3',
+    maxlength: '200',
+    placeholder: '问问材质、尺码、发货…（至少 4 个字，200 字以内）',
+  });
+  const qaSubmit = el('button', { type: 'submit', class: 'primary pdp-qa-submit' }, '提交问题');
+  const qaForm = el('form', { class: 'pdp-qa-form', hidden: 'hidden', novalidate: 'novalidate' }, [
+    qaInput,
+    el('div', { class: 'pdp-form-foot' }, [qaSubmit]),
+  ]);
+  const qaAskBtn = el('button', {
+    type: 'button',
+    class: 'ghost pdp-qa-ask',
+    onclick: () => {
+      const opening = qaForm.getAttribute('hidden') != null;
+      if (opening) { qaForm.removeAttribute('hidden'); qaAskBtn.textContent = '收起'; qaInput.focus?.(); }
+      else { qaForm.setAttribute('hidden', 'hidden'); qaAskBtn.textContent = '我要提问'; }
+    },
+  }, '我要提问');
+
+  function qaCard(item) {
+    return el('div', { class: 'pdp-qa-item' + (item.mine ? ' is-mine' : '') }, [
+      el('div', { class: 'pdp-qa-q' }, [
+        el('span', { class: 'pdp-qa-mark q', 'aria-hidden': 'true' }, '问'),
+        el('div', { class: 'pdp-qa-q-body' }, [
+          el('div', { class: 'pdp-qa-text' }, [
+            item.question,
+            item.mine ? el('span', { class: 'rv-mine-tag' }, '我的提问') : null,
+          ]),
+          el('span', { class: 'pdp-qa-date' }, String(item.createdAt || '').slice(0, 10)),
+        ]),
+      ]),
+      item.answer
+        ? el('div', { class: 'pdp-qa-a' }, [
+            el('span', { class: 'pdp-qa-mark a', 'aria-hidden': 'true' }, '答'),
+            el('div', { class: 'pdp-qa-q-body' }, [
+              el('div', { class: 'pdp-qa-text' }, item.answer),
+              el('span', { class: 'pdp-qa-date' }, item.answeredBy || '官方客服'),
+            ]),
+          ])
+        : null,
+    ]);
+  }
+
+  function paintQa() {
+    const items = listQuestions(p.id);
+    qaCount.textContent = `${items.length} 个问题`;
+    qaList.innerHTML = '';
+    if (!items.length) {
+      qaList.appendChild(qaEmpty);
+      return;
+    }
+    items.forEach((item) => qaList.appendChild(qaCard(item)));
+  }
+
+  qaForm.addEventListener?.('submit', onQaSubmit);
+  qaForm.onsubmit = onQaSubmit;
+  function onQaSubmit(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (qaState.submitting) return;
+    const text = String(qaInput.value || '').trim();
+    if (text.length < 4) { toast('问题至少 4 个字，方便大家帮到你', 'warn'); return; }
+    qaState.submitting = true;
+    qaSubmit.disabled = true;
+    qaSubmit.textContent = '提交中…';
+    // mock：稍作等待再给出「商家回复」，让自动回答像真的有人在值班
+    setTimeout(() => {
+      try {
+        submitQuestionApi(p.id, text);
+        qaInput.value = '';
+        qaForm.setAttribute('hidden', 'hidden');
+        qaAskBtn.textContent = '我要提问';
+        paintQa();
+        toast('问题已提交，商家已回复', 'ok');
+      } catch (err) {
+        toast(err.message || '提交失败，请稍后重试', 'warn');
+      } finally {
+        qaState.submitting = false;
+        qaSubmit.disabled = false;
+        qaSubmit.textContent = '提交问题';
+      }
+    }, 600);
+  }
+
+  const qaPanel = el('section', { id: 'pdp-qa', class: 'panel pdp-qa', tabindex: '-1' }, [
+    el('div', { class: 'pdp-review-head' }, [
+      el('h3', {}, '商品问答'),
+      qaCount,
+      qaAskBtn,
+    ]),
+    qaForm,
+    qaList,
+  ]);
+  paintQa();
+  body.appendChild(qaPanel);
   page.appendChild(body);
   // 本地数据先落地首屏，再异步换服务端评价（联网即用真实数据，断网静默保持降级）
   loadServerReviews();
@@ -2179,6 +2295,24 @@ function followUpForm(r, onSubmit) {
     },
   }, '追评');
   return el('div', { class: 'pdp-followup-wrap' }, [toggleBtn, box]);
+}
+
+/**
+ * 评价 / 问答空态的金色细线插画：一只对话气泡托着一颗小星，
+ * 统一 1px 细线 + --gold 描边，克制不抢戏（不填色、不渐变）。
+ */
+function reviewEmptyArt() {
+  const span = el('span', { class: 'pdp-empty-art', 'aria-hidden': 'true' });
+  span.innerHTML = [
+    '<svg viewBox="0 0 120 84" fill="none" xmlns="http://www.w3.org/2000/svg" role="img">',
+    '<path d="M22 14h76a8 8 0 0 1 8 8v30a8 8 0 0 1-8 8H52l-14 12V60H22a8 8 0 0 1-8-8V22a8 8 0 0 1 8-8Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>',
+    '<path d="M60 27.5l3.2 6.6 7.3 1-5.3 5.1 1.3 7.2-6.5-3.4-6.5 3.4 1.3-7.2-5.3-5.1 7.3-1 3.2-6.6Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>',
+    '<circle cx="36" cy="70" r="1.4" fill="currentColor"/>',
+    '<circle cx="90" cy="9" r="1.2" fill="currentColor"/>',
+    '<path d="M14 44c-3.4-1.5-5.4-4.2-6-8" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-dasharray="1 4"/>',
+    '</svg>',
+  ].join('');
+  return span;
 }
 
 function reviewCard(r, onVote, onFollowUp, onDelete) {

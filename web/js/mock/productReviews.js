@@ -6,6 +6,10 @@
 //     比直接对正文做分词更可控，也让摘要结论可解释、可回溯到具体评价；
 //   - helpful：有用票数，供「最有用」排序使用。
 
+/** 买家秀占位图：内联 SVG data URI（离线可显示，不发请求） */
+const shot = (bg, fg) => 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 100"><rect width="80" height="100" fill="${bg}"/><rect x="18" y="22" width="44" height="56" rx="6" fill="none" stroke="${fg}" stroke-width="1.4"/><circle cx="40" cy="50" r="10" fill="none" stroke="${fg}" stroke-width="1.2"/></svg>`);
+
 export const PRODUCT_REVIEWS = {
   // 云帆 14 轻薄笔记本
   p017: [
@@ -16,6 +20,7 @@ export const PRODUCT_REVIEWS = {
       created_at: '2026-09-18',
       skuSpec: '深空灰 / i7 16G+512G',
       helpful: 132,
+      images: [shot('#e8e2d6', '#8d8a84'), shot('#dcd4c4', '#6f6b63')],
       content: '出差党刚需。2.8K 屏看文档和修图都很通透，机身 1.2kg 塞进通勤包毫无负担，一天会议加写作下来还剩三成电。',
       aspects: [
         { text: '2.8K 屏幕通透', polarity: 'pos' },
@@ -30,6 +35,7 @@ export const PRODUCT_REVIEWS = {
       created_at: '2026-09-02',
       skuSpec: '月光银 / 16G + 1T',
       helpful: 96,
+      images: [shot('#ece7dd', '#8d8a84')],
       content: '键盘手感和触控板面积超出预期，写代码一天不累。金属机身做工细腻，没有廉价感。',
       aspects: [
         { text: '键盘手感好', polarity: 'pos' },
