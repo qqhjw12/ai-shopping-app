@@ -67,6 +67,15 @@ export function favoriteIds(userId) {
     .map((r) => r.product_id);
 }
 
+/** 读取用户公开信息（不含任何凭证） */
+export function getUser(userId) {
+  const row = getDb()
+    .prepare('SELECT id, nickname, phone, level, created_at FROM users WHERE id = ?')
+    .get(userId);
+  if (!row) return null;
+  return { id: row.id, nickname: row.nickname, phone: row.phone, level: row.level, createdAt: row.created_at };
+}
+
 /**
  * 保证用户存在且有收货地址。
  * 前端用的是会话级 userId（首次访问即生成），不一定已在 users 表中；

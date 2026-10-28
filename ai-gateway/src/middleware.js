@@ -1,5 +1,7 @@
 import { config } from './config.js';
 import { randomUUID } from './logger.js';
+import { verifyAccessToken } from './auth/jwt.js';
+import { getSecret } from './auth/keys.js';
 
 // 每 IP 的固定窗口限流桶：ip -> { count, resetAt }
 const buckets = new Map();
@@ -71,4 +73,42 @@ export function checkAuth(req) {
     (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '') ||
     '';
   return provided === key;
+}
+
+/** 解析 Cookie 头为对象（值做 decodeURIComponent，解析失败则保留原串） */
+export function parseCookies(req) {
+  const out = {};
+  const raw = req.headers.cookie;
+  if (!raw) return out;
+  for (const part of raw.split(';')) {
+    const i = part.indexOf('=');
+    if (i < 0) continue;
+    const k = part.slice(0, i).trim();
+    if (!k) continue;
+    const v = part.slice(i + 1).trim();
+    try {
+      out[k] = decodeURIComponent(v);
+    } catch {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+/**
+ * 解析访问令牌（可选认证）：成功则把身份挂到 req.authUserId / req.auth。
+ * 失败不抛错也不拦截——是否需要强制鉴权由调用方按 config.auth.required 决定。
+ * @returns {object|null} 令牌载荷
+ */
+export function authenticate(req) {
+  const raw = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  if (!raw) return null;
+  try {
+    const payload = verifyAccessToken(raw, { secret: getSecret(), issuer: config.auth.issuer });
+    req.auth = payload;
+    req.authUserId = payload.sub;
+    return payload;
+  } catch {
+    return null;
+  }
 }

@@ -9,6 +9,13 @@ import { renderAnalytics } from './analytics.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
 import { createRouter, navigate } from './router.js';
 import { getUserId, loadCart, onCartChange } from './state.js';
+import { ensureSession } from './auth.js';
+
+// 仅在显式直连网关（?api=...）时自动建立会话：
+// 纯静态演示（GitHub Pages 无后端）跳过，避免每页产生无谓的 404 请求。
+if (new URLSearchParams(location.search).get('api')) {
+  ensureSession(getUserId()).catch(() => {});
+}
 
 // 推荐卡带来源跳转
 setProductDetailHandler((p) => openProductDetail(p, 'guide'));

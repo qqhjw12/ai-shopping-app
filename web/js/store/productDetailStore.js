@@ -462,7 +462,8 @@ export function removeUserReview(productId, reviewId) {
  * （s3 驱动下是预签名 URL，有有效期）。**持久化只能存 key**。
  */
 export async function uploadReviewImage(dataUrl) {
-  const data = await api('/api/reviews/upload', { body: { data: dataUrl }, retries: 1 });
+  // 带上 userId：服务端据此做「每用户频率 + 每日配额」；令牌存在时服务端会以令牌身份为准
+  const data = await api('/api/reviews/upload', { body: { data: dataUrl, userId: getUserId() }, retries: 1 });
   if (!data || !data.url) throw new Error('上传失败：未返回图片地址');
   return { key: data.key || data.url, url: data.url };
 }

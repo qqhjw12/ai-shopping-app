@@ -47,6 +47,33 @@ export const config = {
   rateLimitWindowMs: Number(env.RATE_LIMIT_WINDOW_MS || 60000),
   // 若 Gateway 前置了反向代理（如 nginx），从 X-Forwarded-For 取真实客户端 IP
   trustProxy: env.TRUST_PROXY === 'true',
+  // 买家秀上传加固：单请求重（base64 可达 6MB），需独立的频率 / 并发 / 配额约束
+  upload: {
+    // 单张原始字节上限（base64 解码后的图片大小）
+    maxBytes: Number(env.UPLOAD_MAX_BYTES || 6 * 1024 * 1024),
+    // 每用户每分钟上传次数（0 关闭）
+    ratePerMin: Number(env.UPLOAD_RATE_PER_MIN || 10),
+    // 每用户每 24 小时上传配额（0 关闭）
+    dailyQuota: Number(env.UPLOAD_DAILY_QUOTA || 200),
+    // 全局同时在处理的上传数上限，防并发大 body 打爆内存（0 关闭）
+    maxConcurrent: Number(env.UPLOAD_MAX_CONCURRENT || 4),
+  },
+  // 认证：JWT 短时效访问令牌 + 服务端存储的刷新令牌
+  auth: {
+    // HS256 签名密钥；留空时 local 模式自动生成临时密钥（重启后旧令牌失效），生产必须显式配置
+    secret: env.AUTH_JWT_SECRET || '',
+    // 访问令牌有效期（秒），默认 15 分钟
+    accessTtlSec: Number(env.AUTH_ACCESS_TTL_SEC || 900),
+    // 刷新令牌有效期（秒），默认 14 天
+    refreshTtlSec: Number(env.AUTH_REFRESH_TTL_SEC || 14 * 24 * 3600),
+    // true：业务接口必须携带有效访问令牌（/api/auth/login、/api/auth/refresh 除外）
+    required: env.AUTH_REQUIRED === 'true',
+    // 刷新令牌 Cookie 名
+    cookieName: env.AUTH_COOKIE_NAME || 'rt',
+    // 生产走 HTTPS 时必须置 true（Cookie 加 Secure）
+    cookieSecure: env.AUTH_COOKIE_SECURE === 'true',
+    issuer: 'ai-gateway',
+  },
   // 本地 SQLite 数据文件（local 模式的商品/订单/会话/埋点全部落这里，重启不丢）
   dbFile: env.DB_FILE || 'data/shop.db',
   // 买家秀等用户上传内容的存放位置
@@ -91,6 +118,11 @@ export function startupWarnings() {
   }
   if (config.storage.driver === 'local') {
     warns.push('STORAGE_DRIVER=local：买家秀落本地磁盘，多实例部署会读不到彼此的文件，生产建议切到 s3');
+  }
+  if (config.auth.required && !config.auth.secret) {
+    warns.push('AUTH_REQUIRED=true 但 AUTH_JWT_SECRET 未设置：将拒绝启动（生产必须配置固定密钥）');
+  } else if (!config.auth.secret) {
+    warns.push('AUTH_JWT_SECRET 未设置：local 模式将生成临时密钥，进程重启后已签发的访问/刷新令牌全部失效');
   }
   return warns;
 }

@@ -1,5 +1,6 @@
 // 类型化请求封装：4xx 不重试；5xx / 网络异常自动重试最多 3 次；离线优先提示。
 // 默认同源（经 nginx 反代时即网关地址），可用 ?api= 覆盖（本地直连调试用）。
+import { getAccessToken, refreshAccessToken } from './auth.js';
 
 const API_BASE = new URLSearchParams(location.search).get('api') || location.origin;
 
@@ -43,15 +44,25 @@ export async function api(path, opts = {}) {
   // 早期只按「有没有 body」推断，结果 PATCH 被降级成 POST、DELETE 被降级成 GET，
   // 表现为改数量报 400、删地址看起来成功但服务端根本没删。
   const method = String(opts.method || (opts.body ? 'POST' : 'GET')).toUpperCase();
-  const headers = { 'Content-Type': 'application/json' };
   let attempt = 0;
+  let refreshed = false;
   while (true) {
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      // 有访问令牌就带上；过期不影响——下面的 401 分支会自动刷新重试
+      const token = getAccessToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
       const resp = await fetch(`${API_BASE}${path}`, {
         method,
         headers,
         body: opts.body ? JSON.stringify(opts.body) : undefined,
       });
+      // 401：访问令牌过期 → 刷新一次并用新令牌重试（并发刷新由 auth.js 去重）
+      if (resp.status === 401 && !refreshed && !opts.noAuthRetry) {
+        refreshed = true;
+        const fresh = await refreshAccessToken();
+        if (fresh) continue;
+      }
       if (resp.status >= 400 && resp.status < 500) {
         let msg = '请求有误，请检查输入';
         try {
@@ -93,12 +104,20 @@ export async function api(path, opts = {}) {
 export async function streamApi(path, body, onEvent, opts = {}) {
   if (!navigator.onLine) throw new ApiError('当前网络不可用，请检查连接后重试', 'offline');
   const retries = opts.retries ?? 2;
-  const doFetch = async () => {
+  const doFetch = async (canRetry = true) => {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
     const resp = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     });
+    // 401：刷新一次后重放（流式请求只重放一次，避免重复计费）
+    if (resp.status === 401 && canRetry) {
+      const fresh = await refreshAccessToken();
+      if (fresh) return doFetch(false);
+    }
     if (resp.status >= 400 && resp.status < 500) {
       let msg = '请求有误，请检查输入';
       try {

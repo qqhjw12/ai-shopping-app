@@ -349,6 +349,10 @@ bash scripts/setup-https-proxy.sh
 | `CORS_ORIGINS` | 显式允许来源，**生产严禁 `*`**；留空仅放行本地演示来源 |
 | `AI_GATEWAY_API_KEY` | 设置后所有业务接口需 `X-API-Key`；留空则对外开放（仅限演示） |
 | `RATE_LIMIT_PER_MIN` | 每 IP 每分钟限流（0 = 不限流） |
+| `UPLOAD_MAX_BYTES` / `UPLOAD_RATE_PER_MIN` / `UPLOAD_DAILY_QUOTA` / `UPLOAD_MAX_CONCURRENT` | 上传加固：单张字节上限 / 每用户每分钟次数 / 每用户 24h 配额 / 全局并发上限 |
+| `AUTH_JWT_SECRET` | 访问令牌 HS256 密钥，**生产必须配置**；local 留空会生成临时密钥（重启后令牌失效） |
+| `AUTH_ACCESS_TTL_SEC` / `AUTH_REFRESH_TTL_SEC` | 访问令牌（默认 900s）/ 刷新令牌（默认 14 天）有效期 |
+| `AUTH_REQUIRED` / `AUTH_COOKIE_SECURE` | 是否强制业务接口带令牌 / 刷新 Cookie 是否加 `Secure`（生产 HTTPS 置 true） |
 | `HTTPS_PORT` / `DOMAIN` | nginx 反代对外端口与域名 |
 
 ---
@@ -362,7 +366,12 @@ bash scripts/setup-https-proxy.sh
 | GET  | `/api/products/:id/reviews` | 评价列表：`userId`/`filter`(all·good·mid·bad)/`sort`(latest·helpful)/`limit`/`offset`，返回 `{ reviews, summary, hasMore }`，追评嵌套在主评价的 `followUps` 内 |
 | POST | `/api/reviews` | 发布评价；带 `parentId` 即追评。`{ productId|parentId, userId?, author?, rating?, content, skuSpec?, images? }` |
 | POST | `/api/reviews/:id/helpful` | 有用投票 `{ userId }`，幂等：再请求一次即取消，返回 `{ voted, helpful }` |
-| POST | `/api/reviews/upload` | 买家秀上传 `{ data: base64 }`，≤6MB，返回 `{ key, url, expiresIn }`：`key` 入库、`url` 是当次可渲染的地址（s3 驱动下为预签名 URL）；类型 JPG/PNG/WebP/GIF（文件头校验） |
+| DELETE | `/api/reviews/:id` | 删除**本人**评价（校验归属，种子数据不可删）：级联删追评与投票、回滚商品评分，并回收图片对象，返回 `{ deleted, followUpsDeleted, imagesRemoved }` |
+| POST | `/api/reviews/upload` | 买家秀上传 `{ data: base64, userId? }`，≤`UPLOAD_MAX_BYTES`（默认 6MB），返回 `{ key, url, expiresIn }`；类型 JPG/PNG/WebP/GIF（文件头校验）；受「每用户频率 + 每日配额 + 全局并发」保护，超限返回 429/503 |
+| POST | `/api/auth/login` | 登录（演示项目无密码，`userId` 即身份）：`{ userId?, nickname? }` → `{ accessToken, expiresIn, user }`，刷新令牌写入 **HttpOnly Cookie** |
+| POST | `/api/auth/refresh` | 用 Cookie 内刷新令牌换新访问令牌；**每次刷新轮换**，旧令牌作废，重放已用令牌则整族撤销（401） |
+| POST | `/api/auth/logout` | 作废当前刷新令牌并清 Cookie |
+| GET  | `/api/auth/me` | 携带 `Authorization: Bearer <accessToken>` 返回当前用户 |
 | GET  | `/api/uploads/:name` | 读取**历史**买家秀（`STORAGE_DRIVER=local` 时的落盘位置；文件名 UUID + 白名单扩展名） |
 | GET  | `/api/categories` | 类目列表（带商品数）；加 `?tree=1` 返回两级树与各类目商品数 |
 | GET  | `/api/brands` | 品牌列表（可按 `category` 过滤，带商品数） |
@@ -465,6 +474,43 @@ MEDIA_URL_TTL_SECONDS=900
 
 不想接对象存储就不用配：`STORAGE_DRIVER=local`（默认）继续落 `ai-gateway/data/uploads`，
 代码路径一致，只是渲染地址从「预签名 URL」变成 `/api/uploads/<uuid>.<ext>`。
+
+### 一键拉起（对象存储 + 前后端）
+
+不想分三步起服务时，用 `WITH_STORAGE=1` 让 `dev-local.sh` 顺便把 S3 替身也拉起来：
+
+```bash
+WITH_STORAGE=1 bash scripts/dev-local.sh
+```
+
+脚本会：后台启动 SeaweedFS（`scripts/dev-storage.sh`，端口就绪才继续）→ 自动注入
+`STORAGE_DRIVER=s3` 与 7 个 `S3_*` 环境变量 → 再启动网关与静态前端；退出时统一回收
+（网关、静态服务、S3 替身一起停）。不加 `WITH_STORAGE` 时保持原来的 local 驱动。
+
+### 删除评价与对象回收
+
+删除评价不只删库，还要把该评价（含追评）的图片对象一并回收，否则桶里会越积越多：
+
+```http
+DELETE /api/reviews/:id?userId=<本人>
+```
+
+- 归属校验：只有 `source=user` 且 `user_id` 匹配才能删，种子数据与别人的评价返回 403/404
+- 级联：主评价删除时，DB 层 `ON DELETE CASCADE` 自动清掉追评与「有用」投票
+- 统计回滚：删除后重算该商品评分/评价数/好评率（`syncProductStats`），不会留下脏计数
+- 对象回收：收集主评价 + 所有追评的图片键，逐键 `DeleteObject`/删本地文件；
+  单张失败不影响评价删除本身（best-effort），返回 `imagesRemoved` 反映实际回收数
+
+### 孤儿对象清理
+
+上传成功但最终没发布、或删除后残留的图片，会由后台定时任务清掉：
+
+- **启动时**跑一次；之后每 `STORAGE_SWEEP_INTERVAL_SEC`（默认 1800s，0 关闭）跑一次
+- 做法：读出 `reviews.images` 里所有被引用的对象键 → 与存储中 `reviews/` 前缀下的实际对象比对
+  - `s3` 驱动：`ListObjectsV2`（同样走 SigV4 签名）列举后比对
+  - `local` 驱动：`readdir(data/uploads)` 按 basename 比对
+- 只删「没有出现在任何评价里」的对象；清理结果写结构化日志 `storage.sweep_done`，失败只告警不阻断
+- 多实例部署时各实例都会扫，删除操作幂等（对象不存在不报错），可安全并发
 
 ### 生产接真 S3 / OSS / R2
 

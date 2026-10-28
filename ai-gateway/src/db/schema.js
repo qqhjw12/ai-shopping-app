@@ -271,6 +271,30 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_rv_review ON review_votes(review_id);
     `,
   },
+  {
+    version: 7,
+    name: 'auth-refresh-tokens',
+    sql: `
+      -- 刷新令牌服务端存储：库里只存 token 的 sha256 哈希，明文只在签发时返回给客户端一次。
+      -- 轮换：每次刷新都作废旧记录并签发新记录（family 相同）；检测到已作废令牌被重放时整族撤销。
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id          TEXT PRIMARY KEY,                 -- 令牌记录 ID（UUID）
+        user_id     TEXT NOT NULL,
+        token_hash  TEXT NOT NULL,                    -- sha256(明文令牌) 的十六进制
+        family_id   TEXT NOT NULL,                    -- 轮换家族，重放时整族撤销
+        issued_at   TEXT NOT NULL DEFAULT (datetime('now')),
+        expires_at  TEXT NOT NULL,                    -- UTC 'YYYY-MM-DD HH:MM:SS'
+        revoked_at  TEXT,                             -- 非空表示已作废（轮换/登出/重放）
+        replaced_by TEXT,                             -- 轮换后的新记录 ID，便于审计链路
+        user_agent  TEXT NOT NULL DEFAULT '',
+        ip          TEXT NOT NULL DEFAULT ''
+      );
+      CREATE INDEX IF NOT EXISTS idx_rt_hash ON refresh_tokens(token_hash);
+      CREATE INDEX IF NOT EXISTS idx_rt_user ON refresh_tokens(user_id);
+      CREATE INDEX IF NOT EXISTS idx_rt_family ON refresh_tokens(family_id);
+      CREATE INDEX IF NOT EXISTS idx_rt_exp ON refresh_tokens(expires_at);
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */
