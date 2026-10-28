@@ -1443,6 +1443,7 @@ textarea { resize: vertical; }
   html { scroll-behavior: auto; }
   .pcard.is-revealing { opacity: 1; transform: none; animation: none; }
   .drawer { animation: none !important; }
+  .cart-undo { animation: none !important; }
 }
 
 /* ============================ 编辑式空状态 ============================ */
@@ -2159,6 +2160,11 @@ textarea { resize: vertical; }
 .cart-sum-total .cart-sum-val { color: var(--gold-deep); font-family: var(--serif); font-size: 24px; font-weight: 700; }
 .cart-ship-hint { margin-top: 5px; color: var(--gold-deep); font-size: 10px; letter-spacing: 0.02em; }
 
+/* 撤销条出现时轻微下落淡入：删掉一行后凭空冒出一条会让人愣一下，给 220ms 动效交代来源 */
+@keyframes cart-undo-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .cart-undo {
   display: flex;
   align-items: center;
@@ -2170,6 +2176,7 @@ textarea { resize: vertical; }
   border-radius: var(--r-btn);
   background: var(--surface);
   box-shadow: var(--shadow-card);
+  animation: cart-undo-in 0.22s var(--ease) both;
 }
 .cart-undo[hidden] { display: none; }
 .cart-undo-text { color: var(--body); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2227,6 +2234,18 @@ textarea { resize: vertical; }
   color: var(--body);
   font-size: 13px;
   line-height: 1;
+}
+
+/* 抽屉里的步进没有 .co-qty 包裹，尺寸单点定义在这里（优先级需高于 .qty button 的 25px） */
+.qty .cart-step { width: 26px; height: 26px; font-size: 13px; }
+
+@media (max-width: 640px) {
+  /* 移动端把步进抬到 40px 触控尺寸：桌面鼠标 24–26px 够用，手指点不准 */
+  .qty .cart-step,
+  .co-qty .cart-step { width: 40px; height: 40px; font-size: 17px; }
+  .cart-qty-num,
+  .co-qty .cart-qty-num { min-width: 20px; font-size: 13px; }
+  .co-qty { gap: 9px; }
 }
 .co-qty .cart-step:hover:not(:disabled) { border-color: var(--ink); background: var(--ink); color: var(--canvas); }
 .co-qty .cart-step:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -3730,8 +3749,14 @@ textarea { resize: vertical; }
 }
 .pdp-thumb-remove:hover { background: rgba(26, 26, 26, 0.82); }
 
-/* ---------- 评价里的买家秀九宫格：统一 1:1 裁切，圆角 --r-btn ---------- */
-.pdp-review-images { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+/* ---------- 评价里的买家秀九宫格：3 列 1:1 裁切，圆角 --r-btn ---------- */
+.pdp-review-images {
+  display: grid;
+  grid-template-columns: repeat(3, 68px);
+  gap: 6px;
+  justify-content: start;
+  margin-top: 9px;
+}
 .pdp-review-thumb {
   width: 68px;
   height: 68px;

@@ -32,9 +32,9 @@ export function applyCors(req, res) {
   }
   if (allow) {
     res.setHeader('Access-Control-Allow-Origin', allow);
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    // PATCH / DELETE 是购物车改量、删条目、删地址在用的方法，漏掉会被预检直接拦死
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
-    // 仅对具体来源开启凭据（'*' 不能配合 credentials）
     if (allow !== '*') {
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }

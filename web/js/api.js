@@ -5,6 +5,21 @@ const API_BASE = new URLSearchParams(location.search).get('api') || location.ori
 
 export const apiBase = API_BASE;
 
+/**
+ * 把网关返回的相对媒体路径解析成可加载的绝对地址。
+ * 网关上传接口返回 `/api/uploads/xxx.png`，跨端口直连（`?api=http://localhost:8080`）时
+ * 相对路径会被浏览器解析到前端端口上，结果整张图 404。
+ * @param {string} src
+ * @returns {string}
+ */
+export function mediaUrl(src) {
+  if (!src) return '';
+  if (/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(src)) return src; // http(s):、//cdn
+  if (src.startsWith('data:') || src.startsWith('blob:')) return src;
+  const base = API_BASE.replace(/\/+$/, '');
+  return src.startsWith('/') ? `${base}${src}` : `${base}/${src}`;
+}
+
 export class ApiError extends Error {
   /** @param {string} message @param {'client'|'server'|'network'|'offline'} kind @param {number} [status] */
   constructor(message, kind, status) {
@@ -19,12 +34,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * @param {string} path  相对路径，如 /api/products
- * @param {{body?: any, retries?: number}} [opts]
+ * @param {{method?: string, body?: any, retries?: number}} [opts]
  */
 export async function api(path, opts = {}) {
   if (!navigator.onLine) throw new ApiError('当前网络不可用，请检查连接后重试', 'offline');
   const retries = opts.retries ?? 3;
-  const method = opts.body ? 'POST' : 'GET';
+  // 必须尊重调用方显式传入的 method：PATCH 改数量、DELETE 删地址都没有 body，
+  // 早期只按「有没有 body」推断，结果 PATCH 被降级成 POST、DELETE 被降级成 GET，
+  // 表现为改数量报 400、删地址看起来成功但服务端根本没删。
+  const method = String(opts.method || (opts.body ? 'POST' : 'GET')).toUpperCase();
   const headers = { 'Content-Type': 'application/json' };
   let attempt = 0;
   while (true) {

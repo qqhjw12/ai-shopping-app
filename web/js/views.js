@@ -1,5 +1,5 @@
 // 商店前台视图：首页 / 商品列表 / 智能搜索 / 商品详情 / 购物车抽屉。
-import { api, ApiError } from './api.js';
+import { api, ApiError, mediaUrl } from './api.js';
 import {
   el, fmtPrice, discountText, starText, fmtSales,
   loading, banner, productCard, productThumb, openModal, openDrawer, closeDrawer, toast, updateCartBadge, isRealPic,
@@ -1930,12 +1930,16 @@ function openImageViewer(src) {
 /** 买家秀九宫格：统一 1:1 裁切（object-fit: cover），点击可看大图 */
 function reviewImages(images = []) {
   if (!Array.isArray(images) || !images.length) return null;
-  return el('div', { class: 'pdp-review-images' }, images.map((src) => el('button', {
-    type: 'button',
-    class: 'pdp-review-thumb',
-    'aria-label': '查看买家秀大图',
-    onclick: () => openImageViewer(src),
-  }, [el('img', { src, alt: '买家秀', loading: 'lazy' })])));
+  // 网关存的是相对路径（/api/uploads/…），跨端口时必须补上 API_BASE，否则图片全 404
+  return el('div', { class: 'pdp-review-images' }, images.map((raw) => {
+    const src = mediaUrl(raw);
+    return el('button', {
+      type: 'button',
+      class: 'pdp-review-thumb',
+      'aria-label': '查看买家秀大图',
+      onclick: () => openImageViewer(src),
+    }, [el('img', { src, alt: '买家秀', loading: 'lazy' })]);
+  }));
 }
 
 /** 追评块：比主评价轻一档，用左侧细线表达「挂在下面」的层级关系 */
