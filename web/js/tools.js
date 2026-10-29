@@ -106,7 +106,7 @@ export function renderTools(view) {
     el('div', { class: 'page-intro-copy' }, [
       el('span', { class: 'eyebrow' }, 'THE INTELLIGENCE DESK'),
       el('h1', { class: 'page-display' }, 'AI 工坊'),
-      el('p', {}, '把重复交给算法，把判断留给你。文案、客服与售后，皆可在一处完成。'),
+      el('p', {}, '工具台：生成商品文案、处理订单售后。想看来源与行为的分析报表，请前往「选购洞察」。'),
     ]),
     el('div', { class: 'page-intro-aside' }, [
       el('span', { class: 'intro-count' }, 'TWO SERVICES'),

@@ -1987,5 +1987,118 @@ if (failed === 0) {
   }
 }
 
+/* ---------------- 收藏 / 最近浏览断言（按用户隔离 / 刷新不丢 / 卡片收藏按钮） ---------------- */
+// 收藏是本地优先的数据层（store/favoriteStore.js）：
+//   1) 换账号必须看不到别人的收藏——这是「按用户隔离」的底线；
+//   2) 数据必须落在 localStorage（刷新不丢的机制保证），且带商品快照；
+//   3) 商品卡的收藏按钮要真实可点，状态与 store 双向联动；
+//   4) 最近浏览要同款去重、最新的在前、可清空。
+if (failed === 0) {
+  console.log('\n收藏与最近浏览断言（隔离 / 持久化 / 卡片按钮 / 去重置顶）');
+  try {
+    const dir = (f) => pathToFileURL(join(WEB_DIR, f)).href;
+    const fav = await import(dir('store/favoriteStore.js'));
+    const recent = await import(dir('store/recentStore.js'));
+    const userMod = await import(dir('user.js'));
+    const { productCard } = await import(dir('ui.js'));
+
+    localStorage.clear();
+
+    /* 1) 按用户隔离 */
+    userMod.setCurrentUser({ id: 'u_a', nickname: '甲' });
+    fav.addFavorite({ id: 'p001', name: '甲的椅子', price: 100, categoryId: 'c1' });
+    fav.addFavorite({ id: 'p002', name: '甲的灯', price: 200, categoryId: 'c1' });
+    const aCount = fav.favoriteCount();
+    userMod.setCurrentUser({ id: 'u_b', nickname: '乙' });
+    const bCount = fav.favoriteCount();
+    userMod.setCurrentUser({ id: 'u_a', nickname: '甲' });
+    const aAgain = fav.favoriteCount();
+
+    /* 2) 持久化 + 快照字段（收藏页离线渲染靠它） */
+    const persisted = JSON.parse(localStorage.getItem('maison_favorites_v2') || '{}');
+    const bucketKey = Object.keys(persisted).find((k) => k === 'u:u_a');
+    const bucket = (persisted[bucketKey] || []).filter((i) => String(i.id) !== 'p009');
+    const persistOk = Boolean(bucketKey)
+      && bucket.length === 2
+      && bucket.every((i) => i.name && i.price != null && i.addedAt);
+
+    /* 3) 商品卡收藏按钮：渲染即带状态，点击联动 store */
+    const card = productCard({ id: 'p009', name: '卡片收藏测试', price: 9, categoryId: 'c2' }, {});
+    const favBtn = card.querySelectorAll('.card-fav')[0];
+    const btnRendered = Boolean(favBtn) && favBtn.getAttribute('aria-pressed') === 'false';
+    if (favBtn && favBtn.listeners && favBtn.listeners.click) {
+      favBtn.listeners.click({ stopPropagation() {} });
+    }
+    const btnToggled = favBtn && favBtn.getAttribute('aria-pressed') === 'true' && fav.isFavorite('p009');
+    fav.removeFavorite('p009'); // 还原，避免影响后续断言
+
+    /* 4) 取消收藏 */
+    const toggleOff = fav.toggleFavorite({ id: 'p001', name: '甲的椅子' }) === false
+      && fav.favoriteCount() === 1;
+    fav.toggleFavorite({ id: 'p001', name: '甲的椅子' }); // 再收回来
+
+    /* 5) 最近浏览：同款去重、最新在前、可清空 */
+    recent.recordVisit({ id: 'p001', name: '最近一', price: 1, categoryId: 'c1' });
+    recent.recordVisit({ id: 'p002', name: '最近二', price: 2, categoryId: 'c1' });
+    recent.recordVisit({ id: 'p001', name: '最近一', price: 1, categoryId: 'c1' });
+    const rail = recent.listRecent(8);
+    const railOk = rail.length === 2 && String(rail[0].id) === 'p001' && String(rail[1].id) === 'p002';
+    recent.clearRecent();
+    const clearOk = recent.listRecent(8).length === 0;
+
+    const cases = [
+      ['换账号看不到别人的收藏', aCount === 2 && bCount === 0 && aAgain === 2],
+      ['收藏落 localStorage 且带商品快照', persistOk],
+      ['商品卡自带收藏按钮（初始未选中）', Boolean(btnRendered)],
+      ['点击收藏按钮与 store 联动', Boolean(btnToggled)],
+      ['再次点击即取消收藏', toggleOff],
+      ['最近浏览同款去重、最新在前', railOk],
+      ['最近浏览可清空', clearOk],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 收藏/最近浏览${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 收藏与最近浏览断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
+/* ---------------- AI 导购抽屉 / 图片搜索断言（演示标识 + 复用商品卡） ---------------- */
+// 这两个入口的核心承诺是「没有网关也能用 + 不冒充真实 AI」：
+//   1) 推荐卡必须是 ui.js 的 productCard（复用现有商品卡，不新造样式）；
+//   2) 抽屉与弹窗都要有「演示数据」文案；
+//   3) 顶栏要有两个入口按钮。
+if (failed === 0) {
+  console.log('\nAI 导购 / 图片搜索断言（演示标识 / 复用商品卡 / 顶栏入口）');
+  try {
+    const { readFileSync } = await import('node:fs');
+    const dir = (f) => join(WEB_DIR, f);
+    const rootFile = (f) => join(WEB_DIR, '..', f);
+    const shopSrc = readFileSync(dir('aiShop.js'), 'utf8');
+    const appSrc = readFileSync(dir('app.js'), 'utf8');
+    const htmlSrc = readFileSync(rootFile('index.html'), 'utf8');
+    const uiSrc = readFileSync(dir('ui.js'), 'utf8');
+    const cssSrc = readFileSync(rootFile('styles.css'), 'utf8');
+
+    const cases = [
+      ['抽屉常驻「演示数据」提示', shopSrc.includes("el('b', {}, '演示数据')") && shopSrc.includes('未接入真实模型')],
+      ['图片搜索标注不上传不识别', shopSrc.includes('不做真实图像识别') && shopSrc.includes('不会上传')],
+      ['模拟结果带「演示结果」说明', shopSrc.includes("'演示结果'")],
+      ['推荐卡复用 productCard', /productCard\(p,\s*\{/.test(shopSrc) && shopSrc.includes("from './ui.js'")],
+      ['顶栏 AI 导购入口并带词进抽屉', appSrc.includes("getElementById('ai-guide-btn')") && appSrc.includes('askGuide(')],
+      ['顶栏图片搜索入口', appSrc.includes("getElementById('img-search-btn')") && appSrc.includes('openImageSearch')],
+      ['index.html 有收藏入口与角标', htmlSrc.includes('id="fav-btn"') && htmlSrc.includes('id="fav-count"')],
+      ['商品卡收藏按钮金色选中态（is-active）', uiSrc.includes("class: 'card-fav'") && cssSrc.includes('.card-fav.is-active')],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} AI 导购/图片搜索${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL AI 导购断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

@@ -1,6 +1,7 @@
 // 通用 UI 助手：DOM 构建、价格格式化、加载/错误态、商品卡片、弹窗、抽屉、toast。
 import { cartCount } from './state.js';
 import { productArt } from './art.js';
+import { isFavorite, toggleFavorite } from './store/favoriteStore.js';
 
 /** 轻量 DOM 构建器 */
 export function el(tag, props = {}, children = []) {
@@ -108,12 +109,48 @@ function productMeta(p) {
   return [p.brand || p.category, p.brand && p.category].filter(Boolean).join(' · ');
 }
 
+/** 心形图标（收藏按钮复用：商品卡 / 详情页 / 抽屉） */
+export function heartIcon(className = '') {
+  const wrap = el('span', { class: `heart-icon ${className}`.trim(), 'aria-hidden': 'true' });
+  wrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 20.2 4.6 13a4.8 4.8 0 0 1 6.8-6.8l.6.6.6-.6A4.8 4.8 0 0 1 19.4 13L12 20.2Z"/></svg>';
+  return wrap;
+}
+
+/**
+ * 商品卡上的收藏按钮。
+ * 细线描边 + 未选中透明，选中态只上金色描边与金色心形——不抢商品图的视觉。
+ * 状态直接读 favoriteStore，组件自己不持有状态，避免卡片复用时状态打架。
+ */
+function cardFavorite(p, onFavorite) {
+  const btn = el('button', {
+    type: 'button',
+    class: 'card-fav',
+    title: '收藏',
+    'aria-label': `收藏 ${p.name || '该商品'}`,
+  }, [heartIcon('card-heart')]);
+  const sync = (active) => {
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', String(active));
+    btn.setAttribute('aria-label', `${active ? '取消收藏' : '收藏'} ${p.name || '该商品'}`);
+    btn.title = active ? '取消收藏' : '收藏';
+  };
+  sync(isFavorite(p.id));
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation(); // 别把点击冒泡给缩略图（会跳详情）
+    const active = toggleFavorite(p);
+    sync(active);
+    toast(active ? '已加入收藏' : '已取消收藏', active ? 'ok' : 'warn');
+    if (typeof onFavorite === 'function') onFavorite(active, p);
+  });
+  return btn;
+}
+
 /**
  * 复用型商品卡片
  * @param {object} p 商品
- * @param {{onDetail?:Function, onAddCart?:Function, extra?:Function, className?:string, aiPick?:boolean}} handlers
+ * @param {{onDetail?:Function, onAddCart?:Function, onFavorite?:Function, extra?:Function, className?:string, aiPick?:boolean}} handlers
  */
-export function productCard(p, { onDetail, onAddCart, extra, className = '', aiPick = false } = {}) {
+export function productCard(p, { onDetail, onAddCart, onFavorite, extra, className = '', aiPick = false } = {}) {
   const off = discountText(p);
   const hasRating = Number(p.rating) > 0;
   return el('article', { class: `pcard ${className}`.trim() }, [
@@ -125,6 +162,7 @@ export function productCard(p, { onDetail, onAddCart, extra, className = '', aiP
         off ? el('span', { class: 'badge-off' }, off) : null,
         Number(p.totalStock) === 0 ? el('span', { class: 'badge-out' }, '暂时缺货') : null,
       ]),
+      cardFavorite(p, onFavorite),
       el('button', {
         type: 'button',
         class: 'thumb-add',

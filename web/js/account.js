@@ -3,9 +3,11 @@ import { api } from './api.js';
 import { el, fmtPrice, loading, banner, toast, updateCartBadge, productCard, productThumb } from './ui.js';
 import { getUserId, addToCart } from './state.js';
 import { navigate } from './router.js';
-import { openProductDetail } from './views.js';
+import { openProductDetail, getProductById } from './views.js';
+import { askGuide } from './aiShop.js';
 import { trackEvent } from './track.js';
 import { isDemoMode } from './demo.js';
+import { listFavorites, addFavorite, isFavorite } from './store/favoriteStore.js';
 import {
   listOrders, mergeOrders, normalizeRemote, statusText, updateOrderStatus,
 } from './store/orderStore.js';
@@ -123,12 +125,48 @@ function orderCard(o, view) {
 
 /* ---------------- 收藏夹 ---------------- */
 
+/**
+ * 把服务端收藏并回本地。
+ * 本地是真相源（离线 / 演示站都能用），服务端只用来「换设备时补课」：
+ * 只补本地没有的，绝不删除本地已有的——否则弱网下一次空响应就能清空收藏夹。
+ */
+async function mergeServerFavorites() {
+  let ids = [];
+  try {
+    const d = await api(`/api/favorites?userId=${encodeURIComponent(getUserId())}`, { retries: 0 });
+    if (Array.isArray(d.ids)) ids = d.ids;
+    else if (Array.isArray(d.favorites)) ids = d.favorites.map((f) => f.id || f.productId);
+  } catch {
+    return; // 演示模式 / 离线：本地收藏已经够用
+  }
+  for (const id of ids) {
+    if (!id || isFavorite(id)) continue;
+    const p = await getProductById(id).catch(() => null);
+    if (p) addFavorite(p, { silent: true });
+  }
+}
+
+/** 老收藏只存了 id：渲染前补一次商品信息，补不到的丢弃（商品已下架） */
+async function resolveFavorites() {
+  const out = [];
+  for (const item of listFavorites()) {
+    if (item.name) {
+      out.push(item);
+      continue;
+    }
+    const p = await getProductById(item.id).catch(() => null);
+    if (p) out.push({ ...p, addedAt: item.addedAt });
+  }
+  return out;
+}
+
 export async function renderFavorites(view) {
   view.innerHTML = '';
   view.appendChild(el('header', { class: 'page-intro compact-intro' }, [
     el('div', { class: 'page-intro-copy' }, [
       el('span', { class: 'eyebrow' }, 'YOUR ARCHIVE'),
       el('h1', { class: 'page-display' }, '我的收藏'),
+      el('p', {}, '心动先存下，不必当下决定。取消收藏随时可以，数据按账号隔离保存在本机。'),
     ]),
   ]));
   view.appendChild(accountTabs('fav'));
@@ -136,62 +174,56 @@ export async function renderFavorites(view) {
   view.appendChild(wrap);
   loading(wrap, '加载收藏中…');
 
-  const userId = getUserId();
-  let favorites = null;
-  try {
-    const d = await api(`/api/favorites?userId=${encodeURIComponent(userId)}`, { retries: 0 });
-    favorites = d.favorites || [];
-  } catch {
-    favorites = null;
-  }
+  await mergeServerFavorites();
+  const items = await resolveFavorites();
+
+  const emptyState = () => el('div', { class: 'empty-page' }, [
+    el('div', { class: 'empty-mark' }, 'M'),
+    el('p', { class: 'empty-title-sm' }, '收藏夹是空的'),
+    el('p', { class: 'sub' }, '在商品卡或详情页点一下心形按钮，心动好物会出现在这里'),
+    el('div', { class: 'empty-actions' }, [
+      el('button', { onclick: () => navigate('#/products') }, '去逛逛'),
+      el('button', { class: 'ghost', onclick: () => askGuide('') }, '让 AI 帮我挑'),
+    ]),
+  ]);
 
   wrap.innerHTML = '';
-  if (!favorites) {
-    wrap.appendChild(
-      el('div', { class: 'empty-page' }, [
-        el('div', { class: 'empty-mark' }, 'M'),
-        el('p', { class: 'empty-title-sm' }, isDemoMode() ? '演示模式暂无收藏数据' : '收藏加载失败'),
-        el('p', { class: 'sub' }, '连接网关后，收藏会保存在服务端'),
-        el('button', { onclick: () => navigate('#/products') }, '去逛逛商品'),
-      ]),
-    );
+  if (!items.length) {
+    wrap.appendChild(emptyState());
     return;
   }
-  if (!favorites.length) {
-    wrap.appendChild(
-      el('div', { class: 'empty-page' }, [
-        el('div', { class: 'empty-mark' }, 'M'),
-        el('p', { class: 'empty-title-sm' }, '收藏夹是空的'),
-        el('p', { class: 'sub' }, '在商品详情页点「收藏」，心仪好物会存在这里'),
-        el('button', { onclick: () => navigate('#/products') }, '去逛逛'),
-      ]),
-    );
-    return;
-  }
+
+  const countWord = el('span', { class: 'fav-count-word' }, `共 ${items.length} 件心意之物`);
+  wrap.appendChild(el('div', { class: 'fav-toolbar' }, [
+    countWord,
+    el('span', { class: 'fav-tip' }, '点心形图标即可取消收藏'),
+  ]));
 
   const grid = el('div', { class: 'grid' });
   wrap.appendChild(grid);
-  favorites.forEach((p) => {
-    grid.appendChild(productCard(p, {
-      onDetail: (p) => openProductDetail(p, 'fav'),
-      onAddCart: (p) => {
-        trackEvent({ event: 'add_to_cart', source: 'fav', productId: p.id });
-        addToCart(p, 1);
+
+  items.forEach((p) => {
+    let card = null;
+    card = productCard(p, {
+      onDetail: (prod) => openProductDetail(prod, 'fav'),
+      onAddCart: (prod) => {
+        trackEvent({ event: 'add_to_cart', source: 'fav', productId: prod.id });
+        addToCart(prod, 1);
         updateCartBadge();
-        toast(`已加入购物车：${p.name}`, 'ok');
+        toast(`已加入购物袋：${prod.name}`, 'ok');
       },
-      extra: (p) => el('button', {
-        class: 'ghost unfav',
-        onclick: async () => {
-          try {
-            await api(`/api/favorites?userId=${encodeURIComponent(userId)}&productId=${encodeURIComponent(p.productId)}`,
-              { method: 'DELETE', retries: 0 });
-            renderFavorites(view);
-          } catch {
-            toast('取消收藏失败', 'warn');
-          }
-        },
-      }, '取消收藏'),
-    }));
+      onFavorite: (active) => {
+        if (active) return;
+        card.remove();
+        const left = grid.querySelectorAll('.pcard').length;
+        if (!left) {
+          wrap.innerHTML = '';
+          wrap.appendChild(emptyState());
+        } else {
+          countWord.textContent = `共 ${left} 件心意之物`;
+        }
+      },
+    });
+    grid.appendChild(card);
   });
 }

@@ -14,6 +14,8 @@ import { renderTools } from './tools.js';
 import { renderAnalytics } from './analytics.js';
 import { renderAdminAftersales } from './adminAftersales.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
+import { askGuide, openImageSearch } from './aiShop.js';
+import { favoriteCount, onFavoritesChange } from './store/favoriteStore.js';
 import { createRouter, navigate, parseHash } from './router.js';
 import { getUserId, loadCart, onCartChange } from './state.js';
 import { ensureSession } from './auth.js';
@@ -59,6 +61,27 @@ function syncSearchInput(query) {
 }
 
 document.getElementById('cart-btn').addEventListener('click', () => renderCartDrawer());
+
+/* ---------------- 顶栏：图片搜索 / AI 导购 ---------------- */
+// 搜索栏旁的两个入口：相机 → 图片搜索（演示占位），星标 → AI 导购抽屉。
+// 已输入关键词时把词带进抽屉，省一次重复输入。
+document.getElementById('img-search-btn').addEventListener('click', () => openImageSearch());
+document.getElementById('ai-guide-btn').addEventListener('click', () => {
+  const input = document.getElementById('search-input');
+  askGuide(input ? input.value.trim() : '');
+});
+
+/* ---------------- 顶栏收藏入口 ---------------- */
+// 角标跟随收藏条数：0 时隐藏，避免空着挂一个 0 显得像坏数据。
+function paintFavBadge() {
+  const badge = document.getElementById('fav-count');
+  if (!badge) return;
+  const n = favoriteCount();
+  badge.textContent = String(n);
+  badge.classList.toggle('is-empty', n === 0);
+}
+paintFavBadge();
+onFavoritesChange(paintFavBadge);
 
 /* ---------------- 顶栏账户入口 ---------------- */
 // 未登录显示「登录」，登录后显示头像字 + 昵称首字；登录态变化时自动重绘。

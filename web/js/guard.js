@@ -6,7 +6,11 @@
 /** 受保护路径（前缀匹配，含子路由如 /account/order/xxx） */
 // 说明：/order-success 也在列——订单成功页要按当前账户取订单，
 // 未登录进去只会看到「没有找到这笔订单」，体验上不如直接去登录。
-const PROTECTED = ['/account', '/checkout', '/orders', '/favorites', '/order-success'];
+//
+// /favorites 刻意不在列：收藏是「本地优先」的数据（store/favoriteStore.js 按作用域分桶），
+// 匿名访客也能收藏、也能看自己的收藏夹。把登录墙挡在这里，只会让顶栏的心形入口
+// 每次都把没登录的人弹去登录页，而他要看的东西本来就在本机。
+const PROTECTED = ['/account', '/checkout', '/orders', '/order-success'];
 
 export function isProtectedPath(path) {
   const p = String(path || '/').split('?')[0];

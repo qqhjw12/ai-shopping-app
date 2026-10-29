@@ -83,11 +83,13 @@ export async function renderAnalytics(view) {
   view.appendChild(el('header', { class: 'page-intro' }, [
     el('div', { class: 'page-intro-copy' }, [
       el('span', { class: 'eyebrow' }, 'THE OBSERVATORY'),
-      el('h1', { class: 'page-display' }, '来源与行为洞察'),
-      el('p', {}, '每一次浏览与选择，都在构成更准确的品味画像。'),
+      // 与「AI 工坊」区分：这里是只读的分析报告，不是生成工具。
+      // 标题与说明都点明「分析报告」，避免用户把它当成 AI 工具页。
+      el('h1', { class: 'page-display' }, '选购洞察'),
+      el('p', {}, '一份只读的分析报告：谁在看、从哪来、看了什么。想用 AI 生成文案或处理售后，请前往 AI 工坊。'),
     ]),
     el('div', { class: 'page-intro-aside' }, [
-      el('span', { class: 'intro-count' }, 'LIVE SIGNALS'),
+      el('span', { class: 'intro-count' }, 'SELECTION INSIGHTS · REPORT'),
       el('span', { class: 'intro-line', 'aria-hidden': 'true' }),
     ]),
   ]));

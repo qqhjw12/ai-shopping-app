@@ -26,7 +26,7 @@
         <a href="#/" data-nav="home">首页</a>
         <a href="#/categories" data-nav="categories">分类</a>
         <a href="#/products" data-nav="products">甄选</a>
-        <a href="#/analytics" data-nav="analytics">洞察</a>
+        <a href="#/analytics" data-nav="analytics">选购洞察</a>
         <a href="#/tools" data-nav="tools">AI 工坊</a>
         <a href="#/account" data-nav="account">我的</a>
       </nav>
@@ -44,12 +44,41 @@
             aria-label="搜索商品"
             autocomplete="off"
           />
+          <button
+            type="button"
+            id="img-search-btn"
+            class="search-tool"
+            title="图片搜索（演示）"
+            aria-label="图片搜索（演示功能）"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.3l.9-1.4h4.6L14.2 6h1.3A2.5 2.5 0 0 1 18 8.5v7A2.5 2.5 0 0 1 15.5 18h-9A2.5 2.5 0 0 1 4 15.5v-7Z"></path>
+              <circle cx="11" cy="12" r="3.1"></circle>
+            </svg>
+          </button>
+          <button
+            type="button"
+            id="ai-guide-btn"
+            class="search-tool search-tool--ai"
+            title="AI 导购"
+            aria-label="打开 AI 导购"
+          >
+            <span aria-hidden="true">✦</span>
+          </button>
           <button class="search-submit" type="submit" aria-label="开始搜索">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M5 12h14M14 7l5 5-5 5"></path>
             </svg>
           </button>
         </form>
+
+        <a id="fav-btn" class="fav-btn" href="#/favorites" aria-label="我的收藏" title="我的收藏">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 19.6 5.3 13a4.4 4.4 0 0 1 6.2-6.2l.5.5.5-.5A4.4 4.4 0 0 1 18.7 13L12 19.6Z"></path>
+          </svg>
+          <span class="fav-word">收藏</span>
+          <span id="fav-count" class="fav-count is-empty">0</span>
+        </a>
 
         <div id="account-slot" class="account-slot"></div>
 

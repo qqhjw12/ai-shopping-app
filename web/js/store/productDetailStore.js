@@ -6,9 +6,9 @@ import { productArtSvg } from '../art.js';
 import { api } from '../api.js';
 import { PRODUCT_DETAIL_MOCKS } from '../mock/productDetails.js';
 import { getMockReviews } from '../mock/productReviews.js';
+import * as favoriteStore from './favoriteStore.js';
 
 const DETAIL_CACHE_KEY = 'maison_pdp_cache_v2';
-const FAVORITES_KEY = 'maison_pdp_favorites_v1';
 const MAX_CACHED_DETAILS = 8;
 const IMAGE_LABELS = ['正面', '细节', '质感'];
 const IMAGE_FOCUS = ['50% 50%', '46% 34%', '56% 74%'];
@@ -187,24 +187,21 @@ export function cacheProductDetail(detail) {
   writeJSON(DETAIL_CACHE_KEY, Object.fromEntries(entries));
 }
 
+// 收藏的真相源已上移到 store/favoriteStore.js（按用户隔离 + 存商品快照，
+// 收藏页才能离线渲染卡片）。这里保留同名入口，避免详情页/旧调用点改动：
+// 旧键 maison_pdp_favorites_v1 会在 favoriteStore 首次加载时自动迁移过来。
 export function isFavoriteProduct(id) {
-  const favorites = readJSON(FAVORITES_KEY, []);
-  return Array.isArray(favorites) && favorites.includes(String(id));
+  return favoriteStore.isFavorite(id);
 }
 
-/** 收藏即时落入 localStorage，并在 UI 同步；服务端同步由调用方 best-effort 完成。 */
-export function toggleFavoriteProduct(id) {
-  const key = String(id);
-  const current = readJSON(FAVORITES_KEY, []);
-  const favorites = Array.isArray(current) ? current : [];
-  const exists = favorites.includes(key);
-  writeJSON(FAVORITES_KEY, exists ? favorites.filter((item) => item !== key) : [...favorites, key]);
-  return !exists;
+/** 切换收藏；传入完整商品对象时会存下快照（收藏页据此离线渲染）。 */
+export function toggleFavoriteProduct(id, product) {
+  const target = product && product.id != null ? product : { id };
+  return favoriteStore.toggleFavorite(target);
 }
 
 export function getFavoriteProductIds() {
-  const favorites = readJSON(FAVORITES_KEY, []);
-  return Array.isArray(favorites) ? favorites : [];
+  return favoriteStore.favoriteIds();
 }
 
 /* ---------------- 评价交互：有用投票 & 写评价 ---------------- */

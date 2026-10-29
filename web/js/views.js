@@ -6,7 +6,11 @@ import {
   revealCards, emptyEditorial,
 } from './ui.js';
 import { addToCart, setQty, removeFromCart, clearCart, getUserId, getCart, restoreCartItem } from './state.js';
-import { askGuide, askProductQA } from './assistant.js';
+import { askProductQA } from './assistant.js';
+// AI 导购（抽屉）统一从这里进入：它不依赖网关也能给出推荐，
+// 首页 hero、空态、AI 工坊条带、详情页入口都走同一个口子，避免两套导购体验。
+import { askGuide } from './aiShop.js';
+import { recordVisit, listRecent, clearRecent } from './store/recentStore.js';
 import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
 import { setDemoMode, isDemoMode } from './demo.js';
@@ -257,6 +261,10 @@ export async function renderHome(view) {
   ]);
   view.appendChild(hero);
 
+  /* ---- 最近浏览（横向轨道，仅在有记录时出现） ---- */
+  const recent = buildRecentSection();
+  if (recent) view.appendChild(recent);
+
   /* ---- AI 工坊条带 ---- */
   const aiStrip = el('section', { class: 'ai-strip' }, [
     el('div', { class: 'ai-strip-copy' }, [
@@ -401,8 +409,47 @@ export async function renderHome(view) {
   renderBento('all');
 }
 
-function fillHeroProduct(imageSlot, productLink, p) {
-  if (!p) return;
+/**
+ * 最近浏览轨道。
+ * 数据来自 store/recentStore.js 的商品快照，不请求接口 —— 首屏不为这 8 张卡多等一轮。
+ * 记录只发生在详情页，所以这里不处理「没有记录」以外的边界。
+ */
+function buildRecentSection() {
+  const items = listRecent(8);
+  if (!items.length) return null;
+
+  const section = el('section', { class: 'recent-section' }, [
+    el('div', { class: 'section-heading' }, [
+      el('div', {}, [
+        el('span', { class: 'eyebrow' }, 'RECENTLY VIEWED'),
+        el('h2', {}, '最近浏览'),
+      ]),
+      el('button', {
+        type: 'button',
+        class: 'recent-clear',
+        onclick: () => {
+          clearRecent();
+          section.remove();
+          toast('已清空最近浏览', 'ok');
+        },
+      }, '清空'),
+    ]),
+    el('div', { class: 'recent-rail' }, items.map((p) => el('a', {
+      class: 'recent-card',
+      href: `#/product/${encodeURIComponent(p.id)}?from=recent`,
+      title: p.name || '',
+    }, [
+      el('div', { class: 'recent-thumb' }, productThumb(p)),
+      el('div', { class: 'recent-body' }, [
+        el('span', { class: 'recent-name' }, p.name || '—'),
+        el('span', { class: 'recent-price' }, fmtPrice(p.price)),
+      ]),
+    ]))),
+  ]);
+  return section;
+}
+
+function fillHeroProduct(imageSlot, productLink, p) {  if (!p) return;
   imageSlot.classList.remove('is-loading');
   imageSlot.innerHTML = '';
   imageSlot.appendChild(productThumb(p));
@@ -937,6 +984,7 @@ export const SOURCE_META = {
   rec:   { label: '相关推荐',     color: '#787F76' },
   qa:    { label: 'AI 问答推荐',  color: '#867A68' },
   fav:   { label: '收藏夹',       color: '#987D78' },
+  recent:{ label: '最近浏览',     color: '#8A8578' },
   detail:{ label: '商品详情',     color: '#6D7474' },
   analytics: { label: '分析看板', color: '#5F6663' },
 };
@@ -1024,6 +1072,8 @@ export async function renderProductDetail(view, id, from) {
     container.appendChild(el('div', { class: 'cart-empty' }, '未找到该商品，可能已下架或链接有误。'));
     return;
   }
+  // 最近浏览：进详情即记一条（同款去重并置顶），首页轨道据此渲染
+  recordVisit(p);
   ensureDemoBanner(view);
   container.innerHTML = '';
   container.appendChild(buildDetailPage(p, from, related));
@@ -1243,7 +1293,7 @@ function buildDetailPage(p, from, presetRelated = []) {
   }
 
   async function handleFavorite() {
-    favorited = toggleFavoriteProduct(p.id);
+    favorited = toggleFavoriteProduct(p.id, p);
     syncFavorite();
     trackEvent({ event: 'favorite', source: 'detail', productId: p.id });
     toast(favorited ? '已加入收藏' : '已取消收藏', 'ok');
