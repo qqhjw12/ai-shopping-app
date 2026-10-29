@@ -1,11 +1,32 @@
 // 类型化请求封装：4xx 不重试；5xx / 网络异常自动重试最多 3 次；离线优先提示。
-// 默认同源（经 nginx 反代时即网关地址），可用 ?api= 覆盖（本地直连调试用）。
+// 默认同源（经 nginx 反代时即网关地址）；?api= 可覆盖（本地直连调试用）。
+// ?api= 的值会记入 localStorage：查询参数一旦丢失（预览重开、书签、历史记录），
+// 仍能连上上次指定的网关，而不是默默回落到「同源 5500 上没有网关」的演示模式。
+// 要清除记忆回到同源，访问 ?api=none 即可。
 import { getAccessToken, refreshAccessToken, tokenOwner } from './auth.js';
 import { getCurrentUser } from './user.js';
 
-const API_BASE = new URLSearchParams(location.search).get('api') || location.origin;
+const API_BASE_MEMO_KEY = 'maison_api_base_v1';
 
-export const apiBase = API_BASE;
+function resolveApiBase() {
+  const given = new URLSearchParams(location.search).get('api');
+  if (given !== null) {
+    if (/^(?:https?:\/\/[\w.:-]+|none)$/i.test(given.trim()) === false) return location.origin;
+    const trimmed = given.trim();
+    try {
+      if (trimmed.toLowerCase() === 'none') localStorage.removeItem(API_BASE_MEMO_KEY);
+      else localStorage.setItem(API_BASE_MEMO_KEY, trimmed);
+    } catch { /* 隐私模式等 localStorage 不可用：退化为仅本次生效 */ }
+    return trimmed.toLowerCase() === 'none' ? location.origin : trimmed;
+  }
+  try {
+    const memo = localStorage.getItem(API_BASE_MEMO_KEY);
+    if (memo && /^https?:\/\//i.test(memo)) return memo;
+  } catch { /* 同上 */ }
+  return location.origin;
+}
+
+export const apiBase = resolveApiBase();
 
 /**
  * 请求该带的鉴权头。
@@ -32,7 +53,7 @@ export function mediaUrl(src) {
   if (!src) return '';
   if (/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(src)) return src; // http(s):、//cdn
   if (src.startsWith('data:') || src.startsWith('blob:')) return src;
-  const base = API_BASE.replace(/\/+$/, '');
+  const base = apiBase.replace(/\/+$/, '');
   return src.startsWith('/') ? `${base}${src}` : `${base}/${src}`;
 }
 
@@ -113,7 +134,7 @@ export async function api(path, opts = {}) {
       // 写在附加头之后：附加头不允许顶掉 Authorization，否则业务身份会被换掉。
       const auth = authHeader();
       if (auth) Object.assign(headers, auth);
-      const resp = await fetch(`${API_BASE}${path}`, {
+      const resp = await fetch(`${apiBase}${path}`, {
         method,
         headers,
         body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -178,7 +199,7 @@ export async function streamApi(path, body, onEvent, opts = {}) {
     const headers = { 'Content-Type': 'application/json' };
     const auth = authHeader();
     if (auth) Object.assign(headers, auth);
-    const resp = await fetch(`${API_BASE}${path}`, {
+    const resp = await fetch(`${apiBase}${path}`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
