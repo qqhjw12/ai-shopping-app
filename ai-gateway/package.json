@@ -11,7 +11,8 @@
     "db:seed": "node --disable-warning=ExperimentalWarning src/db/seedDb.js",
     "db:reset": "node --disable-warning=ExperimentalWarning src/db/seedDb.js --reset",
     "db:ingest": "node --disable-warning=ExperimentalWarning scripts/ingest-real-data.mjs",
-    "sync:dify": "node scripts/sync-products-to-dify.js"
+    "sync:dify": "node scripts/sync-products-to-dify.js",
+    "db:dummyjson": "node --disable-warning=ExperimentalWarning scripts/import-dummyjson.mjs"
   },
   "engines": {
     "node": ">=20"

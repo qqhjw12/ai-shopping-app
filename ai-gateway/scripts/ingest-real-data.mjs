@@ -561,7 +561,24 @@ function loadFamilyCache(key) {
 }
 
 // ---------- 写入 ----------
+// 外部源（尤其 Open Beauty/Food Facts）偶有编码事故，字段里混入 U+FFFD 替换符。
+// 入库前统一清洗：替换符直接剔除（比保留半截乱码体面），再把连续空白压成一个。
+function sanitizeText(v) {
+  if (typeof v !== 'string') return v;
+  return v.replace(/\uFFFD/g, '').replace(/\s+/g, ' ').trim();
+}
+function sanitizeItem(p) {
+  for (const k of ['name', 'brand', 'description', 'highlight', 'imageUrl']) {
+    if (typeof p[k] === 'string') p[k] = sanitizeText(p[k]);
+  }
+  if (Array.isArray(p.highlights)) p.highlights = p.highlights.map(sanitizeText);
+  if (Array.isArray(p.tags)) p.tags = p.tags.map(sanitizeText);
+  if (Array.isArray(p.skus)) p.skus = p.skus.map((s) => ({ ...s, spec: sanitizeText(s.spec) }));
+  return p;
+}
+
 function insertProducts(db, items) {
+  items = items.map(sanitizeItem);
   const insP = db.prepare(`INSERT OR REPLACE INTO products
     (id, name, brand, category_id, sub_category_id, price, original_price, description, tags, rating, reviews_count, sales, status, cover_color, highlight, highlights, image_url)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);

@@ -89,8 +89,14 @@ async function readRawBody(req, maxBytes) {
 }
 
 function send(res, status, body) {
-  const payload = JSON.stringify(body);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  // 一次性 Buffer 编码再发送：大 payload 若让 Node 按字符串分块写 socket，
+  // 分块边界可能落在 UTF-8 多字节序列中间（实测 40908 条全量响应里出现 U+FFFD），
+  // 先转成完整 Buffer 后 socket 层只会按字节切，编码永远安全。
+  const payload = Buffer.from(JSON.stringify(body), 'utf8');
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': payload.length,
+  });
   res.end(payload);
 }
 

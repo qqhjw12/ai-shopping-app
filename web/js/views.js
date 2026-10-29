@@ -578,10 +578,11 @@ async function renderListing(view, { mode = 'collection', path = '/products', fi
     : (f.cats.length === 1 ? catName(f.cats[0]) : '全部甄选');
 
   const introCount = el('span', { class: 'intro-count' }, '');
+  const titleEl = el('h1', { class: 'page-display' }, title);
   wrap.appendChild(el('header', { class: 'page-intro' }, [
     el('div', { class: 'page-intro-copy' }, [
       el('span', { class: 'eyebrow' }, mode === 'search' ? 'SEARCH' : 'THE COLLECTION'),
-      el('h1', { class: 'page-display' }, title),
+      titleEl,
       el('p', {}, mode === 'search'
         ? (f.q ? '按商品名、描述与标签匹配；可以用筛选继续收窄。' : '输入关键词，或从下面这些热门词开始。')
         : '由 AI 与编辑共同筛选，克制地呈现值得拥有的物件。'),
@@ -628,7 +629,8 @@ async function renderListing(view, { mode = 'collection', path = '/products', fi
   const more = el('div', { class: 'load-more-row' });
   const asideHost = el('div', { class: 'flt-host' });
   const panelHost = el('div', { class: 'flt-panel' });
-  const aside = el('aside', { class: 'shop-filter' }, [asideHost]);
+  const catNav = el('nav', { class: 'cat-nav', 'aria-label': '分类导航' });
+  const aside = el('aside', { class: 'shop-filter' }, [catNav, asideHost]);
   const sheetScroll = el('div', { class: 'flt-sheet-scroll' });
   const sheetCount = el('span', { class: 'flt-sheet-count' }, '');
   const sheet = el('div', { class: `flt-sheet${sheetOpen ? ' is-open' : ''}` }, [
@@ -692,7 +694,10 @@ async function renderListing(view, { mode = 'collection', path = '/products', fi
 
   /* ---------- 面板位置：桌面在侧栏，移动端移入弹层 ---------- */
   function placePanel() {
-    (sheetOpen ? sheetScroll : asideHost).appendChild(panelHost);
+    const host = sheetOpen ? sheetScroll : asideHost;
+    // 分类树跟筛选面板同进同出：移动端侧栏隐藏，树也要能进弹层（否则移动端无法换类目）
+    host.appendChild(catNav);
+    host.appendChild(panelHost);
   }
 
   function openSheet() {
@@ -921,6 +926,52 @@ async function renderListing(view, { mode = 'collection', path = '/products', fi
   }
 
   /* ---------- 总装 ---------- */
+  /* ---------- 左栏分类树（Storefront UI 模式：一级列表 + 选中展开子类，带数量徽标） ---------- */
+  function paintCatNav() {
+    const fc = facetCounts(all, f);
+    catNav.innerHTML = '';
+    catNav.appendChild(el('div', { class: 'cat-nav-title' }, '分类'));
+    // 「全部」项：任何类目都没选时高亮
+    catNav.appendChild(el('button', {
+      type: 'button',
+      class: `cat-nav-item${f.cats.length ? '' : ' is-active'}`,
+      onclick: () => setFilter({ cats: [], subs: [] }),
+    }, [el('span', { class: 'cat-nav-name' }, '全部商品'), el('span', { class: 'cat-nav-count' }, String(all.length))]));
+    // 每个一级分类：当前选中则展开子类；计数是「在该分类下、其余筛选不变」的件数
+    tree.forEach((c) => {
+      const activeCat = f.cats.includes(c.id);
+      const item = el('button', {
+        type: 'button',
+        class: `cat-nav-item${activeCat ? ' is-active' : ''}`,
+        'aria-expanded': activeCat ? 'true' : 'false',
+        onclick: () => {
+          setFilter({ cats: [c.id], subs: [] });
+          // 移动端弹层里选完就走，别让弹层挡着刚筛出来的商品
+          if (sheetOpen) closeSheet();
+        },
+      }, [
+        el('span', { class: 'cat-nav-name' }, c.name),
+        el('span', { class: 'cat-nav-count' }, String(fc.cats.get(c.id) || 0)),
+      ]);
+      catNav.appendChild(item);
+      if (activeCat && c.children && c.children.length) {
+        const subsBox = el('div', { class: 'cat-nav-subs' });
+        c.children.forEach((s) => subsBox.appendChild(el('button', {
+          type: 'button',
+          class: `cat-nav-sub${f.subs.includes(s.id) ? ' is-active' : ''}`,
+          onclick: () => {
+            setFilter({ subs: f.subs.includes(s.id) ? f.subs.filter((x) => x !== s.id) : [s.id] });
+            if (sheetOpen) closeSheet();
+          },
+        }, [
+          el('span', { class: 'cat-nav-name' }, s.name),
+          el('span', { class: 'cat-nav-count' }, String(fc.subs.get(s.id) || 0)),
+        ])));
+        catNav.appendChild(subsBox);
+      }
+    });
+  }
+
   function paint() {
     const list = applyFilters(all, f);
     countEl.textContent = `共 ${list.length} 件商品`;
@@ -930,9 +981,14 @@ async function renderListing(view, { mode = 'collection', path = '/products', fi
     const badges = countActive(f);
     sheetBadge.textContent = badges ? String(badges) : '';
     sheetBtn.classList.toggle('has-filter', badges > 0);
+    // 页头大标题跟随分类树联动（搜索单类目时也会刷新）
+    titleEl.textContent = mode === 'search'
+      ? (f.q ? `关于「${f.q}」` : '搜索你的灵感')
+      : (f.cats.length === 1 ? catName(f.cats[0]) : '全部甄选');
     paintCrumb(list.length);
     buildPanel();
     placePanel();
+    paintCatNav();
     paintActive();
     paintGrid(list);
     return list.length;

@@ -172,6 +172,32 @@ export async function renderCategories(view, query = {}) {
   function paint() {
     wrap.innerHTML = '';
 
+    // 快速导航：横向滚动的「类目名 + 件数」chips，一键直达列表页。
+    // 调研参考（Storefront UI / 主流电商）：用户最常见的动作是「直奔某个类目」，
+    // 先给一条不用滚动整页的路，卡片区留给慢慢逛的人。
+    const quick = el('div', { class: 'cat-quick', role: 'navigation', 'aria-label': '类目快速导航' },
+      tree
+        .map((c, i) => ({ c, count: (buckets.get(c.id) || []).filter(inBand).length }))
+        .filter((r) => r.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .map(({ c, count }, i) => {
+          const icon = (c.icon || '').trim();
+          return el('a', {
+            class: 'cat-quick-item',
+            href: `#/products?cat=${encodeURIComponent(c.id)}${band ? `&price=${encodeURIComponent(band.id)}` : ''}`,
+            onclick: (e) => {
+              e.preventDefault();
+              navigate(`#/products?cat=${encodeURIComponent(c.id)}${band ? `&price=${encodeURIComponent(band.id)}` : ''}`);
+            },
+          }, [
+            icon ? el('span', { class: 'cat-quick-icon', 'aria-hidden': 'true' }, icon) : el('span', { class: 'cat-quick-num', 'aria-hidden': 'true' }, String(i + 1).padStart(2, '0')),
+            el('span', { class: 'cat-quick-name' }, c.name),
+            el('span', { class: 'cat-quick-count' }, String(count)),
+          ]);
+        }),
+    );
+    wrap.appendChild(quick);
+
     // 工具栏：价格区间 + 排序（作用于类目目录本身）
     const toolbar = el('div', { class: 'cat-tools' }, [
       el('div', { class: 'cat-tools-group' }, [
