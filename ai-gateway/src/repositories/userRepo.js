@@ -59,10 +59,24 @@ export function toggleFavorite(userId, productId) {
   return true;
 }
 
+/** 显式收藏（幂等）：已存在时静默返回 false。前端离线操作队列重放时依赖幂等性。 */
+export function addFavorite(userId, productId) {
+  const db = getDb();
+  if (!db.prepare('SELECT id FROM products WHERE id = ?').get(productId)) {
+    throw Object.assign(new Error('商品不存在'), { status: 404 });
+  }
+  const r = db
+    .prepare('INSERT OR IGNORE INTO favorites (user_id, product_id) VALUES (?, ?)')
+    .run(userId, productId);
+  return r.changes > 0;
+}
+
+/** 显式取消收藏（幂等），返回是否真的删了一行 */
 export function removeFavorite(userId, productId) {
   return getDb().prepare('DELETE FROM favorites WHERE user_id = ? AND product_id = ?').run(userId, productId).changes;
 }
 
+/** 仅返回收藏的商品 id 列表（轻量，供批量判断） */
 export function favoriteIds(userId) {
   return getDb()
     .prepare('SELECT product_id FROM favorites WHERE user_id = ?')

@@ -650,4 +650,66 @@ async function streamLocal(text, onDelta, { chunkSize = 3, delayMs = 18 } = {}) 
   }
 }
 
+/* ---------------- 导购推荐（AI 抽屉专用） ---------------- */
+
+function guideIntro(query, ctx, products) {
+  const q = String(query).trim().slice(0, 18);
+  if (!products.length) return `没有找到贴合「${q}」的在售单品，换个说法，或直接告诉我预算？`;
+  const parts = [];
+  if (ctx.categoryId) {
+    const cat = productRepo.listCategories().find((c) => c.id === ctx.categoryId);
+    if (cat) parts.push(cat.name);
+  }
+  if (ctx.budget) parts.push(`预算 ${ctx.budget} 元`);
+  const head = parts.length ? `按${parts.join('、')}的口径` : `按「${q}」的口径`;
+  return `${head}，从在售单品里挑出这 ${products.length} 件。`;
+}
+
+/**
+ * 导购推荐：检索 + 可选 LLM 导购语。
+ * 与 chatReply 的区别：不落会话、永远返回商品卡、intro 是单段短文案——
+ * 抽屉里卡片本身承载信息，长篇大论反而挡屏幕。
+ * source：llm（真实模型写导购语）/ local（未配 LLM，检索引擎直出）/
+ *         local-fallback（LLM 失败回落本地文案）。
+ */
+export async function shopRecommend({ query, limit = 3 } = {}) {
+  const q = String(query || '').trim();
+  if (!q) {
+    const err = new Error('query required');
+    err.status = 400;
+    throw err;
+  }
+  const ctx = mergeContext({ budget: null, categoryId: null, lastProductId: null, lastIntent: null }, q);
+  const facts = answerRecommend(ctx, q);
+  const products = (facts.cards || []).slice(0, limit);
+  let intro = guideIntro(q, ctx, products);
+  let source = 'local';
+
+  if (llmEnabled() && products.length) {
+    try {
+      const lines = products
+        .map((c, i) => `${i + 1}. ${c.name}（${c.brand}）¥${c.price}｜${c.reason}`)
+        .join('\n');
+      intro = await chatComplete(
+        [
+          {
+            role: 'system',
+            content:
+              '你是「好物商城」的导购。基于给定候选商品，用不超过两句话向用户说明为什么这几件适合 TA 的需求。'
+              + '只使用候选商品里的信息，不要编造价格或功能；用中文，口吻自然亲切。',
+          },
+          { role: 'user', content: `用户需求：${q}\n候选商品：\n${lines}` },
+        ],
+        { temperature: 0.6, timeoutMs: 6000 },
+      );
+      source = 'llm';
+    } catch (e) {
+      console.warn(`[chatEngine] 导购 LLM 失败，回退本地文案: ${e.message}`);
+      source = 'local-fallback';
+    }
+  }
+
+  return { intro, products, source };
+}
+
 export { detectIntent, parseBudget, parseCategoryId };

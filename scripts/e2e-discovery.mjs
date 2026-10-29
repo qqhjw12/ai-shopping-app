@@ -201,7 +201,7 @@ try {
   const imgCards = await page.locator('.img-result-grid .pcard').count();
   const imgNote = (await page.locator('.img-result-note').textContent()) || '';
   check(`上传后返回模拟结果（${imgCards} 张）`, imgCards >= 1);
-  check('模拟结果带演示说明', imgNote.includes('演示结果') && imgNote.includes('未做真实图像识别'), imgNote.slice(0, 40));
+  check('模拟结果带演示说明', imgNote.includes('演示结果') && imgNote.includes('模拟匹配'), imgNote.slice(0, 40));
   check('上传后有预览图', await page.locator('.img-preview-img').count() === 1);
   await page.screenshot({ path: `${ROOT}/.shots/img-search.png` });
   await page.locator('.img-search-modal .modal-close').click();

@@ -24,6 +24,7 @@ import { trackEvent, getTrackStats, ensureTrackIndex } from './trackStore.js';
 import { ensureSeeded } from './db/seedDb.js';
 import { getDb } from './db/connection.js';
 import * as chatEngine from './services/chatEngine.js';
+import * as visualSearch from './services/visualSearch.js';
 import * as productRepo from './repositories/productRepo.js';
 import * as cartRepo from './repositories/cartRepo.js';
 import * as userRepo from './repositories/userRepo.js';
@@ -914,7 +915,21 @@ async function route(req, res, url) {
       if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
       if (!parsed.productId) return sendError(res, 400, 'productId required', req.reqId);
       const userId = userIdOf(req, parsed.userId);
-      return guarded(() => ({ favorited: userRepo.toggleFavorite(userId, parsed.productId), ids: userRepo.favoriteIds(userId) }));
+      // action 语义（add/remove）是给前端「本地优先 + 离线队列重放」用的：
+      // 旧版只有 toggle，本地删除一条服务端本来就没有的收藏时，toggle 会把它**加回去**。
+      // 缺省仍为 toggle，保持对旧调用方的兼容。
+      const action = parsed.action === 'add' || parsed.action === 'remove' ? parsed.action : 'toggle';
+      return guarded(() => {
+        if (action === 'add') {
+          const added = userRepo.addFavorite(userId, parsed.productId);
+          return { favorited: true, added, ids: userRepo.favoriteIds(userId) };
+        }
+        if (action === 'remove') {
+          const removed = userRepo.removeFavorite(userId, parsed.productId) > 0;
+          return { favorited: false, removed, ids: userRepo.favoriteIds(userId) };
+        }
+        return { favorited: userRepo.toggleFavorite(userId, parsed.productId), ids: userRepo.favoriteIds(userId) };
+      });
     }
     if (req.method === 'DELETE') {
       const userId = userIdOf(req, url.searchParams.get('userId'));
@@ -1159,6 +1174,34 @@ async function route(req, res, url) {
       const r = userRepo.removeAddress(userId, id);
       return { ...r, addresses: userRepo.listAddresses(userId) };
     });
+  }
+
+  // 导购推荐（AI 抽屉）：检索 + 可选 LLM 导购语。不落会话，永远带商品卡。
+  // 前端拿到失败 / 超时会回落本地规则，所以这里 5xx 也可以放心抛。
+  // 图片搜索（色彩特征）：前端只传主色签名，原图不上传。检索失败 / 无近色时前端回落本地模拟。
+  if (req.method === 'POST' && url.pathname === '/api/ai/image-search') {
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    try {
+      const r = visualSearch.searchByColor(parsed.colors, { limit: 4 });
+      return send(res, 200, r);
+    } catch (e) {
+      return sendError(res, e.status || 500, e.message, req.reqId);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/ai/recommend') {
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    try {
+      const r = await chatEngine.shopRecommend({
+        query: parsed.query,
+        limit: Math.min(Number(parsed.limit) || 3, 5),
+      });
+      return send(res, 200, r);
+    } catch (e) {
+      return sendError(res, e.status || 500, e.message, req.reqId);
+    }
   }
 
   if (req.method === 'POST' && url.pathname === '/api/ai/chat') {
@@ -1420,7 +1463,7 @@ async function route(req, res, url) {
         'GET /api/ledger/pending?page=&size= (待打款退款清单，需 X-Admin-Key)',
         'POST /api/ledger/refunds/:id/settle (确认已打款，需 X-Admin-Key)',
         'POST /api/webhooks/logistics {trackingNo, events[]} (快递推送；X-Carrier + X-Timestamp + X-Signature 验签)',
-        'GET|POST|DELETE /api/favorites?userId= (收藏夹：POST 为切换)',
+        'GET|POST|DELETE /api/favorites?userId= (收藏夹：POST action=add|remove 显式增删，缺省 toggle)',
         'GET /api/coupons/catalog (券目录，前端离线兜底同构)',
         'PUT /api/coupons/catalog {coupon|coupons, force?} (券目录 upsert，需 X-Admin-Key)',
         'GET /api/coupons?userId=&amount=&all=1 (卡包；all=1 含已用/已过期)',
@@ -1430,6 +1473,8 @@ async function route(req, res, url) {
         'GET|POST /api/addresses?userId= (地址簿：POST 带 id 即更新，返回最新清单)',
         'POST /api/addresses/:id/default?userId= (设为默认，幂等)',
         'DELETE /api/addresses/:id?userId= (删除；删默认则由剩余第一条接任)',
+        'POST /api/ai/recommend {query, limit?} (导购推荐：检索+可选LLM导购语，不落会话、永远带卡)',
+        'POST /api/ai/image-search {colors:[{h,s,l,weight}]} (色彩特征最近邻检索，不上传原图)',
         'POST /api/ai/chat {message, userId?, conversationId?}',
         'POST /api/ai/qa {query, userId?, conversationId?, productId?} (stream:true 时 SSE 逐字，末尾回传 results)',
         'POST /api/ai/guide {message, userId?, budget?, category?, topK?}',

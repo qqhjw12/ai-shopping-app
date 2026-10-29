@@ -28,8 +28,11 @@ function body(messages, { stream = false, temperature } = {}) {
 
 /** 一次性返回完整回复（失败抛错，由上层降级到本地引擎） */
 export async function chatComplete(messages, opts = {}) {
+  // timeoutMs 可按调用方覆盖：导购推荐这类交互式场景给短超时，
+  // 前端 8 秒就回落本地结果了，等 30 秒只会让抽屉看起来像卡死。
+  const timeoutMs = opts.timeoutMs ?? config.llm.timeoutMs;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), config.llm.timeoutMs);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(endpoint('/chat/completions'), {
       method: 'POST',

@@ -141,6 +141,8 @@ export function addFavorite(product, { silent = false } = {}) {
   if (list.some((i) => String(i.id) === id)) return false;
   all[key] = [snapshot({ ...product, id }), ...list];
   writeAll(all);
+  // silent 用于「从服务端并回」：数据本来就是服务端的，回写只是幂等空转，省一次请求
+  if (!silent) syncServer({ op: 'add', id });
   if (!silent) notify();
   return true;
 }
@@ -154,6 +156,7 @@ export function removeFavorite(id, { silent = false } = {}) {
   if (next.length === list.length) return false;
   all[key] = next;
   writeAll(all);
+  if (!silent) syncServer({ op: 'remove', id });
   if (!silent) notify();
   return true;
 }
@@ -168,16 +171,80 @@ export function toggleFavorite(product) {
   const next = !isFavorite(id);
   if (next) addFavorite(product);
   else removeFavorite(id);
-  syncServer(id);
   return next;
 }
 
-function syncServer(productId) {
-  api('/api/favorites', {
+/* ---------------- 服务端同步：显式语义 + 离线操作队列 ---------------- */
+
+// 旧版删除也走 POST toggle：本地取消一条「服务端本来就没有」的收藏时，
+// toggle 会把它加回去——删除被反转成了新增。现在增删各自显式，且全部幂等。
+const PENDING_KEY = 'maison_fav_pending_v1';
+
+function readPending() {
+  try {
+    const v = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePending(list) {
+  try {
+    localStorage.setItem(PENDING_KEY, JSON.stringify(list));
+  } catch {
+    /* 写不进去就放弃重放：下次操作失败还会再入队 */
+  }
+}
+
+function sendOp(op) {
+  // userId 在操作发生那一刻记下并随操作重放：排队期间用户切了账号，
+  // 也不能把 A 的收藏操作打到 B 的服务端镜像上。
+  return api('/api/favorites', {
     method: 'POST',
-    body: { userId: getUserId(), productId },
+    body: { userId: op.userId, productId: op.id, action: op.op },
     retries: 0,
-  }).catch(() => {
-    /* 演示模式 / 离线：本地已生效，服务端下次连上再并回 */
   });
+}
+
+/** 商品不存在 / 参数非法：这类操作永远不可能成功，重放没有意义 */
+function isDeadOp(e) {
+  return Boolean(e) && (e.status === 400 || e.status === 404);
+}
+
+function syncServer({ op, id }) {
+  const record = { op, id, userId: getUserId(), at: Date.now() };
+  sendOp(record)
+    .then(() => {
+      // 成功即代表这条（及更早的）同类操作已收敛到服务端：清掉该商品的全部排队，
+      // 否则「add 排队 + remove 成功」的组合会在重放时把已删除的收藏复活。
+      writePending(readPending().filter((x) => x.id !== record.id || x.userId !== record.userId));
+    })
+    .catch((e) => {
+      if (isDeadOp(e)) return;
+      const list = readPending();
+      list.push(record);
+      writePending(list);
+      /* 演示模式 / 离线：本地已生效，联网后 flushFavorites() 按顺序重放 */
+    });
+}
+
+/**
+ * 重放离线期间的收藏操作（按发生顺序）。
+ * 服务端 add/remove 幂等（INSERT OR IGNORE / DELETE），重复重放安全；
+ * 返回成功补推的条数。
+ */
+export async function flushFavorites() {
+  const pending = readPending();
+  if (!pending.length) return 0;
+  const remaining = [];
+  for (const record of pending) {
+    try {
+      await sendOp(record);
+    } catch (e) {
+      if (!isDeadOp(e)) remaining.push(record);
+    }
+  }
+  writePending(remaining);
+  return pending.length - remaining.length;
 }

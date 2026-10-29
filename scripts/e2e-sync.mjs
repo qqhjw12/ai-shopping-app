@@ -258,7 +258,118 @@ try {
   const a4 = await walletOf(A);
   check('设备 A 也能看到 B 离线领的券', a4.list.some((c) => c.couponId === offlineClaim));
 
-  /* 5) 控制台干净 */
+  /* 5) 收藏双向同步：A 增删 → 服务端立即收敛 → B 并回看到一致结果 */
+  const favProducts = await A.page.evaluate(async () => {
+    const views = await import('/js/views.js');
+    const list = await views.getProducts();
+    return list.slice(0, 3).map((p) => ({ id: String(p.id), name: p.name }));
+  });
+  check('取到 3 件商品做收藏样本', favProducts.length === 3, favProducts.map((p) => p.id).join(','));
+
+  const serverFavIds = (dev) => dev.page.evaluate(async ({ uid, gw }) => {
+    const r = await fetch(`${gw}/api/favorites?userId=${encodeURIComponent(uid)}`);
+    const d = await r.json();
+    return (d.ids || []).map(String);
+  }, { uid: A.uid, gw: GW });
+
+  await A.page.evaluate(async (ids) => {
+    const mod = await import('/js/store/favoriteStore.js');
+    const views = await import('/js/views.js');
+    const list = await views.getProducts();
+    for (const id of ids) {
+      const p = list.find((x) => String(x.id) === id);
+      mod.toggleFavorite(p);
+    }
+    await new Promise((r) => setTimeout(r, 600)); // 等镜像请求落地
+  }, favProducts.slice(0, 2).map((p) => p.id));
+
+  let sIds = await serverFavIds(A);
+  check('A 收藏两件 → 服务端镜像两件', sIds.length === 2, sIds.join(','));
+
+  // 旧版 bug 复现场景：本地删除一条服务端存在的收藏，若还走 toggle 语义会被「加回去」
+  await A.page.evaluate(async (id) => {
+    const mod = await import('/js/store/favoriteStore.js');
+    mod.removeFavorite(id);
+    await new Promise((r) => setTimeout(r, 600));
+  }, favProducts[0].id);
+  sIds = await serverFavIds(A);
+  check('A 取消收藏 → 服务端同步移除（显式 remove 而非 toggle 反转）',
+    sIds.length === 1 && sIds[0] === favProducts[1].id, sIds.join(','));
+
+  // B 打开收藏页 → flush + 并回 → 与 A 收敛
+  await B.page.goto(`${APP}#/favorites`, { waitUntil: 'load' });
+  await B.page.reload({ waitUntil: 'load' });
+  await B.page.waitForTimeout(1400);
+  const bFav = await B.page.evaluate(async (id) => {
+    const mod = await import('/js/store/favoriteStore.js');
+    return { has: mod.isFavorite(id), cards: document.querySelectorAll('.fav-page .pcard').length };
+  }, favProducts[1].id);
+  check('设备 B 并回后看到 A 剩下的收藏', bFav.has && bFav.cards >= 1, JSON.stringify(bFav));
+  const bNotRevived = await B.page.evaluate(async (id) => {
+    const mod = await import('/js/store/favoriteStore.js');
+    return mod.isFavorite(id);
+  }, favProducts[0].id);
+  check('A 已取消的收藏不会被并回复活', bNotRevived === false);
+
+  /* 6) 收藏离线补推：B 断网收藏 → 恢复后 flush 上云 → A 可见 */
+  await B.ctx.setOffline(true);
+  const offlineFav = await B.page.evaluate(async (id) => {
+    const views = await import('/js/views.js');
+    const mod = await import('/js/store/favoriteStore.js');
+    const list = await views.getProducts();
+    const p = list.find((x) => String(x.id) === id);
+    return mod.toggleFavorite(p);
+  }, favProducts[2].id);
+  check('设备 B 离线也能收藏（本地成功）', offlineFav === true);
+  await B.ctx.setOffline(false);
+  await B.page.goto(`${APP}#/favorites`, { waitUntil: 'load' });
+  await B.page.reload({ waitUntil: 'load' });
+  await B.page.waitForTimeout(1400); // 收藏页会先 flush 再并回
+  sIds = await serverFavIds(A);
+  check('离线收藏联网后补推到服务端', sIds.includes(favProducts[2].id), sIds.join(','));
+  await openWallet(A); // 顺带确认 A 页面仍正常
+  const aFavSee = await A.page.evaluate(async (id) => {
+    const mod = await import('/js/store/favoriteStore.js');
+    await mod.flushFavorites().catch(() => {});
+    return mod.isFavorite(id);
+  }, favProducts[2].id).catch(() => null);
+  // A 的本地并回发生在收藏页渲染时；这里直接看服务端即可（上面已断言），本地侧只验证不报错
+  check('设备 A 侧收藏页可正常打开', aFavSee !== null);
+
+  /* 6b) 新 AI 端点冒烟：推荐永远带卡 / 色彩检索 / 参数校验 */
+  const rec = await fetch(`${GW}/api/ai/recommend`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: '1500 以内的降噪耳机' }),
+  }).then((r) => r.json());
+  check('POST /api/ai/recommend 返回商品卡', Array.isArray(rec.products) && rec.products.length > 0,
+    `source=${rec.source} n=${rec.products && rec.products.length}`);
+  check('推荐 intro 是非空文案', typeof rec.intro === 'string' && rec.intro.length > 0, rec.intro && rec.intro.slice(0, 24));
+  check('推荐 source 标注合规', ['llm', 'local', 'local-fallback'].includes(rec.source), rec.source);
+
+  const vis = await fetch(`${GW}/api/ai/image-search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ colors: [{ h: 220, s: 0.65, l: 0.5, weight: 1 }] }),
+  }).then((r) => r.json());
+  check('POST /api/ai/image-search 返回 4 件近色商品', Array.isArray(vis.products) && vis.products.length === 4,
+    vis.products && vis.products.map((p) => p.id).join(','));
+  check('色彩检索 source= color-feature', vis.source === 'color-feature');
+  const visProducts = await fetch(`${GW}/api/products?size=200`).then((r) => r.json()).catch(() => null);
+  if (visProducts && Array.isArray(visProducts.products)) {
+    const blueish = visProducts.products.filter((p) => /#(3[0-9]|4[0-9]|5[0-9])[0-9a-f]{2}/i.test(p.coverColor || ''));
+    check('近色结果与商品主色吻合（蓝系样本）',
+      vis.products.every((p) => blueish.some((b) => b.id === p.id)) || blueish.length === 0,
+      `${blueish.length} 件蓝系`);
+  }
+  const visBad = await fetch(`${GW}/api/ai/image-search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ colors: [] }),
+  });
+  check('空 colors 返回 400', visBad.status === 400, String(visBad.status));
+
+  /* 7) 控制台干净 */
   const pageErrors = [...A.errors, ...B.errors];
   check('两台设备控制台均无 JS 错误', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '));
 

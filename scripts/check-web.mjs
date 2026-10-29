@@ -2081,10 +2081,16 @@ if (failed === 0) {
     const uiSrc = readFileSync(dir('ui.js'), 'utf8');
     const cssSrc = readFileSync(rootFile('styles.css'), 'utf8');
 
+    const favSrc = readFileSync(dir('store/favoriteStore.js'), 'utf8');
+
     const cases = [
-      ['抽屉常驻「演示数据」提示', shopSrc.includes("el('b', {}, '演示数据')") && shopSrc.includes('未接入真实模型')],
-      ['图片搜索标注不上传不识别', shopSrc.includes('不做真实图像识别') && shopSrc.includes('不会上传')],
+      ['抽屉常驻「演示数据」提示', shopSrc.includes("el('b', {}, '演示数据')") && shopSrc.includes('不代表真实库存与价格承诺')],
+      ['推荐服务端优先 + 本地回落', shopSrc.includes('/api/ai/recommend') && shopSrc.includes("source: 'offline'")],
+      ['图片搜索标注原图不上传 + 非语义识别', shopSrc.includes('不会上传') && shopSrc.includes('非语义识别')],
+      ['图片搜索本机提取主色签名', shopSrc.includes('colorSignature') && shopSrc.includes('/api/ai/image-search')],
       ['模拟结果带「演示结果」说明', shopSrc.includes("'演示结果'")],
+      ['收藏删除走显式 remove（不再 toggle 反转）', favSrc.includes("syncServer({ op: 'add', id })") && favSrc.includes("syncServer({ op: 'remove', id })")],
+      ['收藏离线操作队列 + 重放', favSrc.includes('maison_fav_pending_v1') && favSrc.includes('flushFavorites')],
       ['推荐卡复用 productCard', /productCard\(p,\s*\{/.test(shopSrc) && shopSrc.includes("from './ui.js'")],
       ['顶栏 AI 导购入口并带词进抽屉', appSrc.includes("getElementById('ai-guide-btn')") && appSrc.includes('askGuide(')],
       ['顶栏图片搜索入口', appSrc.includes("getElementById('img-search-btn')") && appSrc.includes('openImageSearch')],

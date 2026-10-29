@@ -7,7 +7,7 @@ import { openProductDetail, getProductById } from './views.js';
 import { askGuide } from './aiShop.js';
 import { trackEvent } from './track.js';
 import { isDemoMode } from './demo.js';
-import { listFavorites, addFavorite, isFavorite } from './store/favoriteStore.js';
+import { listFavorites, addFavorite, isFavorite, flushFavorites } from './store/favoriteStore.js';
 import {
   listOrders, mergeOrders, normalizeRemote, statusText, updateOrderStatus,
 } from './store/orderStore.js';
@@ -131,6 +131,9 @@ function orderCard(o, view) {
  * 只补本地没有的，绝不删除本地已有的——否则弱网下一次空响应就能清空收藏夹。
  */
 async function mergeServerFavorites() {
+  // 先把离线期间的增删补推上去再拉取：否则设备 A 离线取消的收藏，
+  // 会被设备 B 拉取到的旧服务端状态「并回」复活。
+  await flushFavorites().catch(() => {});
   let ids = [];
   try {
     const d = await api(`/api/favorites?userId=${encodeURIComponent(getUserId())}`, { retries: 0 });
