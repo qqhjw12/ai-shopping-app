@@ -8,7 +8,7 @@
 //      parseHash() 当成路由 "join-flow" → 直接 404。只能用 scrollIntoView。
 //   2) 平台数据必须真取 /api/stats；网关不可达（静态演示站）时退化为「数本地
 //      演示商品库」，并在页脚注明来源，不硬编码一个好看的数字冒充真实规模。
-import { el } from './ui.js';
+import { el, openModal, toast } from './ui.js';
 import { api, isMissingEndpoint } from './api.js';
 import { getProducts } from './views.js';
 
@@ -611,6 +611,11 @@ export const FORM_CATEGORIES = [
   { id: 'stationery', t: '办公文具' },
 ];
 
+/** 类目 id → 中文名（状态页与修改弹层共用） */
+const catNames = (ids) => (Array.isArray(ids)
+  ? ids.map((id) => (FORM_CATEGORIES.find((c) => c.id === id) || {}).t).filter(Boolean)
+  : []);
+
 const APPLY_STEPS = [
   { title: '主体资质', fields: ['entityKind', 'company', 'creditCode', 'contact', 'phone', 'email'] },
   { title: '品牌商品', fields: ['brand', 'brandSource', 'categories', 'skuRange', 'priceRange', 'dropship'] },
@@ -807,19 +812,25 @@ const STATUS_STEPS = [
 ];
 
 function statusTimeline(status) {
-  // 已通过 / 未通过都是终态，但画法不同：驳回是「资质审核这一步没过」，
-  // 后面两步根本不会发生。把三步全画成已完成，等于告诉商家「签约开通了」。
+  // 已通过 / 未通过 / 已撤回都是终态，但画法不同：驳回是「资质审核这一步没过」，
+  // 撤回是「商家自己在这里停下」，后面两步根本不会发生。
+  // 把三步全画成已完成，等于告诉商家「签约开通了」。
   const done = status === 'reviewing' ? 1 : (status === 'approved' ? 3 : 1);
   return el('ol', { class: 'mzf-timeline' },
     STATUS_STEPS.map((s, i) => {
       const isDone = i < done;
       const isFail = status === 'rejected' && i === 1;
-      return el('li', { class: `mzf-tl${isDone ? ' is-done' : ''}${isFail ? ' is-failed' : ''}` }, [
+      const isStop = status === 'withdrawn' && i === 1;
+      return el('li', {
+        class: `mzf-tl${isDone ? ' is-done' : ''}${isFail ? ' is-failed' : ''}${isStop ? ' is-stopped' : ''}`,
+      }, [
         el('span', { class: 'mzf-tl-dot', 'aria-hidden': 'true' },
-          isDone ? '✓' : (isFail ? '×' : String(i + 1))),
+          isDone ? '✓' : (isFail ? '×' : (isStop ? '—' : String(i + 1)))),
         el('div', {}, [
           el('strong', {}, s.t),
-          el('p', {}, isFail ? '资质审核未通过，补充材料后可以重新提交' : s.d),
+          el('p', {}, isFail
+            ? '资质审核未通过，补充材料后可以重新提交'
+            : (isStop ? '商家已撤回申请，平台不再继续审核' : s.d)),
         ]),
       ]);
     }),
@@ -839,17 +850,219 @@ function noticeBlock(status, notices) {
   const sent = by('sent');
   const queued = by('queued');
   const failed = by('failed');
+  // 撤回通知是回执，不是「结果」——同一个通道状态，说法的差别很重要
+  const noun = status === 'withdrawn' ? '撤回回执' : '结果';
   let text;
   if (sent.length) {
-    text = `结果已通过${sent.map((n) => n.channelLabel).join('与')}发出（${sent.map((n) => n.targetMasked).join(' / ')}）。`;
+    text = `${noun}已通过${sent.map((n) => n.channelLabel).join('与')}发出（${sent.map((n) => n.targetMasked).join(' / ')}）。`;
   } else if (queued.length) {
-    text = `结果通知正在排队投递（${queued.map((n) => n.channelLabel).join('、')}），稍后刷新本页可看到状态。`;
+    text = `${noun}通知正在排队投递（${queued.map((n) => n.channelLabel).join('、')}），稍后刷新本页可看到状态。`;
   } else if (failed.length) {
-    text = '结果通知发送失败。审核结论以本页为准，我们会通过其他方式与你联系。';
+    text = `${noun}通知发送失败。审核结论以本页为准，我们会通过其他方式与你联系。`;
   } else {
-    text = `本站未接入${notices.map((n) => n.channelLabel).join('/')}通道，审核结果以本页为准。`;
+    text = `本站未接入${notices.map((n) => n.channelLabel).join('/')}通道，${noun}以本页为准。`;
   }
   return el('p', { class: 'mzf-notice' }, text);
+}
+
+/**
+ * 状态页的操作（仅「审核中」可见）：改资料 / 撤回。
+ *
+ * 为什么不做成「点进去就是完整表单重新填一遍」：
+ *   1) 银行账号在服务端只存前 4 后 4，本来就回显不出完整卡号——如果要求全量重填，
+ *      商家每次改个手机号都得重新输一遍银行卡，是最容易输错的那一栏；
+ *   2) 全部重填还意味着「没动过的字段也重新提交一次」，任何一个字段的格式规则变了，
+ *      商家想改手机号却会被银行卡拦住。
+ * 所以这里只提交**真的改过的字段**，未填的敏感字段一律视为「保持不变」。
+ * 服务端也按同样口径校验（部分字段更新），两边规则一致。
+ */
+function selectOf(name, options, current) {
+  const s = el('select', { class: 'mze-input', name });
+  for (const o of options) {
+    s.appendChild(el('option', { value: o.v, selected: o.v === current }, o.t));
+  }
+  return s;
+}
+
+function fieldOf(label, control, hint) {
+  return el('label', { class: 'mze-field' }, [
+    el('span', { class: 'mze-label' }, label),
+    control,
+    hint ? el('span', { class: 'mze-hint' }, hint) : null,
+  ]);
+}
+
+function openEditSheet({ data, id, key, onSaved }) {
+  openModal((modal, close) => {
+    modal.classList.add('is-wide');
+    const v = (name, value, opts = {}) => el('input', {
+      class: 'mze-input',
+      type: 'text',
+      name,
+      value: value == null ? '' : String(value),
+      placeholder: opts.placeholder || '',
+      maxlength: opts.maxlength || null,
+      inputmode: opts.inputmode || null,
+      autocomplete: 'off',
+    });
+    const phone = v('phone', '', { placeholder: `当前 ${data.phoneMasked || '—'}，不修改请留空`, maxlength: 11, inputmode: 'numeric' });
+    const email = v('email', '', { placeholder: `当前 ${data.emailMasked || '未填'}，不修改请留空`, maxlength: 80, inputmode: 'email' });
+    const bankNo = v('bankNo', '', { placeholder: `当前 ${data.bankNoMasked || '—'}，不修改请留空`, maxlength: 24, inputmode: 'numeric' });
+    const company = v('company', data.company, { maxlength: 60 });
+    const creditCode = v('creditCode', data.creditCode, { maxlength: 18 });
+    const contact = v('contact', data.contact, { maxlength: 20 });
+    const brand = v('brand', data.brand, { maxlength: 40 });
+    const bankAccount = v('bankAccount', data.bankAccount, { maxlength: 60 });
+    const bankBranch = v('bankBranch', data.bankBranch, { maxlength: 60 });
+    const note = el('textarea', { class: 'mze-input mze-textarea', rows: '2', maxlength: '200', name: 'note' });
+    note.value = data.note || '';
+
+    const picked = new Set(Array.isArray(data.categories) ? data.categories : []);
+    const catBox = el('div', { class: 'mze-chips' }, FORM_CATEGORIES.map((c) => {
+      const input = el('input', { type: 'checkbox', name: 'categories', value: c.id, checked: picked.has(c.id) });
+      return el('label', { class: 'mze-chip' }, [input, el('span', {}, c.t)]);
+    }));
+
+    const err = el('p', { class: 'mze-error', role: 'alert' });
+    const saveBtn = el('button', { class: 'mz-btn mz-btn--gold', type: 'submit' }, '保存修改');
+
+    const form = el('form', { class: 'mze-form' }, [
+      el('h2', { class: 'mze-title' }, '修改申请资料'),
+      el('p', { class: 'mze-sub' }, `${data.id} · 改动会记进审核轨迹，运营看到的是最新一版。`),
+      el('div', { class: 'mze-grid' }, [
+        fieldOf('主体类型', selectOf('entityKind', ENTITY_KINDS, data.entityKind)),
+        fieldOf('主体名称', company),
+        fieldOf('统一社会信用代码', creditCode),
+        fieldOf('联系人', contact),
+        fieldOf('手机号', phone, '留空 = 不修改'),
+        fieldOf('邮箱', email, '留空 = 不修改'),
+        fieldOf('品牌名称', brand),
+        fieldOf('品牌来源', selectOf('brandSource', BRAND_SOURCES, data.brandSource)),
+        fieldOf('预估 SKU', selectOf('skuRange', SKU_RANGES, data.skuRange)),
+        fieldOf('主力价格带', selectOf('priceRange', PRICE_RANGES, data.priceRange)),
+        fieldOf('开户名', bankAccount),
+        fieldOf('开户行', bankBranch),
+        fieldOf('银行卡号', bankNo, '留空 = 不修改（完整卡号不落库，无法回显）'),
+        fieldOf('退货政策', selectOf('returnPolicy', RETURN_POLICIES, data.returnPolicy)),
+        fieldOf('发货时效', selectOf('shipWithin', SHIP_WITHIN, data.shipWithin)),
+      ]),
+      el('div', { class: 'mze-field mze-field--wide' }, [
+        el('span', { class: 'mze-label' }, '主营类目（最多 3 个）'),
+        catBox,
+      ]),
+      fieldOf('补充说明', note),
+      err,
+      el('div', { class: 'mze-actions' }, [
+        saveBtn,
+        el('button', { class: 'mz-btn mz-btn--ghost', type: 'button', onclick: close }, '取消'),
+      ]),
+    ]);
+
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      err.textContent = '';
+      const val = (n) => {
+        const node = form.querySelector(`[name="${n}"]`);
+        return node ? String(node.value || '').trim() : '';
+      };
+      const cats = [...form.querySelectorAll('input[name="categories"]:checked')].map((i) => i.value);
+      const patch = {};
+      const diff = (name, now, was) => {
+        if (String(now) !== String(was == null ? '' : was)) patch[name] = now;
+      };
+      diff('entityKind', val('entityKind'), data.entityKind);
+      diff('brandSource', val('brandSource'), data.brandSource);
+      diff('skuRange', val('skuRange'), data.skuRange);
+      diff('priceRange', val('priceRange'), data.priceRange);
+      diff('returnPolicy', val('returnPolicy'), data.returnPolicy);
+      diff('shipWithin', val('shipWithin'), data.shipWithin);
+      diff('company', val('company'), data.company);
+      diff('creditCode', val('creditCode'), data.creditCode);
+      diff('contact', val('contact'), data.contact);
+      diff('brand', val('brand'), data.brand);
+      diff('bankAccount', val('bankAccount'), data.bankAccount);
+      diff('bankBranch', val('bankBranch'), data.bankBranch);
+      diff('note', val('note'), data.note);
+      // 打码字段：填了才算改，留空 = 保持原值（不能把打码串当新值提交）
+      if (val('phone')) patch.phone = val('phone');
+      if (val('email')) patch.email = val('email');
+      if (val('bankNo')) patch.bankNo = val('bankNo');
+      if (JSON.stringify([...cats].sort()) !== JSON.stringify((data.categories || []).slice().sort())) {
+        patch.categories = cats;
+      }
+      if (!Object.keys(patch).length) {
+        err.textContent = '没有改动任何内容';
+        return;
+      }
+      saveBtn.disabled = true;
+      saveBtn.textContent = '保存中…';
+      try {
+        const r = await api(`/api/merchant/applications/${encodeURIComponent(id)}/revise?key=${encodeURIComponent(key)}`, {
+          method: 'POST',
+          body: patch,
+          retries: 0,
+        });
+        close();
+        toast(`已更新：${(r.changesLabel || []).join('、')}`, 'ok');
+        if (onSaved) onSaved(r);
+      } catch (e) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '保存修改';
+        const firstField = e && e.fields ? Object.values(e.fields)[0] : '';
+        err.textContent = firstField || (e && e.message) || '保存失败，请重试';
+      }
+    });
+
+    modal.appendChild(form);
+  });
+}
+
+function openWithdrawSheet({ data, id, key, onDone }) {
+  openModal((modal, close) => {
+    modal.classList.add('is-narrow');
+    const reason = el('textarea', {
+      class: 'mze-input mze-textarea',
+      rows: '2',
+      maxlength: '100',
+      placeholder: '可以写一句原因（选填，只给平台运营看）',
+    });
+    const err = el('p', { class: 'mze-error', role: 'alert' });
+    const ok = el('button', { class: 'od-line-btn mze-danger', type: 'submit' }, '确认撤回');
+
+    const form = el('form', { class: 'mze-form' }, [
+      el('h2', { class: 'mze-title' }, '撤回这份入驻申请？'),
+      el('p', { class: 'mze-sub' }, `${data.id} · 撤回后平台不再审核这份资料；资料会保留，之后想重新入驻随时可以再提交。`),
+      reason,
+      err,
+      el('div', { class: 'mze-actions' }, [
+        ok,
+        el('button', { class: 'mz-btn mz-btn--ghost', type: 'button', onclick: close }, '先不撤'),
+      ]),
+    ]);
+
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      err.textContent = '';
+      ok.disabled = true;
+      ok.textContent = '撤回中…';
+      try {
+        await api(`/api/merchant/applications/${encodeURIComponent(id)}/withdraw?key=${encodeURIComponent(key)}`, {
+          method: 'POST',
+          body: { reason: reason.value.trim() },
+          retries: 0,
+        });
+        close();
+        toast('申请已撤回', 'ok');
+        if (onDone) onDone();
+      } catch (e) {
+        ok.disabled = false;
+        ok.textContent = '确认撤回';
+        err.textContent = (e && e.message) || '撤回失败，请重试';
+      }
+    });
+
+    modal.appendChild(form);
+  });
 }
 
 async function renderApplicationStatus(v, id, key) {
@@ -896,7 +1109,22 @@ async function renderApplicationStatus(v, id, key) {
     onclick: () => copyText(location.href, linkBtn),
   }, '复制查询链接');
 
-  card.append(
+  const reload = () => {
+    v.innerHTML = '';
+    renderApplicationStatus(v, id, key);
+  };
+
+  const HEAD = {
+    reviewing: ['已收到，正在审核', '资料已进入审核队列，3 个工作日内会通过短信与邮箱告知结果。'],
+    approved: ['已通过审核', data.reviewNote || '审核结果已生成，请留意短信与邮箱通知。'],
+    rejected: ['这次没有通过', data.reviewNote ? `驳回理由：${data.reviewNote}` : '审核结果已生成，请留意短信与邮箱通知。'],
+    withdrawn: ['申请已撤回', '这份申请已按你的要求撤回，平台不再继续审核。想重新入驻，随时可以再提交一份。'],
+  };
+  const [headline, lede] = HEAD[data.status] || ['审核状态', data.reviewNote || ''];
+
+  // 用数组 + filter 而不是直接 append(…, null, …)：
+  // DOM 的 append 会把 null 当成字符串 "null" 插进页面（el() 会过滤，原生 append 不会）
+  card.append(...[
     el('div', { class: 'mzf-result-head' }, [
       el('span', { class: `mzf-status is-${data.status}` }, data.statusLabel),
       el('div', { class: 'mzf-idrow' }, [
@@ -905,30 +1133,48 @@ async function renderApplicationStatus(v, id, key) {
         copyBtn,
       ]),
     ]),
-    el('h2', {}, data.status === 'reviewing'
-      ? '已收到，正在审核'
-      : (data.status === 'approved' ? '已通过审核' : '这次没有通过')),
-    el('p', { class: 'mzf-result-lede' },
-      data.status === 'reviewing'
-        ? '资料已进入审核队列，3 个工作日内会通过短信与邮箱告知结果。'
-        : (data.status === 'rejected' && data.reviewNote
-          ? `驳回理由：${data.reviewNote}`
-          : (data.reviewNote || '审核结果已生成，请留意短信与邮箱通知。'))),
+    el('h2', {}, headline),
+    el('p', { class: 'mzf-result-lede' }, lede),
+    // 商家改过几次必须自己看得到：运营拿着他以为的最新版在审，
+    // 而商家以为改的是另一版——这种错位只能靠「显示版本信息」来避免
+    data.revisionCount
+      ? el('p', { class: 'mzf-revised' }, `这份资料你在提交后修改过 ${data.revisionCount} 次（最后一次 ${fmtStamp(data.lastRevisedAt)}）。`)
+      : null,
     noticeBlock(data.status, data.notices),
     statusTimeline(data.status),
     el('dl', { class: 'mzf-summary static' }, [
       el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '主体'), el('dd', {}, data.company || '—')]),
       el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '品牌'), el('dd', {}, data.brand || '—')]),
       el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '联系人'), el('dd', {}, `${data.contact || '—'} · ${data.phoneMasked || '—'}`)]),
+      el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '主营类目'), el('dd', {}, catNames(data.categories).join('、') || '—')]),
       el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '提交时间'), el('dd', {}, fmtStamp(data.createdAt))]),
-    ]),
-    el('div', { class: 'mzf-result-actions' }, [
-      el('a', { class: 'mz-btn mz-btn--ghost', href: '#/merchant/join' }, '回到招商页'),
-      el('a', { class: 'mz-btn mz-btn--gold', href: '#/products' }, '先去逛逛商城'),
-      linkBtn,
-    ]),
+      data.withdrawnAt
+        ? el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '撤回时间'), el('dd', {}, fmtStamp(data.withdrawnAt))])
+        : null,
+    ].filter(Boolean)),
+    // 只有审核中才给「改 / 撤」：终态的申请不能改（那是改一份已经被审过的证据），
+    // 平台也不允许商家自己撤回一个已经通过的结论
+    data.status === 'reviewing'
+      ? el('div', { class: 'mzf-result-actions' }, [
+        el('button', {
+          class: 'mz-btn mz-btn--gold',
+          type: 'button',
+          onclick: () => openEditSheet({ data, id, key, onSaved: reload }),
+        }, '修改资料'),
+        el('button', {
+          class: 'mz-btn mz-btn--ghost',
+          type: 'button',
+          onclick: () => openWithdrawSheet({ data, id, key, onDone: reload }),
+        }, '撤回申请'),
+        linkBtn,
+      ])
+      : el('div', { class: 'mzf-result-actions' }, [
+        el('a', { class: 'mz-btn mz-btn--ghost', href: '#/merchant/join' }, '回到招商页'),
+        el('a', { class: 'mz-btn mz-btn--gold', href: '#/products' }, data.status === 'approved' ? '先去逛逛商城' : '重新填写申请'),
+        linkBtn,
+      ]),
     el('p', { class: 'mzf-foot' }, '把这个链接存进收藏夹，随时回来查看审核进度。链接里含查询凭证，不要转发给无关的人。'),
-  );
+  ].filter(Boolean));
 
   wrap.replaceChild(card, wrap.querySelector('.mzf-loading'));
 }

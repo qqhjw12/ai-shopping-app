@@ -8331,3 +8331,197 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   .adm-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .adm-tab { flex: none; }
 }
+
+/* ============================================================
+   第四步：商家自助（改资料 / 撤回）+ 通知模板 + 导出
+   ============================================================ */
+
+/* 已撤回：不是失败，也不是完成——用中性的灰金，别让商家以为自己做错了事 */
+.mzf-status.is-withdrawn { background: rgba(26, 26, 26, 0.06); color: var(--body); }
+.mzf-tl.is-stopped .mzf-tl-dot { border-color: var(--line-strong); color: var(--muted); }
+.mzf-tl.is-stopped strong { color: var(--body); }
+
+/* 「你改过几次」：商家自己要看得到，否则他以为改的和运营审的不是同一版 */
+.mzf-revised {
+  margin: -6px 0 18px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+/* ---------------- 修改资料弹层 ---------------- */
+.modal.is-wide { width: min(880px, 94vw); }
+
+.mze-form { display: grid; gap: 14px; }
+.mze-title { margin: 0; font-family: var(--serif); font-size: 24px; font-weight: 500; }
+.mze-sub { margin: -6px 0 2px; color: var(--body); font-size: 12px; line-height: 1.7; }
+.mze-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+.mze-field { display: grid; gap: 5px; min-width: 0; }
+.mze-field--wide { grid-column: 1 / -1; }
+.mze-label { color: var(--muted); font-size: 10.5px; letter-spacing: 0.06em; }
+.mze-input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.mze-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-weak); }
+.mze-textarea { resize: vertical; min-height: 62px; }
+.mze-hint { color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.mze-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mze-chip { position: relative; cursor: pointer; }
+.mze-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.mze-chip span {
+  display: inline-block;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--body);
+  font-size: 11.5px;
+  transition: all 0.18s var(--ease);
+}
+.mze-chip input:checked + span { border-color: var(--gold); background: var(--gold-weak); color: var(--gold-deep); }
+.mze-chip input:focus-visible + span { outline: 2px solid var(--gold); outline-offset: 2px; }
+.mze-error { margin: 0; color: #8d3b31; font-size: 12px; min-height: 0; }
+.mze-error:empty { display: none; }
+.mze-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.mze-danger { border-color: rgba(164, 72, 60, 0.45); color: #8d3b31; }
+.mze-danger:hover { background: rgba(164, 72, 60, 0.06); }
+
+/* ---------------- 审核台：修改次数提示 ---------------- */
+.mzr-revised {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.mzr-revised-badge {
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  background: rgba(164, 72, 60, 0.08);
+  color: #8d3b31;
+  font-size: 10.5px;
+}
+.adm-status.s-withdrawn { background: rgba(26, 26, 26, 0.05); color: var(--muted); }
+.adm-card.is-withdrawn { opacity: 0.92; }
+
+/* ---------------- 通知模板页 ---------------- */
+.mzt-host { display: grid; gap: 30px; }
+.mzt-intro { max-width: 76ch; margin: 0; color: var(--body); font-size: 12.5px; line-height: 1.8; }
+.mzt-group { display: grid; gap: 14px; }
+.mzt-group-head { display: grid; gap: 4px; }
+.mzt-group-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.mzt-group-sub { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.7; }
+.mzt-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.mzt-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+/* 关掉的通道整卡降饱和：一眼能看出「这条现在不会发」 */
+.mzt-card.is-off { background: rgba(26, 26, 26, 0.02); }
+.mzt-card.is-off .mzt-body,
+.mzt-card.is-off .mzt-input { opacity: 0.72; }
+.mzt-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.mzt-channel { display: block; font-size: 13.5px; color: var(--ink); }
+.mzt-updated { display: block; margin-top: 3px; color: var(--muted); font-size: 10.5px; }
+.mzt-card-form { display: grid; gap: 9px; }
+.mzt-label { color: var(--muted); font-size: 10.5px; letter-spacing: 0.06em; }
+.mzt-input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.mzt-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-weak); background: var(--surface); }
+.mzt-body { resize: vertical; }
+.mzt-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mzt-count { color: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.mzt-count.is-over { color: #8d3b31; }
+.mzt-state { color: var(--muted); font-size: 10.5px; }
+.mzt-state.is-custom { color: var(--gold-deep); }
+.mzt-vars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mzt-vars-label { color: var(--muted); font-size: 10px; letter-spacing: 0.06em; }
+.mzt-var {
+  padding: 3px 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--body);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+}
+.mzt-var:hover { border-style: solid; border-color: var(--gold); color: var(--gold-deep); background: var(--gold-weak); }
+.mzt-toggle { display: flex; align-items: center; gap: 8px; color: var(--body); font-size: 11.5px; cursor: pointer; }
+/* 全局 input 是 width:100%——不钉死尺寸的话，checkbox 会把文字挤到最右边再竖着折行 */
+.mzt-toggle input {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--gold-deep);
+  cursor: pointer;
+}
+.mzt-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mzt-error { margin: 0; color: #8d3b31; font-size: 11.5px; }
+.mzt-error:empty { display: none; }
+.mzt-preview {
+  padding: 12px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: var(--canvas);
+  display: grid;
+  gap: 6px;
+}
+.mzt-preview-label { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.mzt-preview-subject { color: var(--ink); font-size: 12.5px; }
+.mzt-preview-body {
+  margin: 0;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mzt-warn { margin: 0; color: var(--gold-deep); font-size: 10.5px; }
+.mzt-foot { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
+
+@media (max-width: 900px) {
+  .mzt-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .mze-grid { grid-template-columns: 1fr; }
+  .modal.is-wide { width: 94vw; padding: 18px; }
+  .mze-actions { justify-content: stretch; }
+  .mze-actions > * { flex: 1 1 auto; }
+}

@@ -35,6 +35,9 @@ import * as aftersaleService from './services/aftersaleService.js';
 import * as ledgerService from './services/ledgerService.js';
 import * as merchantService from './services/merchantService.js';
 import * as noticeService from './services/noticeService.js';
+import * as noticeTemplateService from './services/noticeTemplateService.js';
+import { toCsv, contentDisposition } from './services/csv.js';
+
 import * as reviewRepo from './repositories/reviewRepo.js';
 import * as storage from './storage/index.js';
 import * as authService from './auth/service.js';
@@ -1242,6 +1245,39 @@ async function route(req, res, url) {
     }
   }
 
+  /**
+   * 批量导出 CSV（运营侧）。
+   *
+   * 路径必须排在下面那条 `/applications/:id` 正则之前——否则 "export" 会被当成
+   * 一个申请编号去查，运营点导出只会得到 404「申请不存在」。
+   * 导出不按当前页取数，而是按筛选条件取全量（有上限，见 listForExport）。
+   */
+  if (req.method === 'GET' && url.pathname === '/api/merchant/applications/export') {
+    if (!requireAdmin(req, res)) return;
+    const data = merchantService.exportCsv(Object.fromEntries(url.searchParams));
+    const payload = Buffer.from(toCsv(data.columns, data.rows), 'utf8');
+    const stamp = new Date().toISOString().slice(0, 10);
+    // 导出是一次「把客户资料带出系统」的动作，必须留痕：谁导的、导了多少
+    log.info('merchant.exported', {
+      reqId: req.reqId,
+      status: data.status || 'all',
+      exported: data.exported,
+      total: data.total,
+      actor: adminActor(req),
+      keyFp: adminKeyFingerprint(req),
+    });
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Length': payload.length,
+      'Content-Disposition': contentDisposition(`merchant-applications-${data.status || 'all'}-${stamp}.csv`),
+      // 撞到上限时前端要能说清「只导了前 N 条」，而不是让运营以为拿到了全部
+      'X-Export-Total': String(data.total),
+      'X-Export-Count': String(data.exported),
+      'X-Export-Truncated': data.truncated ? '1' : '0',
+    });
+    return res.end(payload);
+  }
+
   const merchantAppMatch = url.pathname.match(/^\/api\/merchant\/applications\/([^/]+)$/);
   if (merchantAppMatch && req.method === 'GET') {
     const id = decodeURIComponent(merchantAppMatch[1]);
@@ -1290,6 +1326,103 @@ async function route(req, res, url) {
       return send(res, 200, r);
     } catch (e) {
       return sendError(res, e.status || 400, e.message, req.reqId);
+    }
+  }
+
+  /**
+   * 商家自助：审核前改资料 / 撤回。
+   *
+   * 鉴权是「编号 + 查询凭证」（?key=），**不是**管理密钥——这是商家自己的动作。
+   * 凭证错与编号不存在都回 404，理由同公开查询：两者可区分就等于给了枚举口子。
+   * 只有 reviewing 状态可改（服务层守），改完写轨迹，运营在审核台能看到「改过什么」。
+   */
+  const merchantSelfMatch = url.pathname.match(/^\/api\/merchant\/applications\/([^/]+)\/(revise|withdraw)$/);
+  if (merchantSelfMatch && req.method === 'POST') {
+    const ipHit = merchantApplyIpWindow.hit(req.ip || 'unknown');
+    if (!ipHit.allowed) {
+      res.setHeader('Retry-After', String(ipHit.retryAfterSec));
+      return sendError(res, 429, '操作过于频繁，请稍后再试', req.reqId);
+    }
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    const id = decodeURIComponent(merchantSelfMatch[1]);
+    const action = merchantSelfMatch[2];
+    const key = url.searchParams.get('key');
+    try {
+      const r = action === 'revise'
+        ? merchantService.revise(id, key, parsed)
+        : merchantService.withdraw(id, key, parsed);
+      log.info('merchant.self_service', {
+        reqId: req.reqId,
+        id,
+        action,
+        changes: action === 'revise' ? (r.changesLabel || []).join('、') : undefined,
+      });
+      return send(res, 200, r);
+    } catch (e) {
+      return sendError(res, e.status || 400, e.message, req.reqId, e.fields ? { fields: e.fields } : undefined);
+    }
+  }
+
+  /**
+   * 通知模板：列表 / 保存 / 恢复默认 / 预览。
+   * 模板是外发文案的源头，全部要管理密钥；预览不写库（改之前先看效果）。
+   */
+  if (req.method === 'GET' && url.pathname === '/api/merchant/notice-templates') {
+    if (!requireAdmin(req, res)) return;
+    return guarded(() => noticeTemplateService.list());
+  }
+
+  const tplMatch = url.pathname.match(/^\/api\/merchant\/notice-templates\/([^/]+?)(?:\/(reset|preview))?$/);
+  if (tplMatch) {
+    if (!requireAdmin(req, res)) return;
+    const tplId = decodeURIComponent(tplMatch[1]);
+    const sub = tplMatch[2] || '';
+    if (!sub && req.method === 'PUT') {
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      try {
+        const r = noticeTemplateService.save(tplId, parsed, adminActor(req));
+        log.info('merchant.template_saved', {
+          reqId: req.reqId,
+          id: tplId,
+          actor: adminActor(req),
+          enabled: r.template.enabled,
+          chars: r.template.body.length,
+        });
+        return send(res, 200, r);
+      } catch (e) {
+        return sendError(res, e.status || 400, e.message, req.reqId, e.fields ? { fields: e.fields } : undefined);
+      }
+    }
+    if (sub === 'reset' && req.method === 'POST') {
+      try {
+        const r = noticeTemplateService.reset(tplId);
+        log.info('merchant.template_reset', { reqId: req.reqId, id: tplId, actor: adminActor(req) });
+        return send(res, 200, r);
+      } catch (e) {
+        return sendError(res, e.status || 400, e.message, req.reqId);
+      }
+    }
+    if (sub === 'preview' && req.method === 'POST') {
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      // 传了 applicationId 就用真实申请试渲染（变量缺了能当场看出来），不传就用内置样例
+      let app = null;
+      if (parsed.applicationId) {
+        const found = merchantService.detailForAdmin(String(parsed.applicationId));
+        app = found ? found.application : null;
+      }
+      try {
+        return send(res, 200, noticeTemplateService.preview(tplId, {
+          app,
+          note: parsed.note,
+          body: parsed.body,
+          subject: parsed.subject,
+        }));
+      } catch (e) {
+        return sendError(res, e.status || 400, e.message, req.reqId);
+      }
     }
   }
 
@@ -1618,6 +1751,13 @@ async function route(req, res, url) {
         'PATCH /api/merchant/applications/:id {action:approve|reject, note?} (审核：驳回必填理由；终态再审核 409；需 X-Admin-Key)',
         'POST /api/merchant/notices/flush (手动投递一轮通知队列，需 X-Admin-Key)',
         'GET /api/merchant/notices/stats (通知队列计数 + 通道状态，需 X-Admin-Key)',
+        'POST /api/merchant/applications/:id/revise?key= (商家审核前改资料：只传要改的字段；非 reviewing 409)',
+        'POST /api/merchant/applications/:id/withdraw?key= {reason?} (商家撤回申请：不删除，状态置 withdrawn 并留轨迹)',
+        'GET /api/merchant/applications/export?status= (导出 CSV，UTF-8 BOM + 公式注入防护，需 X-Admin-Key)',
+        'GET /api/merchant/notice-templates (通知模板：默认值 + 覆盖项 + 可用变量，需 X-Admin-Key)',
+        'PUT /api/merchant/notice-templates/:id {subject?, body?, enabled?} (保存模板，变量白名单校验)',
+        'POST /api/merchant/notice-templates/:id/reset (恢复默认：删除覆盖行，需 X-Admin-Key)',
+        'POST /api/merchant/notice-templates/:id/preview {applicationId?, note?} (预览渲染结果，不写库)',
         'POST /api/ai/recommend {query, limit?} (导购推荐：检索+可选LLM导购语，不落会话、永远带卡)',
         'POST /api/ai/image-search {colors:[{h,s,l,weight}]} (色彩特征最近邻检索，不上传原图)',
         'POST /api/ai/chat {message, userId?, conversationId?}',

@@ -684,6 +684,65 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_mn_status ON merchant_notices(status, id);
     `,
   },
+  {
+    version: 19,
+    name: 'merchant-selfservice',
+    sql: `
+      -- 商家侧自助：审核前改资料（revise）、不想来了就撤回（withdraw）。
+      --
+      -- 三条取舍：
+      --
+      -- 1) 新增 withdrawn 状态，而不是直接物理删除。
+      --    撤回是商家的一个动作，运营需要看见「这家自己退了」——列表里少一条
+      --    和「这家撤回了」是两件事，后者能解释为什么某个品牌一直没上线。
+      --    状态列是 TEXT，没有 CHECK 约束，所以加状态不需要重建表。
+      --
+      -- 2) revision_count / last_revised_at 冗余在申请行上，而不是每次去 events 表数。
+      --    运营列表要显示「商家在提交后改过 2 次」，一页 20 条就是 20 次聚合查询。
+      --    轨迹表仍然是权威事实来源，这两个字段只是列表用的缓存，事务里一起写。
+      --    改过 2 次以上是个强信号：审核前值得重新看一眼，别拿着旧数据下结论。
+      --
+      -- 3) 银行账号依旧不可回读：库里只有前 4 后 4。所以「改结算账号」必须重新输完整卡号，
+      --    不能把打码串提交回来再当新账号存——那样只会把一份没变的资料伪装成变更。
+      ALTER TABLE merchant_applications ADD COLUMN revision_count    INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE merchant_applications ADD COLUMN last_revised_at  TEXT;
+      ALTER TABLE merchant_applications ADD COLUMN withdrawn_at     TEXT;
+      CREATE INDEX IF NOT EXISTS idx_ma_revised
+        ON merchant_applications(status, last_revised_at);
+    `,
+  },
+  {
+    version: 20,
+    name: 'merchant-notice-templates',
+    sql: `
+      -- 通知模板：审核结果发出去的那段话，运营应该能自己改。
+      --
+      -- 为什么不在代码里写死文案、也不塞进环境变量：
+      --   - 写死在代码里，改一句话要发版、要走评审，法务想加一句免责声明得排期；
+      --   - 塞进环境变量，改完全体重启，而且 .env 里塞多行长文本是个灾难。
+      -- 落一张表，运营在后台改完立即生效（模板在「排通知」那一刻渲染，不是发送时）。
+      --
+      -- 表里**只存覆盖项**：默认模板在 services/noticeTemplateService.js 里。
+      -- 这样新增一个结果类型（比如 withdrawn）不需要迁移数据；「恢复默认」也
+      -- 只是删行，而不是把默认值再抄一遍——抄一遍就意味着今后默认值升级时，
+      -- 那些「恢复过默认」的行会停在旧文案上。
+      --
+      -- 变量白名单在服务层校验：模板是运营写的，但它是拼进外发文案的，
+      -- 拼错一个变量名等于给所有商家发一条 {{company}} 字样的短信。
+      CREATE TABLE IF NOT EXISTS merchant_notice_templates (
+        id          TEXT PRIMARY KEY,              -- <status>:<channel>，如 approved:sms
+        status      TEXT NOT NULL,                 -- approved / rejected / withdrawn
+        channel     TEXT NOT NULL,                 -- sms / email
+        subject     TEXT NOT NULL DEFAULT '',      -- 邮件主题（短信为空）
+        body        TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,    -- 关掉 = 这个结果不再走这个通道
+        updated_by  TEXT NOT NULL DEFAULT '',
+        updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_mnt_status
+        ON merchant_notice_templates(status, channel);
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

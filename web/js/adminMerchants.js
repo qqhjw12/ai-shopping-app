@@ -10,7 +10,7 @@
 //   2) 筛选走路由，刷新/前进后退都停在同一个视角；
 //   3) 审完不局部改卡片，整页重拉：卡片上的状态、通知状态、计数徽标都要跟着变，
 //      局部改一处一定会漏改另一处。
-import { api } from './api.js';
+import { api, apiBase } from './api.js';
 import { el, loading, openModal, toast } from './ui.js';
 import { navigate } from './router.js';
 import {
@@ -31,11 +31,12 @@ const FILTERS = [
   { code: 'reviewing', label: '待审核' },
   { code: 'approved', label: '已通过' },
   { code: 'rejected', label: '未通过' },
+  { code: 'withdrawn', label: '已撤回' },
   { code: 'all', label: '全部' },
 ];
 const DEFAULT_FILTER = 'reviewing';
 
-const STATUS_TEXT = { reviewing: '待审核', approved: '已通过', rejected: '未通过' };
+const STATUS_TEXT = { reviewing: '待审核', approved: '已通过', rejected: '未通过', withdrawn: '已撤回' };
 const ENTITY_LABEL = {
   brand: '原创品牌',
   factory: '源头工厂',
@@ -82,6 +83,51 @@ async function flushNotices() {
   return api('/api/merchant/notices/flush', { method: 'POST', headers: adminHeaders(), retries: 0 });
 }
 
+/**
+ * 导出 CSV。
+ *
+ * 这里不能用 api()：它按 JSON 解析响应，而导出返回的是文件流。
+ * 走原生 fetch + blob 下载，但**必须自己带管理密钥**——用 <a href> 直接链过去
+ * 是最省事的写法，代价是把密钥拼进 URL：它会留在浏览器历史、被中间层的访问日志
+ * 原样记下（查询串不脱敏），而密钥正是这个后台唯一的门。
+ */
+async function downloadCsv(status) {
+  const qs = new URLSearchParams();
+  if (status) qs.set('status', status);
+  const resp = await fetch(`${apiBase}/api/merchant/applications/export${qs.toString() ? `?${qs}` : ''}`, {
+    headers: adminHeaders(),
+  });
+  if (!resp.ok) {
+    let msg = `导出失败（${resp.status}）`;
+    try {
+      const d = await resp.json();
+      if (d && d.error) msg = d.error;
+    } catch { /* 非 JSON 错误体 */ }
+    throw Object.assign(new Error(msg), { status: resp.status });
+  }
+  const blob = await resp.blob();
+  // 文件名从 Content-Disposition 里取（服务端已按 RFC 5987 编好中文）
+  const cd = resp.headers.get('content-disposition') || '';
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+  const plain = /filename="([^"]+)"/i.exec(cd);
+  const name = star ? decodeURIComponent(star[1]) : (plain ? plain[1] : 'merchant-applications.csv');
+
+  const href = URL.createObjectURL(blob);
+  const a = el('a', { href, download: name });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // 立刻 revoke 会让部分浏览器下载中断，留一拍再释放
+  setTimeout(() => URL.revokeObjectURL(href), 4000);
+
+  return {
+    count: Number(resp.headers.get('x-export-count') || 0),
+    total: Number(resp.headers.get('x-export-total') || 0),
+    truncated: resp.headers.get('x-export-truncated') === '1',
+    name,
+  };
+}
+
 /* ============================================================
    钥匙门
    ============================================================ */
@@ -92,6 +138,9 @@ function keyGate(repaint) {
     sub: '这一页不属于买家路径，也不属于商家路径，进入需要服务端的管理密钥。',
     hint: [
       '与售后审核台共用同一把钥匙和同一个署名，在那边登过就不用再登一次。',
+      el('br', {}),
+      '商家在审核期间可以自己改资料或撤回：卡片上出现「商家修改过 N 次」时，',
+      '按最新一版重新看一遍再下结论——你手里的判断依据可能已经变过了。',
       el('br', {}),
       '审核是终态动作：通过或驳回之后不能再改。要反悔得走运营流程，页面不给第二次机会——',
       '「点错了再点一次」在审核这种场景里不是便利，是风险。',
@@ -231,6 +280,14 @@ function recordCard(r, { reload }) {
       el('strong', {}, r.company),
       el('span', {}, `品牌 ${r.brand}`),
     ]),
+    // 提交后改过资料是个强信号：审核前值得重新看一遍，别拿着旧数据下结论。
+    // 所以放在标题下面（第一屏），而不是塞进卡片底部的小字里
+    r.revisionCount
+      ? el('p', { class: 'mzr-revised' }, [
+        el('span', { class: 'mzr-revised-badge' }, `商家修改过 ${r.revisionCount} 次`),
+        el('span', {}, `最后 ${fmtStamp(r.lastRevisedAt)}`),
+      ])
+      : null,
     factsBlock(r),
     r.note ? el('p', { class: 'adm-note' }, `商家备注：${r.note}`) : null,
     r.dropship ? el('p', { class: 'mzr-flag' }, '支持一件代发') : null,
@@ -250,6 +307,12 @@ function recordCard(r, { reload }) {
         onclick: () => openReviewSheet({ record: r, action: 'reject', onDone: () => reload() }),
       }, '驳回'),
     ]));
+  } else if (r.status === 'withdrawn') {
+    // 撤回没有「处理人」：是商家自己停下的，写成「处理人 —」会让人以为运营漏了操作
+    kids.push(el('div', { class: 'adm-verdict' }, [
+      el('span', { class: 'adm-verdict-main' }, `商家撤回 · ${fmtStamp(r.withdrawnAt)}`),
+      el('span', { class: 'adm-verdict-note' }, '这份资料不再进入审核；想入驻需要重新提交'),
+    ]));
   } else {
     const bits = [
       STATUS_TEXT[r.status] || r.status,
@@ -260,11 +323,12 @@ function recordCard(r, { reload }) {
       el('span', { class: 'adm-verdict-main' }, bits.filter(Boolean).join(' · ')),
       r.reviewNote ? el('span', { class: 'adm-verdict-note' }, `意见：${r.reviewNote}`) : null,
     ]));
-    const line = noticeLine(r.notices);
-    if (line) kids.push(line);
   }
 
-  return el('article', { class: `adm-card is-${r.status}`, 'data-application': r.id }, kids);
+  const line = noticeLine(r.notices);
+  if (line) kids.push(line);
+
+  return el('article', { class: `adm-card is-${r.status}`, 'data-application': r.id }, kids.filter(Boolean));
 }
 
 /* ============================================================
@@ -292,6 +356,7 @@ function summaryRow(data, notices) {
     el('span', { class: 'adm-chip is-reviewing' }, `待审核 ${s.reviewing ?? 0}`),
     el('span', { class: 'adm-chip' }, `已通过 ${s.approved ?? 0}`),
     el('span', { class: 'adm-chip' }, `未通过 ${s.rejected ?? 0}`),
+    el('span', { class: 'adm-chip' }, `已撤回 ${s.withdrawn ?? 0}`),
   ];
   if (notices) {
     const ch = notices.channel || {};
@@ -356,6 +421,35 @@ export async function renderAdminMerchants(view, query = {}) {
     },
   }, '立即投递通知');
 
+  // 导出按「当前视角」走：运营筛了未通过再点导出，要的是未通过那一批，
+  // 而不是把全库下载下来自己去筛（那等于让他在 Excel 里重做一遍筛选）
+  const exportBtn = el('button', {
+    class: 'adm-line-btn',
+    type: 'button',
+    'data-role': 'export',
+    onclick: async () => {
+      exportBtn.disabled = true;
+      exportBtn.textContent = '导出中…';
+      try {
+        const r = await downloadCsv(status);
+        toast(r.truncated
+          ? `已导出前 ${r.count} 条（共 ${r.total} 条，请缩小筛选范围）`
+          : `已导出 ${r.count} 条`, r.truncated ? 'warn' : 'ok');
+      } catch (e) {
+        if (isKeyRejected(e)) {
+          clearAdminIdentity();
+          paint();
+          toast('密钥失效，请重新进入', 'warn');
+        } else {
+          toast((e && e.message) || '导出失败', 'warn');
+        }
+      } finally {
+        exportBtn.disabled = false;
+        exportBtn.textContent = '导出 CSV';
+      }
+    },
+  }, '导出 CSV');
+
   view.appendChild(el('section', { class: 'adm-page' }, [
     el('div', { class: 'adm-crumb' }, [el('a', { href: '#/' }, '← 回到商店')]),
     adminTabs('merchants'),
@@ -366,6 +460,7 @@ export async function renderAdminMerchants(view, query = {}) {
         el('span', { class: 'adm-actor' }, `操作人 ${readAdminActor()}`),
       ]),
       el('div', { class: 'mzr-head-actions' }, [
+        exportBtn,
         flushBtn,
         el('button', {
           class: 'adm-line-btn',

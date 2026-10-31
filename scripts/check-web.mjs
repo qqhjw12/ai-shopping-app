@@ -2172,6 +2172,38 @@ if (failed === 0) {
     const badReview = reviewCases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${badReview.length === 0 ? 'ok  ' : 'FAIL'} 商家入驻审核台${badReview.length ? ` → 缺失: ${badReview.join('、')}` : ''}`);
     if (badReview.length) failed++;
+
+    // 第四步：商家自助（改资料 / 撤回）、通知模板、批量导出。
+    // 这一组锁的是「想清楚之后才做得对」的那些点：
+    //   - 修改只提交改过的字段（打码字段留空 = 不修改，不能把打码串当新值提交）；
+    //   - 撤回按钮只出现在「审核中」，终态不给改（否则等于改一份已审过的证据）；
+    //   - 模板变量用胶囊插入 + 预览用编辑框当前内容（不是已保存版本）；
+    //   - 导出不能把管理密钥拼进 URL（会留在历史与访问日志里）。
+    const tplSrc = readFileSync(dir('adminNoticeTemplates.js'), 'utf8');
+    const selfCases = [
+      ['app.js 注册通知模板路由', appSrc.includes("path === '/admin/notice-templates'")],
+      ['运营台三个标签共用一套凭据', (sharedSrc2.match(/code: '(aftersales|merchants|templates)'/g) || []).length === 3],
+      ['状态页有修改与撤回入口（仅审核中）', mSrc.includes('/revise?key=') && mSrc.includes('/withdraw?key=')
+        && mSrc.includes("data.status === 'reviewing'")],
+      ['打码字段留空即不修改（不回填打码串）', mSrc.includes('不修改请留空') && mSrc.includes("if (val('bankNo')) patch.bankNo")],
+      ['只提交改动字段', mSrc.includes('if (!Object.keys(patch).length)') && mSrc.includes('没有改动任何内容')],
+      ['撤回是二次确认弹层，不是一键删除', mSrc.includes('撤回这份入驻申请？') && mSrc.includes('资料会保留')],
+      ['状态页展示修改次数（版本错位防护）', mSrc.includes('revisionCount') && mSrc.includes('修改过')],
+      ['撤回在时间线上是「停下」不是「失败」', mSrc.includes('is-stopped') && mSrc.includes('已撤回申请')],
+      ['模板页：变量胶囊插入 + 预览 + 恢复默认', tplSrc.includes('{{${v}}}') && tplSrc.includes('/preview') && tplSrc.includes('/reset')],
+      ['模板页：关通道而非删模板', tplSrc.includes('enabled') && tplSrc.includes('启用短信通知')],
+      ['模板页说明「改模板不影响已排队通知」', tplSrc.includes('改完只影响此后新排队的通知')],
+      ['导出按钮存在', amSrc.includes('导出 CSV') && amSrc.includes('data-role')],
+      ['导出用原生 fetch 带管理密钥头（不拼进 URL）', amSrc.includes('applications/export') && amSrc.includes('headers: adminHeaders()')
+        && !/applications\/export[^`'"\n]*\?[^`'"\n]*key=/.test(amSrc)],
+      ['导出撞上限时如实提示只导了前 N 条', amSrc.includes('已导出前')],
+      ['审核台能筛「已撤回」', amSrc.includes("code: 'withdrawn'") && amSrc.includes('已撤回')],
+      ['卡片提示「商家修改过 N 次」', amSrc.includes('商家修改过') && amSrc.includes('mzr-revised')],
+    ];
+    const badSelf = selfCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badSelf.length === 0 ? 'ok  ' : 'FAIL'} 商家自助/模板/导出${badSelf.length ? ` → 缺失: ${badSelf.join('、')}` : ''}`);
+    if (badSelf.length) failed++;
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);

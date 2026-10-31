@@ -248,7 +248,7 @@ try {
   await page.waitForTimeout(1000);
 
   check('钥匙门：密钥 + 操作人两个输入框', (await page.locator('.adm-key-input').count()) === 2);
-  check('钥匙门带运营台切换标签', (await page.locator('.adm-tab').count()) === 2);
+  check('钥匙门带运营台切换标签', (await page.locator('.adm-tab').count()) === 3);
 
   // 先只输钥匙：操作人必填，半截身份不给进
   await page.locator('.adm-key-input').nth(0).fill(ADMIN_KEY);

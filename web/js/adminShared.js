@@ -73,11 +73,12 @@ export function isKeyRejected(e) {
   return e && (e.status === 401 || e.status === 403);
 }
 
-/** 两个运营台之间的切换。当前台高亮，另一个可点 */
+/** 运营台之间的切换。当前台高亮，其他可点 */
 export function adminTabs(active) {
   const tabs = [
     { code: 'aftersales', label: '售后审核', href: '#/admin/aftersales?status=reviewing' },
     { code: 'merchants', label: '商家入驻审核', href: '#/admin/merchants?status=reviewing' },
+    { code: 'templates', label: '通知模板', href: '#/admin/notice-templates' },
   ];
   return el('nav', { class: 'adm-tabs', 'aria-label': '运营台切换' },
     tabs.map((t) => el('a', {
