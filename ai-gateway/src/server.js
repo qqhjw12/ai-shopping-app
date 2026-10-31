@@ -34,6 +34,7 @@ import * as couponCatalogService from './services/couponCatalogService.js';
 import * as aftersaleService from './services/aftersaleService.js';
 import * as ledgerService from './services/ledgerService.js';
 import * as merchantService from './services/merchantService.js';
+import * as noticeService from './services/noticeService.js';
 import * as reviewRepo from './repositories/reviewRepo.js';
 import * as storage from './storage/index.js';
 import * as authService from './auth/service.js';
@@ -1244,9 +1245,73 @@ async function route(req, res, url) {
   const merchantAppMatch = url.pathname.match(/^\/api\/merchant\/applications\/([^/]+)$/);
   if (merchantAppMatch && req.method === 'GET') {
     const id = decodeURIComponent(merchantAppMatch[1]);
+    // 带了管理密钥就按运营口径读：含审核轨迹与通知队列。
+    // 不带就只认「编号 + 查询凭证」，两个口径的可见范围差很多，绝不共用一条路径。
+    if (req.headers['x-admin-key']) {
+      if (!requireAdmin(req, res)) return;
+      return guarded(() => {
+        const d = merchantService.detailForAdmin(id);
+        if (!d) return null; // guarded 统一转成 404
+        return d;
+      });
+    }
     const app = merchantService.getByCredential(id, url.searchParams.get('key'));
     if (!app) return sendError(res, 404, '申请不存在，或查询凭证已失效', req.reqId);
     return send(res, 200, { application: app });
+  }
+
+  /**
+   * 审核：approve / reject。
+   *
+   * 改状态、写轨迹、排通知三件事在服务层一个事务里完成；通知只排队不发送
+   * （发送交给后台 worker，见 services/noticeService.js 开头的理由）。
+   * 终态不可再审：重复点通过会 409，而不是静默覆盖第一份结论。
+   */
+  if (merchantAppMatch && req.method === 'PATCH') {
+    if (!requireAdmin(req, res)) return;
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    const id = decodeURIComponent(merchantAppMatch[1]);
+    const actor = adminActor(req);
+    try {
+      const r = merchantService.review(id, parsed, {
+        by: actor,
+        keyFp: adminKeyFingerprint(req),
+      });
+      // 日志只记编号、结论与操作人，不记主体名称与联系方式
+      log.info('merchant.reviewed', {
+        reqId: req.reqId,
+        id,
+        status: r.application.status,
+        actor,
+        keyFp: adminKeyFingerprint(req),
+        notices: r.notices.length,
+      });
+      return send(res, 200, r);
+    } catch (e) {
+      return sendError(res, e.status || 400, e.message, req.reqId);
+    }
+  }
+
+  /**
+   * 手动触发一轮通知投递。
+   * 平时由后台 worker 每 45 秒扫一次；这个端点给两种场景用：
+   * 刚配好 NOTIFY_WEBHOOK_URL 想立刻验证，以及运维排障时不想等下一轮。
+   */
+  if (req.method === 'POST' && url.pathname === '/api/merchant/notices/flush') {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const counts = await noticeService.flush({ limit: 50 });
+      return send(res, 200, { ...counts, channel: noticeService.channelState() });
+    } catch (e) {
+      return sendError(res, 500, e.message, req.reqId);
+    }
+  }
+
+  // 通知队列概览：运营台头部用它显示「通道是否就绪 / 几条没发出去」
+  if (req.method === 'GET' && url.pathname === '/api/merchant/notices/stats') {
+    if (!requireAdmin(req, res)) return;
+    return guarded(() => noticeService.queueStats());
   }
 
   // 导购推荐（AI 抽屉）：检索 + 可选 LLM 导购语。不落会话，永远带商品卡。
@@ -1549,6 +1614,10 @@ async function route(req, res, url) {
         'POST /api/merchant/applications {entityKind, company, creditCode, contact, phone, brand, brandSource, categories, skuRange, priceRange, bankAccount, bankNo, returnPolicy, shipWithin, submitKey} (入驻申请；幂等；银行账号只存前4后4)',
         'GET /api/merchant/applications/:id?key= (凭编号 + 查询凭证自查状态，双要素缺一为 404)',
         'GET /api/merchant/applications?status=&page=&size= (运营审核列表 + 状态计数，需 X-Admin-Key)',
+        'GET /api/merchant/applications/:id (带 X-Admin-Key 时返回申请 + 审核轨迹 + 通知队列)',
+        'PATCH /api/merchant/applications/:id {action:approve|reject, note?} (审核：驳回必填理由；终态再审核 409；需 X-Admin-Key)',
+        'POST /api/merchant/notices/flush (手动投递一轮通知队列，需 X-Admin-Key)',
+        'GET /api/merchant/notices/stats (通知队列计数 + 通道状态，需 X-Admin-Key)',
         'POST /api/ai/recommend {query, limit?} (导购推荐：检索+可选LLM导购语，不落会话、永远带卡)',
         'POST /api/ai/image-search {colors:[{h,s,l,weight}]} (色彩特征最近邻检索，不上传原图)',
         'POST /api/ai/chat {message, userId?, conversationId?}',
@@ -1772,6 +1841,22 @@ server.listen(config.port, async () => {
     uploadDailyQuota.sweep();
   }, 3600 * 1000);
   if (housekeeping.unref) housekeeping.unref();
+  // 入驻审核结果通知的出站队列：后台静默投递，不阻塞请求。
+  // 通道没配置时这里每天就是几条 skipped，不会空转打服务商。
+  if (config.notify.flushIntervalSec > 0) {
+    const noticeWorker = setInterval(() => {
+      noticeService.flushSafely();
+    }, config.notify.flushIntervalSec * 1000);
+    if (noticeWorker.unref) noticeWorker.unref();
+    const state = noticeService.channelState();
+    log.info('notice.worker', {
+      mode: state.mode,
+      intervalSec: config.notify.flushIntervalSec,
+      hint: state.ready ? undefined : '未配置 NOTIFY_WEBHOOK_URL：审核结果只在页面可见，通知标为「未配置通道」',
+    });
+    // 启动即扫一次：重启前积压的 queued 不该再等一个周期
+    noticeService.flushSafely();
+  }
   // 埋点索引模板：docker 模式 best-effort 建（ES 不可用时静默跳过）
   ensureTrackIndex().catch(() => {});
   try {

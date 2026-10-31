@@ -67,6 +67,7 @@
 | 🛠 售后审核台 | `#/admin/aftersales`（**不在买家导航内，直接访问进入**） | 运营侧工单台：管理密钥 + 操作人署名双必填门禁（存 sessionStorage，关标签页即失效）、默认停在「待处理」、状态筛选与分页走路由（刷新不丢）、卡片展示订单实付与商品摘要；同意退款要填金额（默认实付、上限实付）、同意换货不带金额、驳回必须写理由。**「处理记录」标签**按处理时间倒序展示已处理工单，卡片署名处理人，顶部总览是全库数字（不随筛选变）。审核结果是**服务端事务**：同意退款 → 订单「已退款」，同意换货 → 订单回到「已发货」并换新运单号，驳回 → 退回申请时的状态 |
 | 🤝 商家入驻 | 顶栏 / 页脚「商家入驻」（`#/merchant/join`） | 招商落地页：首屏价值主张（主 CTA 进申请页，次 CTA `scrollIntoView` 到流程区——hash 是路由，锚点不能写 `#xxx`）+ **深色平台数据面板**（实时取 `/api/stats`，静态演示站退化为本地演示库现算并如实标注）+ 四张安静的文字优势卡 + 五步入驻流程步骤条（移动端转纵向时间轴）+ 适合入驻的商家类型自筛清单；**吸底 CTA** 常驻（AI 浮窗自动抬高避让，`body.has-merchant-bar`）；移动端导航入口是 44px 高的金色胶囊（触控热区达标） |
 | 📝 入驻申请 | `#/merchant/apply`（招商页主 CTA / 吸底 CTA 进入） | **分四步真表单**（主体资质 → 品牌商品 → 结算售后 → 确认提交）：步内校验不过不跳步、错误挂到具体字段并标红；服务端是权威校验，返回字段级错误时**自动跳回出错的那一步**。草稿存本机 localStorage（防抖写入、恢复时提示、可一键清空），提交成功即清空。**幂等**：submitKey 只在「结果未知」（5xx/断网）时复用，4xx 换新——既不会重复建单，也不会把改过的资料吞回旧单。**银行账号只存前 4 后 4**（`bank_no_masked`，完整卡号不落库不进日志）；查询凭证 queryKey 由服务端密钥 HMAC 派生、库里只存 sha256。提交成功跳状态页（`?id&key` 双要素回看，刷新/收藏夹都在），展示申请编号（可复制）、审核时间线与打码联系方式。**静态演示站如实降级**：无网关时提示「申请没有提交」并保留草稿，绝不做假成功页 |
+| 🏢 商家入驻审核台 | `#/admin/merchants`（**不在买家导航内，直接访问进入**；与售后台共用钥匙与署名，顶部标签互相切换） | 运营侧审核台：卡片一屏呈现**判断依据**（信用代码、主体类型、品牌来源、主营类目、SKU 与价格带、开户名/开户行/打码账号、售后与发货承诺）；通过与驳回共用弹层，**驳回理由必填**且原样进入给商家的通知；审核是**服务端事务**（改状态 + 写轨迹 + 排通知），终态再审 409。已处理卡片署名处理人、展示意见与**通知状态**（短信/邮件 已发送 · 待发送 · 未配置通道 · 发送失败）；头部总览含全库计数与**通知队列状态**，可手动「立即投递通知」。结果通知走出站队列（`merchant_notices`）：配了 `NOTIFY_WEBHOOK_URL` 就 POST（幂等可重试、3 次失败进死信），没配就如实标「未配置通道」——审核结果在商家状态页永远可见，不依赖通道 |
 | ❤️ 我的收藏 | 顶栏心形 + `#/favorites` | **本地优先**收藏夹（按用户/匿名身份分桶隔离，刷新与离线都不丢）：商品卡与详情页都有心形按钮（细线描边、金色选中态），支持取消收藏与一键加入购物袋；网关可用时与服务端收藏镜像**双向收敛**——增删走显式 `action=add/remove`（幂等），离线操作进待重放队列，联网后先补推再并回，弱网下不会把删除反转成新增 |
 | 🕘 最近浏览 | 首页「最近浏览」轨道 | 进详情页自动记录（同款去重、最新置顶），首页横向滚动卡片展示最近 8 件（无记录时不占位），可一键清空，按用户隔离 |
 | 🖼️ 图片搜索（色彩检索） | 搜索栏相机图标 | 图片**只在本机缩样提取主色签名**（原图永不上传），POST `/api/ai/image-search` 按色彩特征对在售商品做最近邻匹配；服务端不可用时退化为按文件名散列的演示结果，弹窗与结果区全程标注能力边界（色彩特征 ≠ 语义识别） |
@@ -668,8 +669,12 @@ bash scripts/setup-https-proxy.sh
 | POST | `/api/addresses/:id/default?userId=` | 设为默认（幂等，默认地址始终有且仅有一条） |
 | DELETE | `/api/addresses/:id?userId=` | 删除地址（软删除，历史订单仍可追溯）；删掉默认地址后由剩余第一条接任，返回最新清单 |
 | POST | `/api/merchant/applications` | 商家入驻申请 `{ entityKind, company, creditCode, contact, phone, brand, brandSource, categories, skuRange, priceRange, bankAccount, bankNo, returnPolicy, shipWithin, submitKey }`。服务端权威校验并返回**字段级** `fields` 错误；幂等（同 `userId + submitKey` 返回既有申请与同一 queryKey）；**银行账号只存前 4 后 4**，完整卡号不落库；限流按 IP 30 次/时 + 已登录用户 6 次/时 |
-| GET  | `/api/merchant/applications/:id?key=` | 商家凭「编号 + 查询凭证」自查进度（双要素，缺一或不对统一 404，不给枚举留口子）；返回打码联系方式 |
-| GET  | `/api/merchant/applications?status=&page=&size=` | **运营侧**申请列表 + 全库状态计数（需 `X-Admin-Key`，审核工作台的数据源） |
+| GET  | `/api/merchant/applications/:id?key=` | 商家凭「编号 + 查询凭证」自查进度（双要素，缺一或不对统一 404，不给枚举留口子）；返回打码联系方式 + **通知状态**（结果是否已经发到手机/邮箱） |
+| GET  | `/api/merchant/applications?status=&page=&size=` | **运营侧**申请列表 + 全库状态计数 + 每条的**通知状态**（需 `X-Admin-Key`，审核工作台的数据源） |
+| GET  | `/api/merchant/applications/:id` | 带 `X-Admin-Key` 时返回**运营详情**：申请 + 审核轨迹（`events`）+ 通知队列（`notices`）；不带钥匙则只认「编号 + 查询凭证」 |
+| PATCH | `/api/merchant/applications/:id` | **运营侧审核**（需 `X-Admin-Key`）`{ action: approve\|reject, note? }`。**单事务**：改状态 + 写轨迹 + 排通知队列。驳回必须写理由（会原样进入给商家的通知）；终态再审 409（不覆盖别人的结论）；`note` 上限 200 字。操作人自报（`X-Admin-Actor`）+ 钥匙指纹一起留痕 |
+| POST | `/api/merchant/notices/flush` | 手动投递一轮通知队列（需 `X-Admin-Key`）：平时由后台 worker 每 45 秒扫一次，这个端点给「刚配好通道想立刻验证」和排障用 |
+| GET  | `/api/merchant/notices/stats` | 通知队列计数（待发 / 已发 / 跳过 / 失败）+ 通道就绪状态（需 `X-Admin-Key`） |
 | POST | `/api/ai/guide` | AI 导购（SSE）`{ message, userId, stream }` |
 | POST | `/api/ai/chat` | 智能客服（SSE）`{ message, userId, conversationId, stream }` |
 | POST | `/api/ai/qa` | 商品问答（SSE）`{ query, userId, productId, stream }` |
@@ -971,6 +976,7 @@ node scripts/e2e-logistics-webhook.mjs # 快递 webhook：HMAC 验签、防重�
 node scripts/e2e-discovery.mjs # 收藏/最近浏览/AI 导购抽屉/图片搜索：刷新不丢、按用户隔离、演示标识、移动端入口（纯静态）
 node scripts/e2e-merchant.mjs # 商家入驻：桌面/移动入口、44px 触控热区、区块齐全、吸底 CTA 避让 AI 浮窗、无横向滚动（纯静态）
 node scripts/e2e-merchant-apply.mjs # 入驻申请表单：分步校验拦截、真落库、幂等键、刷新回看、草稿恢复、演示站如实降级（真网关）
+node scripts/e2e-merchant-review.mjs # 入驻审核台：钥匙门禁、筛选走路由、通过与驳回、终态 409、轨迹留痕、通知真投递到本地 webhook（真网关 + 独立临时库）
 ```
 
 > `e2e-sync.mjs` 与 `e2e-order-tx.mjs` 会拉起真网关（其余跑纯静态模式）。`e2e-sync` 验「另一台设备也认账」：

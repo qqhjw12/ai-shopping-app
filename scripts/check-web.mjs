@@ -1906,12 +1906,17 @@ if (failed === 0) {
 
     /* 10) 操作人必须编码后才进 HTTP 头。
        中文名直接当头值会让 fetch 在构造 Request 时就抛错，连请求都发不出去——
-       用 ASCII 名字测试发现不了，所以在这里用源码锁住，防止后来被当成多余的代码删掉 */
+       用 ASCII 名字测试发现不了，所以在这里用源码锁住，防止后来被当成多余的代码删掉。
+       这套逻辑现在住在 adminShared.js（两个运营台共用），两个台子都必须走它 */
     const asSrc = readFileSync(join(WEB_DIR, 'adminAftersales.js'), 'utf8');
+    const sharedSrc = readFileSync(join(WEB_DIR, 'adminShared.js'), 'utf8');
+    const amSrc = readFileSync(join(WEB_DIR, 'adminMerchants.js'), 'utf8');
     const gwSrc = readFileSync(join(WEB_DIR, '..', '..', 'ai-gateway', 'src', 'server.js'), 'utf8');
-    const encOk = /X-Admin-Actor/.test(asSrc)
-      && /encodeURIComponent\(\s*actor\s*\)/.test(asSrc)
-      && /decodeURIComponent/.test(gwSrc);
+    const encOk = /X-Admin-Actor/.test(sharedSrc)
+      && /encodeURIComponent\(\s*actor\s*\)/.test(sharedSrc)
+      && /decodeURIComponent/.test(gwSrc)
+      // 两个台子都得从共享件取头，而不是各写一份（写两份迟早有一份忘了编码）
+      && /adminHeaders/.test(asSrc) && /adminHeaders/.test(amSrc);
 
     const cases = [
       ['只有钥匙没有操作人时回钥匙门（半截身份不给进）', halfOk],
@@ -2147,6 +2152,26 @@ if (failed === 0) {
     const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 商家入驻${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
     if (bad.length) failed++;
+
+    // 商家入驻审核台（第三步）：驳回理由必填、终态不给第二张按钮、
+    // 通知未配置时如实说「未配置」而不是「已发送」。
+    const amSrc = readFileSync(dir('adminMerchants.js'), 'utf8');
+    const sharedSrc2 = readFileSync(dir('adminShared.js'), 'utf8');
+    const reviewCases = [
+      ['app.js 注册审核台路由', appSrc.includes("path === '/admin/merchants'")],
+      ['审核台走共享钥匙门与切换标签', amSrc.includes('adminKeyGate') && amSrc.includes('adminTabs') && sharedSrc2.includes("ADMIN_KEY_SLOT = 'maison_admin_key'")],
+      ['与售后台共用凭据（同一组槽位）', sharedSrc2.includes('maison_admin_key') && sharedSrc2.includes('maison_admin_actor')],
+      ['驳回理由必填（弹层里拦）', amSrc.includes('驳回必须填写理由')],
+      ['卡片展示判断依据（信用代码 / 结算账号 / 售后承诺）', amSrc.includes('信用代码') && amSrc.includes('结算账号') && amSrc.includes('售后承诺')],
+      ['通知未配置通道时如实标注', amSrc.includes('通知通道未配置') && !amSrc.includes('已发送。')],
+      ['审核弹层说明通知去向', amSrc.includes('出站队列')],
+      // 只查写操作而不是全文反查关键词：注释里解释「为什么不用 localStorage」
+      // 会误伤自己（这类断言写完要立刻跑一遍验证）
+      ['凭据只存 sessionStorage', sharedSrc2.includes('sessionStorage.setItem') && !sharedSrc2.includes('localStorage.setItem')],
+    ];
+    const badReview = reviewCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badReview.length === 0 ? 'ok  ' : 'FAIL'} 商家入驻审核台${badReview.length ? ` → 缺失: ${badReview.join('、')}` : ''}`);
+    if (badReview.length) failed++;
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);

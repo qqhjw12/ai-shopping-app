@@ -622,6 +622,68 @@ const MIGRATIONS = [
         ON merchant_applications(status, created_at DESC);
     `,
   },
+  {
+    version: 18,
+    name: 'merchant-review',
+    sql: `
+      -- 入驻审核闭环：谁审的、什么时候审的、审完通知了没有。
+      --
+      -- 三条取舍：
+      --
+      -- 1) 审核轨迹单独一张表，而不是只在申请行上留 reviewed_at。
+      --    申请行只有一个终态，可「谁在什么时候把它从什么改成什么」是一串事实。
+      --    以后要支持「驳回后补充材料重提」「平台主动撤回通过」，只留在行上的
+      --    reviewed_at 会被下一次覆盖，历史就没了。轨迹表只追加，不改写。
+      --
+      -- 2) reviewed_by 是操作人自报的（X-Admin-Actor），review_key_fp 是管理密钥的
+      --    指纹。名字方便人读，指纹才是真能追责的那个——自报字段谁都能写成别人的名字。
+      --
+      -- 3) 通知走「出站队列」（merchant_notices），不在审核请求里同步发。
+      --    审核是运营的一次点击，不该被短信服务商的 3 秒超时拖住；服务商挂了也不该
+      --    让审核失败（审核已经成立，通知是可重试的副作用）。发送失败进死信，
+      --    运营台能看见「这条没发出去」，而不是以为发了。
+      ALTER TABLE merchant_applications ADD COLUMN reviewed_by   TEXT NOT NULL DEFAULT '';
+      ALTER TABLE merchant_applications ADD COLUMN review_key_fp TEXT NOT NULL DEFAULT '';
+
+      CREATE TABLE IF NOT EXISTS merchant_application_events (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        application_id TEXT NOT NULL,
+        action         TEXT NOT NULL,                -- submitted / approved / rejected
+        from_status    TEXT NOT NULL DEFAULT '',
+        to_status      TEXT NOT NULL,
+        note           TEXT NOT NULL DEFAULT '',
+        actor          TEXT NOT NULL DEFAULT '',     -- 自报操作人；提交事件是 merchant
+        key_fp         TEXT NOT NULL DEFAULT '',
+        created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_mae_app
+        ON merchant_application_events(application_id, id);
+
+      -- 迁移前的申请补一条「提交」事件：否则老单的轨迹从审核那一步才开始，
+      -- 看起来像凭空出现的申请。
+      INSERT INTO merchant_application_events
+        (application_id, action, from_status, to_status, note, actor, created_at)
+      SELECT id, 'submitted', '', 'reviewing', '', 'merchant', created_at
+      FROM merchant_applications;
+
+      CREATE TABLE IF NOT EXISTS merchant_notices (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        application_id TEXT NOT NULL,
+        channel        TEXT NOT NULL,                -- sms / email
+        target_masked  TEXT NOT NULL DEFAULT '',     -- 收件人打码（库里不留完整手机号/邮箱）
+        subject        TEXT NOT NULL DEFAULT '',
+        body           TEXT NOT NULL,
+        -- queued 待发 / sent 已发送 / skipped 未配置通道（不是失败）/ failed 重试耗尽（死信）
+        status         TEXT NOT NULL DEFAULT 'queued',
+        attempts       INTEGER NOT NULL DEFAULT 0,
+        last_error     TEXT NOT NULL DEFAULT '',
+        created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+        sent_at        TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_mn_app ON merchant_notices(application_id, id);
+      CREATE INDEX IF NOT EXISTS idx_mn_status ON merchant_notices(status, id);
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

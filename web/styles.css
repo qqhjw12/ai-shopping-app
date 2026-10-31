@@ -8166,3 +8166,168 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   .mzf-choice { min-height: 44px; }
   .mzf-copy { min-height: 44px; padding: 0 14px; }
 }
+
+/* ============================================================
+   运营台：切换标签 + 商家入驻审核台
+   ------------------------------------------------------------
+   两个运营台（售后 / 商家）共用卡片与筛选的视觉语言，这里只补
+   「切换标签」和商家申请特有的信息栅格。审核台的排版目标很单一：
+   一屏之内把一家店看完，不需要滚动才能拼出判断依据。
+   ============================================================ */
+
+.adm-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 22px;
+  border-bottom: 1px solid var(--line);
+}
+.adm-tab {
+  position: relative;
+  padding: 9px 2px 11px;
+  margin-right: 20px;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+.adm-tab:hover { color: var(--ink); }
+.adm-tab.is-on { color: var(--ink); font-weight: 500; }
+.adm-tab.is-on::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--ink);
+}
+
+.adm-chip.is-danger { border-color: rgba(164, 72, 60, 0.45); color: #8d3b31; }
+
+/* ---------------- 商家申请卡片 ---------------- */
+
+.mzr-head-actions { display: flex; gap: 10px; align-items: center; }
+
+.mzr-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 10px;
+}
+.mzr-title strong {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.mzr-title span { color: var(--muted); font-size: 11.5px; }
+
+/* 两列信息栅格：左列是「这家是谁」，右列是「怎么结账、怎么售后」。
+   发丝线分隔，不用卡片套卡片——审核台上再嵌一层盒子只会让人找不到重点。 */
+.mzr-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 28px;
+  margin: 16px 0 0;
+  border-top: 1px solid var(--line);
+}
+.mzr-fact {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.mzr-fact dt {
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.mzr-fact dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.mzr-flag {
+  display: inline-block;
+  margin: 10px 0 0;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  font-size: 10.5px;
+}
+
+/* 通知状态：已发送绿、未配置通道灰、失败红、待发金 */
+.mzr-notices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+.mzr-notices-label { color: var(--muted); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+.mzr-notice {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--body);
+  font-size: 10.5px;
+}
+.mzr-notice.is-sent { border-color: rgba(46, 125, 80, 0.4); color: #2e7d50; }
+.mzr-notice.is-failed { border-color: rgba(164, 72, 60, 0.45); color: #8d3b31; }
+.mzr-notice.is-queued { border-color: rgba(200, 169, 110, 0.6); color: var(--gold-deep); }
+.mzr-notice.is-skipped { color: var(--muted); }
+
+/* 队列状态条：审核结论与通知投递是两条流水，界面上也分开一行 */
+.mzr-queue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.mzr-queue-state { color: var(--muted); font-size: 10.5px; }
+.mzr-queue-state::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: rgba(26, 26, 26, 0.22);
+  vertical-align: middle;
+}
+.mzr-queue-state.is-ready::before { background: #2e7d50; }
+
+/* ---------------- 商家状态页：通知一行 ---------------- */
+.mzf-notice {
+  margin: -8px 0 22px;
+  padding: 10px 14px;
+  border-left: 2px solid rgba(200, 169, 110, 0.8);
+  background: var(--gold-weak);
+  color: var(--body);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+/* 驳回：第二步打叉。未完成的步骤仍是灰色序号，不冒充进度 */
+.mzf-tl.is-failed .mzf-tl-dot { border-color: rgba(164, 72, 60, 0.6); color: #8d3b31; }
+.mzf-tl.is-failed strong { color: #8d3b31; }
+
+@media (max-width: 760px) {
+  .mzr-facts { grid-template-columns: 1fr; }
+  .mzr-fact { grid-template-columns: 66px minmax(0, 1fr); }
+  .mzr-head-actions { flex-wrap: wrap; }
+  .mzr-queue { margin-left: 0; width: 100%; }
+  .adm-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .adm-tab { flex: none; }
+}

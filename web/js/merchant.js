@@ -602,7 +602,7 @@ const SHIP_WITHIN = [
   { v: '72h', t: '72 小时内' },
 ];
 // 与服务端 data/catalog.js 的一级类目一一对应（服务端是权威，传了不存在的 id 会被丢弃并报错）
-const FORM_CATEGORIES = [
+export const FORM_CATEGORIES = [
   { id: 'phone', t: '手机数码' }, { id: 'computer', t: '电脑办公' }, { id: 'audio', t: '音频耳机' },
   { id: 'appliance', t: '家用电器' }, { id: 'apparel', t: '服饰鞋包' }, { id: 'food', t: '食品生鲜' },
   { id: 'home', t: '家居家具' }, { id: 'sports', t: '运动户外' }, { id: 'beauty', t: '美妆个护' },
@@ -807,16 +807,49 @@ const STATUS_STEPS = [
 ];
 
 function statusTimeline(status) {
-  // 已通过 / 未通过都是终态：第三段直接说结论，不再画「审核中」的进度
-  const doneCount = status === 'reviewing' ? 1 : 3;
+  // 已通过 / 未通过都是终态，但画法不同：驳回是「资质审核这一步没过」，
+  // 后面两步根本不会发生。把三步全画成已完成，等于告诉商家「签约开通了」。
+  const done = status === 'reviewing' ? 1 : (status === 'approved' ? 3 : 1);
   return el('ol', { class: 'mzf-timeline' },
-    STATUS_STEPS.map((s, i) =>
-      el('li', { class: `mzf-tl${i < doneCount ? ' is-done' : ''}` }, [
-        el('span', { class: 'mzf-tl-dot', 'aria-hidden': 'true' }, i < doneCount ? '✓' : String(i + 1)),
-        el('div', {}, [el('strong', {}, s.t), el('p', {}, s.d)]),
-      ]),
-    ),
+    STATUS_STEPS.map((s, i) => {
+      const isDone = i < done;
+      const isFail = status === 'rejected' && i === 1;
+      return el('li', { class: `mzf-tl${isDone ? ' is-done' : ''}${isFail ? ' is-failed' : ''}` }, [
+        el('span', { class: 'mzf-tl-dot', 'aria-hidden': 'true' },
+          isDone ? '✓' : (isFail ? '×' : String(i + 1))),
+        el('div', {}, [
+          el('strong', {}, s.t),
+          el('p', {}, isFail ? '资质审核未通过，补充材料后可以重新提交' : s.d),
+        ]),
+      ]);
+    }),
   );
+}
+
+/**
+ * 结果通知的去向。
+ *
+ * 「审核通过了」和「通知已经发出去了」是两件事，分开说：
+ * 通道没配时如实写「本站未接入」而不是「已通知」——商家照着假话等短信，
+ * 等不到就会来问，而那时我们也答不上来。
+ */
+function noticeBlock(status, notices) {
+  if (status === 'reviewing' || !Array.isArray(notices) || !notices.length) return null;
+  const by = (s) => notices.filter((n) => n.status === s);
+  const sent = by('sent');
+  const queued = by('queued');
+  const failed = by('failed');
+  let text;
+  if (sent.length) {
+    text = `结果已通过${sent.map((n) => n.channelLabel).join('与')}发出（${sent.map((n) => n.targetMasked).join(' / ')}）。`;
+  } else if (queued.length) {
+    text = `结果通知正在排队投递（${queued.map((n) => n.channelLabel).join('、')}），稍后刷新本页可看到状态。`;
+  } else if (failed.length) {
+    text = '结果通知发送失败。审核结论以本页为准，我们会通过其他方式与你联系。';
+  } else {
+    text = `本站未接入${notices.map((n) => n.channelLabel).join('/')}通道，审核结果以本页为准。`;
+  }
+  return el('p', { class: 'mzf-notice' }, text);
 }
 
 async function renderApplicationStatus(v, id, key) {
@@ -872,11 +905,16 @@ async function renderApplicationStatus(v, id, key) {
         copyBtn,
       ]),
     ]),
-    el('h2', {}, data.status === 'reviewing' ? '已收到，正在审核' : '审核已有结果'),
+    el('h2', {}, data.status === 'reviewing'
+      ? '已收到，正在审核'
+      : (data.status === 'approved' ? '已通过审核' : '这次没有通过')),
     el('p', { class: 'mzf-result-lede' },
       data.status === 'reviewing'
         ? '资料已进入审核队列，3 个工作日内会通过短信与邮箱告知结果。'
-        : data.reviewNote || '审核结果已生成，请留意短信与邮箱通知。'),
+        : (data.status === 'rejected' && data.reviewNote
+          ? `驳回理由：${data.reviewNote}`
+          : (data.reviewNote || '审核结果已生成，请留意短信与邮箱通知。'))),
+    noticeBlock(data.status, data.notices),
     statusTimeline(data.status),
     el('dl', { class: 'mzf-summary static' }, [
       el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '主体'), el('dd', {}, data.company || '—')]),

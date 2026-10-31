@@ -159,8 +159,20 @@ export function getByCredential(id, queryKey) {
   const hit = merchantRepo.findByQueryKeyHash(sha256(key));
   if (!hit) return null;
   // 哈希能查出来就说明凭证对；再做一次编号比对，防止拿 A 的凭证看 B 的单
-  return hit.id === String(id || '').trim() ? hit : null;
+  if (hit.id !== String(id || '').trim()) return null;
+  // 通知渠道带给商家自己看：「审核通过了」和「通知已经发到你手机上了」是两件事，
+  // 只显示前者的话，商家会说「我没收到短信」，而我们无法判断是真没发还是他没看。
+  return { ...hit, notices: merchantRepo.listNotices(hit.id).map(publicNotice) };
 }
+
+const publicNotice = (n) => ({
+  channel: n.channel,
+  channelLabel: n.channelLabel,
+  status: n.status,
+  statusLabel: n.statusLabel,
+  targetMasked: n.targetMasked,
+  sentAt: n.sentAt,
+});
 
 export function listForAdmin(query = {}) {
   const status = ['reviewing', 'approved', 'rejected'].includes(query.status) ? query.status : '';
@@ -173,4 +185,103 @@ export function listForAdmin(query = {}) {
 
 export function stats() {
   return merchantRepo.countByStatus();
+}
+
+/** 运营详情：申请 + 审核轨迹 + 通知队列（列表不必带轨迹，详情才需要） */
+export function detailForAdmin(id) {
+  const app = merchantRepo.findById(id);
+  if (!app) return null;
+  return {
+    application: app,
+    events: merchantRepo.listEvents(id),
+    notices: merchantRepo.listNotices(id),
+  };
+}
+
+/* ============================================================
+   审核
+   ============================================================ */
+
+export const REVIEW_ACTIONS = ['approve', 'reject'];
+const MAX_REVIEW_NOTE = 200;
+
+const STATUS_OF_ACTION = { approve: 'approved', reject: 'rejected' };
+
+/**
+ * 审核结果通知的文案。
+ *
+ * 两条约束：
+ *   1) 通知里**不放查询链接**。查询链接要带上查询凭证（明文只在提交响应里出现一次），
+ *      把它塞进短信等于让凭证跟着短信转发、留在运营商和手机里；
+ *      编号已经足够商家在「他自己保存的那条链接」上回看。
+ *   2) 驳回必须带上理由。商家看到「未通过」而不知道为什么，下一通就是投诉；
+ *      理由已经在前面校验过非空，这里直接拼进去。
+ */
+function buildNotices(app, status, note) {
+  const out = [];
+  const verdict = status === 'approved' ? '已通过审核' : '未通过审核';
+  const tail = status === 'approved'
+    ? (note || '我们会通过你登记的联系方式联系你，完成签约与开店配置。')
+    : `原因：${note}。补充材料后可以重新提交申请。`;
+  const body = `【MAISON 商家入驻】${app.company}（${app.id}）${verdict}。${tail}`;
+  if (app.phone) {
+    out.push({
+      channel: 'sms',
+      targetMasked: merchantRepo.maskMiddle(app.phone, 3, 4),
+      subject: '入驻审核结果',
+      body,
+    });
+  }
+  if (app.email) {
+    out.push({
+      channel: 'email',
+      targetMasked: merchantRepo.maskEmail(app.email),
+      subject: `${app.id} 入驻审核结果`,
+      body,
+    });
+  }
+  return out;
+}
+
+/**
+ * 审核一条入驻申请。
+ *
+ * 三件事必须一起发生（交给仓储层的事务）：改状态、写轨迹、排通知。
+ * 其中通知**只排队不发送**——审核这一步是运营的判断，不该被短信服务商的超时拖住，
+ * 更不该因为对方 502 就把一次已经成立的审核回滚掉。发送由后台 worker 负责。
+ *
+ * @param {string} id
+ * @param {{action:'approve'|'reject', note?:string}} payload
+ * @param {{by?:string, keyFp?:string}} ctx 操作人自报 + 管理密钥指纹（都只用于追溯）
+ */
+export function review(id, { action, note } = {}, { by = 'admin', keyFp = 'none' } = {}) {
+  const act = String(action || '').trim();
+  if (!REVIEW_ACTIONS.includes(act)) {
+    throw Object.assign(new Error('审核动作只能是 approve / reject'), { status: 400 });
+  }
+  const text = String(note || '').trim();
+  if (text.length > MAX_REVIEW_NOTE) {
+    throw Object.assign(new Error(`审核意见不能超过 ${MAX_REVIEW_NOTE} 字`), { status: 400 });
+  }
+  // 驳回必须给理由：「未通过」三个字对商家没有任何信息量，只能招来二次咨询
+  if (act === 'reject' && !text) {
+    throw Object.assign(new Error('驳回必须填写理由'), { status: 400 });
+  }
+
+  const before = merchantRepo.findById(id);
+  if (!before) throw Object.assign(new Error('申请不存在'), { status: 404 });
+
+  const status = STATUS_OF_ACTION[act];
+  const application = merchantRepo.reviewApplication(id, {
+    status,
+    note: text,
+    by: String(by || 'admin').slice(0, 40),
+    keyFp: String(keyFp || 'none').slice(0, 32),
+    notices: buildNotices(before, status, text),
+  });
+  return {
+    application,
+    events: merchantRepo.listEvents(id),
+    notices: merchantRepo.listNotices(id),
+  };
 }

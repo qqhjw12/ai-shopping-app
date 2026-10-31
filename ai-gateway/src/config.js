@@ -98,6 +98,18 @@ export const config = {
     cookieSecure: env.AUTH_COOKIE_SECURE === 'true',
     issuer: 'ai-gateway',
   },
+  // 入驻审核结果通知（出站队列）。
+  // 只支持「webhook」一种投递方式：站内不内置任何短信/邮件服务商的 SDK，
+  // 因为选哪家是部署方的事，密钥也不该躺在应用里。配了 URL 就 POST 过去，
+  // 由对方的适配层决定发短信还是发邮件；没配就把通知如实标成「未配置通道」。
+  notify: {
+    webhookUrl: env.NOTIFY_WEBHOOK_URL || '',
+    timeoutMs: Number(env.NOTIFY_TIMEOUT_MS || 5000),
+    // 队列扫描周期（秒）。审核是低频操作，45 秒足够，0 关闭（测试里用同步 flush）
+    flushIntervalSec: Number(env.NOTIFY_FLUSH_INTERVAL_SEC || 45),
+    // 单次投递失败重试次数，用完进死信（failed），运营台可见
+    maxAttempts: Number(env.NOTIFY_MAX_ATTEMPTS || 3),
+  },
   // 本地 SQLite 数据文件（local 模式的商品/订单/会话/埋点全部落这里，重启不丢）
   dbFile: env.DB_FILE || 'data/shop.db',
   // 买家秀等用户上传内容的存放位置

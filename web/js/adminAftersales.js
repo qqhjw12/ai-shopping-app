@@ -14,11 +14,18 @@
 import { api, mediaUrl } from './api.js';
 import { el, fmtPrice, loading, openModal, toast } from './ui.js';
 import { navigate } from './router.js';
+import {
+  adminHeaders,
+  adminKeyGate,
+  adminTabs,
+  clearAdminIdentity,
+  isKeyRejected,
+  readAdminActor,
+  readAdminKey,
+  writeAdminKey,
+} from './adminShared.js';
 import { AFTERSALE_STATUS_TEXT, REFUNDABLE_TYPES } from './store/aftersaleStore.js';
 
-const KEY_SLOT = 'maison_admin_key';
-const ACTOR_SLOT = 'maison_admin_actor';
-const ACTOR_MAX = 20;
 const PAGE_SIZE = 20;
 
 // 不给筛选参数时默认停在「待处理」：运营打开审核台是想处理事情，
@@ -32,65 +39,27 @@ const FILTERS = [
 ];
 const DEFAULT_FILTER = 'reviewing';
 
-function readKey() {
-  try {
-    return sessionStorage.getItem(KEY_SLOT) || '';
-  } catch {
-    return '';
-  }
-}
-
-function writeKey(v) {
-  try {
-    if (v) sessionStorage.setItem(KEY_SLOT, v);
-    else sessionStorage.removeItem(KEY_SLOT);
-  } catch {
-    /* 隐私模式下写不了：钥匙只活在当前页面内存里，这一次能用就行 */
-  }
-}
-
-/** 操作人是必填的：一条没有署名的处理记录等于没记，出了事谁都能说不是自己干的 */
-function readActor() {
-  try {
-    return sessionStorage.getItem(ACTOR_SLOT) || '';
-  } catch {
-    return '';
-  }
-}
-
-function writeActor(v) {
-  try {
-    if (v) sessionStorage.setItem(ACTOR_SLOT, v);
-    else sessionStorage.removeItem(ACTOR_SLOT);
-  } catch {
-    /* 同上 */
-  }
-}
-
 /**
- * 管理接口请求头。
- *
- * 操作人**必须编码后再放进 HTTP 头**：HTTP 头值只允许可打印 ASCII，
- * 直接塞中文会让 fetch 在构造 Request 时就抛 TypeError——连请求都发不出去，
- * 页面只能看到一句「网络异常」。这个名字偏偏大概率就是中文，
- * 用 ASCII 名字测试会完美掩盖这个问题。
+ * 钥匙门同时收「管理密钥」和「操作人」，与商家审核台共用同一组凭据
+ * （同一班人、同一把钥匙，切台子不该让人重输）。
  */
-function adminHeaders() {
-  const actor = readActor();
-  return {
-    'X-Admin-Key': readKey(),
-    'X-Admin-Actor': actor ? encodeURIComponent(actor) : '',
-  };
+function keyGate(repaint) {
+  return adminKeyGate({
+    title: '售后审核台',
+    sub: '这一页不属于买家路径，进入需要服务端的管理密钥。',
+    hint: [
+      '密钥取服务端环境变量 ADMIN_API_KEY。两个值都只存在当前标签页，关闭即失效。',
+      el('br', {}),
+      '操作人会写进处理记录。它是自报的，服务端另外按钥匙本身记了指纹：',
+      '名字方便人读，真正能追责的是指纹。',
+    ],
+    onPass: repaint,
+  });
 }
 
 function fmtDate(iso) {
   const s = String(iso || '');
   return s ? s.slice(0, 16).replace('T', ' ') : '';
-}
-
-/** 401 / 403 都当作「钥匙不对或没启用」：两者对运营都是同一件事——拿不到列表 */
-function isKeyRejected(e) {
-  return e && (e.status === 401 || e.status === 403);
 }
 
 /* ============================================================
@@ -114,77 +83,6 @@ async function submitReview(id, payload) {
     body: payload,
     retries: 0,
   });
-}
-
-/* ============================================================
-   钥匙门
-   ============================================================ */
-
-/**
- * 钥匙门同时收「管理密钥」和「操作人」。
- * 两样都必填：只有密钥的话，处理记录里全是无署名的操作，出了事追不到人。
- * 都只写 sessionStorage——写进 localStorage 的凭据会一直躺在硬盘上，
- * 谁打开这台电脑谁就是管理员。关掉标签页即失效。
- */
-function keyGate(repaint) {
-  const input = el('input', {
-    class: 'adm-key-input',
-    type: 'password',
-    placeholder: 'ADMIN_API_KEY',
-    'aria-label': '管理员密钥',
-  });
-  const actorInput = el('input', {
-    class: 'adm-key-input',
-    type: 'text',
-    maxlength: String(ACTOR_MAX),
-    placeholder: '你的名字或工号',
-    'aria-label': '操作人',
-    autocomplete: 'off',
-  });
-  const err = el('p', { class: 'adm-error', role: 'alert' });
-
-  const form = el('form', { class: 'adm-key-form' }, [
-    el('h1', { class: 'adm-title' }, '售后审核台'),
-    el('p', { class: 'adm-sub' }, '这一页不属于买家路径，进入需要服务端的管理密钥。'),
-    el('label', { class: 'adm-label' }, '管理密钥'),
-    input,
-    el('label', { class: 'adm-label' }, '操作人'),
-    actorInput,
-    err,
-    el('div', { class: 'adm-actions' }, [
-      el('button', { class: 'adm-btn', type: 'submit' }, '进入'),
-    ]),
-    el('p', { class: 'adm-hint' }, [
-      '密钥取服务端环境变量 ADMIN_API_KEY。两个值都只存在当前标签页，关闭即失效。',
-      el('br', {}),
-      '操作人会写进处理记录。它是自报的，服务端另外按钥匙本身记了指纹：',
-      '名字方便人读，真正能追责的是指纹。',
-    ]),
-  ]);
-
-  form.addEventListener('submit', (ev) => {
-    ev.preventDefault();
-    const v = input.value.trim();
-    const actor = actorInput.value.trim();
-    if (!v) {
-      err.textContent = '请输入管理密钥';
-      input.focus();
-      return;
-    }
-    if (actor.length < 2) {
-      err.textContent = '请填写操作人（至少 2 个字），处理记录要署名';
-      actorInput.focus();
-      return;
-    }
-    writeKey(v);
-    writeActor(actor.slice(0, ACTOR_MAX));
-    repaint();
-  });
-
-  return el('section', { class: 'adm-page' }, [
-    el('div', { class: 'adm-crumb' }, [el('a', { href: '#/' }, '← 回到商店')]),
-    el('div', { class: 'adm-key-card' }, [form]),
-  ]);
 }
 
 /* ============================================================
@@ -501,7 +399,7 @@ export async function renderAdminAftersales(view, query = {}) {
   const paint = () => renderAdminAftersales(view, query);
 
   // 钥匙或操作人缺一样都回钥匙门：只有钥匙的话，处理记录里全是无署名操作
-  if (!readKey() || !readActor()) {
+  if (!readAdminKey() || !readAdminActor()) {
     view.innerHTML = '';
     view.appendChild(keyGate(paint));
     return;
@@ -511,18 +409,18 @@ export async function renderAdminAftersales(view, query = {}) {
   const host = el('div', { class: 'adm-host' });
   view.appendChild(el('section', { class: 'adm-page' }, [
     el('div', { class: 'adm-crumb' }, [el('a', { href: '#/' }, '← 回到商店')]),
+    adminTabs('aftersales'),
     el('div', { class: 'adm-head' }, [
       el('div', {}, [
         el('span', { class: 'eyebrow' }, 'AFTER-SALES CONSOLE'),
         el('h1', { class: 'adm-title' }, '售后审核台'),
-        el('span', { class: 'adm-actor' }, `操作人 ${readActor()}`),
+        el('span', { class: 'adm-actor' }, `操作人 ${readAdminActor()}`),
       ]),
       el('button', {
         class: 'adm-line-btn',
         type: 'button',
         onclick: () => {
-          writeKey('');
-          writeActor('');
+          clearAdminIdentity();
           paint();
         },
       }, '退出'),
@@ -540,7 +438,7 @@ export async function renderAdminAftersales(view, query = {}) {
     if (isKeyRejected(e)) {
       // 钥匙被拒：留在这一页没有意义，直接退回钥匙门，并把失效的钥匙清掉，
       // 否则会在「钥匙门 → 列表 → 401 → 钥匙门」之间来回弹。
-      writeKey('');
+      writeAdminKey('');
       paint();
       toast(`无法访问：${(e && e.message) || '密钥无效'}`, 'warn');
       return;
