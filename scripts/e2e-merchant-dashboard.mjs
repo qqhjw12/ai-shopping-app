@@ -407,7 +407,7 @@ try {
 
   check('移动端侧栏收起', !(await mpage.locator('.mdash-side').isVisible()));
   check('移动端底部标签栏出现', await mpage.locator('.mdash-tabbar').isVisible());
-  check('底部标签 5 个', (await mpage.locator('.mdash-tab').count()) === 5,
+  check('底部标签 6 个（5 模块 + 货源出站）', (await mpage.locator('.mdash-tab').count()) === 6,
     String(await mpage.locator('.mdash-tab').count()));
 
   const overflow = () => mpage.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

@@ -2276,6 +2276,29 @@ if (failed === 0) {
     console.log(`  ${badBe.length === 0 ? 'ok  ' : 'FAIL'} 工作台接真后端（平台库/审核台/图片）${badBe.length ? ` → 缺失: ${badBe.join('、')}` : ''}`);
     if (badBe.length) failed++;
 
+    // 第八步：货源市场（供应商目录）。锁六条：
+    //   独立页注册路由、双入口（工作台出站项 + 用户端低调入口）、
+    //   数据全是演示数据且页面上标明、AI 找货是演示匹配不是真询价、
+    //   不做真实成交（没有下单/支付按钮）、筛选条件写进 hash。
+    const srcDataSrc = readFileSync(dir('store/sourcingData.js'), 'utf8');
+    const srcPageSrc = readFileSync(dir('sourcing.js'), 'utf8');
+    const indexHtml = readFileSync(join(WEB_DIR, '..', 'index.html'), 'utf8');
+    const catSrc = readFileSync(dir('categories.js'), 'utf8');
+    const srcCases = [
+      ['货源数据层：供应商目录 + AI 找货纯函数', srcDataSrc.includes('export function listSuppliers') && srcDataSrc.includes('export function findSourcing') && srcDataSrc.includes('MOQ_BANDS')],
+      ['货源市场页注册路由', appSrc.includes("path === '/merchant/sourcing'") && srcPageSrc.includes('renderSourcing')],
+      ['页面常驻演示数据标注', srcPageSrc.includes("class: 'src-demo'") && srcPageSrc.includes('演示数据')],
+      ['AI 找货说明口径（不接真实询价）', srcPageSrc.includes('不接真实询价通道') && srcDataSrc.includes('不代表真实报价与库存')],
+      ['不做真实成交（只有演示询盘）', srcPageSrc.includes('已向') && srcPageSrc.includes('发送询盘（演示）') && !srcPageSrc.includes('createOrder')],
+      ['筛选条件写进 hash（刷新不丢）', srcPageSrc.includes('history.replaceState') && srcPageSrc.includes('#/merchant/sourcing')],
+      ['工作台侧栏有货源市场出站项', dashSrc.includes('OUT_LINKS') && dashSrc.includes('货源市场') && dashSrc.includes("'/merchant/sourcing'")],
+      ['移动端底部标签也有货源入口', dashSrc.includes('mdash-tab is-out')],
+      ['分类页底部入口条 + 页脚链接（不进顶栏）', catSrc.includes('sourcingStrip') && indexHtml.includes('#/merchant/sourcing') && srcPageSrc.includes('src-strip')],
+    ];
+    const badSrc = srcCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badSrc.length === 0 ? 'ok  ' : 'FAIL'} 货源市场（供应商目录）${badSrc.length ? ` → 缺失: ${badSrc.join('、')}` : ''}`);
+    if (badSrc.length) failed++;
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);

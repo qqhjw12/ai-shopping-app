@@ -179,7 +179,8 @@ try {
   // 上一版工作台在 #/merchant/workspace，现在统一是 #/merchant/dashboard
   check('工作台页打开（hash 路由）', page.url().includes('#/merchant/dashboard'), page.url());
   check('工作台侧栏显示品牌名', (await page.locator('.mdash-shop-name').innerText()).includes(APPLICANT.brand));
-  check('侧边导航五个模块', (await page.locator('.mdash-navitem').count()) === 5, String(await page.locator('.mdash-navitem').count()));
+  check('侧边导航五个模块 + 货源出站项', (await page.locator('.mdash-navitem').count()) === 6, String(await page.locator('.mdash-navitem').count()));
+  check('出站项不是工作台 tab（无选中态）', (await page.locator('.mdash-navitem.is-out.is-active').count()) === 0);
   check('概览 4 张数据卡', (await page.locator('.mdash-card').count()) === 4, String(await page.locator('.mdash-card').count()));
   check('工作台常驻「演示数据」标注', (await page.locator('.mdash-note').innerText()).includes('本机示例数据'));
   check('种子数据按申请派生（不是空店）', (await page.locator('.mdash-table tbody tr').count()) >= 3);

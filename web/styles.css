@@ -8884,6 +8884,18 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
 .mdash-ico { display: inline-flex; }
 .mdash-ico svg { width: 16px; height: 16px; }
 
+/* 侧栏底部的「出站」入口（货源市场等独立页）：
+   用一条细分隔线和工作台自己的模块分开，右侧箭头提示「这是跳走，不是切 tab」 */
+.mdash-nav-sep {
+  display: block;
+  height: 1px;
+  margin: 8px 6px;
+  background: var(--line);
+}
+.mdash-navitem.is-out { color: var(--muted); }
+.mdash-navitem.is-out:hover { color: var(--gold-deep); }
+.mdash-nav-go { margin-left: auto; font-size: 11px; opacity: 0.6; }
+
 .mdash-side-foot {
   display: grid;
   gap: 6px;
@@ -9387,7 +9399,7 @@ textarea.mdash-input { resize: vertical; min-height: 64px; }
 
   .mdash-tabbar {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     position: fixed;
     left: 0;
     right: 0;
@@ -9410,6 +9422,8 @@ textarea.mdash-input { resize: vertical; min-height: 64px; }
     text-decoration: none;
   }
   .mdash-tab.is-active { color: var(--gold-deep); background: var(--gold-weak); }
+  .mdash-tab.is-out { color: var(--body); }
+  .mdash-tab.is-out .mdash-ico svg { opacity: 0.85; }
   .mdash-tab .mdash-ico svg { width: 19px; height: 19px; }
 
   /* AI 浮窗让位：底部标签栏比它更常用 */
@@ -9542,3 +9556,432 @@ textarea.mdash-input { resize: vertical; min-height: 64px; }
 
 /* Logo 有真图时清掉字标颜色，只留图片本身 */
 .mdash-logo.is-photo { color: transparent; background-size: cover; background-position: center; }
+
+/* ============================================================
+   货源市场（供应商目录）
+   ------------------------------------------------------------
+   与审核台/工作台的区别：这是给「看货」用的目录页，属于前台语汇，
+   所以卡片用白底 + 1px 细线 + 胶囊标签，不用后台那种表格线。
+   唯一的重色是批发价与主按钮（--gold），其余全走灰阶。
+   ============================================================ */
+
+.src-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 0 0;
+}
+.src-back {
+  color: var(--body);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  transition: color 0.2s var(--ease);
+}
+.src-back:hover { color: var(--gold-deep); }
+
+/* 「演示数据」标注：不是装饰，是口径声明。放右上角，进页面第一眼就该看到 */
+.src-demo {
+  flex: none;
+  padding: 3px 10px;
+  border: 1px solid rgba(200, 169, 110, 0.45);
+  border-radius: var(--r-pill);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.src-demo.is-inline { letter-spacing: 0.08em; }
+
+.src-intro-head { padding-top: 22px; }
+
+/* ---------------- AI 找货 ---------------- */
+
+.src-ai {
+  padding: 18px 20px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  margin-bottom: 26px;
+}
+.src-ai-form {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.src-ai-label {
+  font-family: var(--serif);
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.src-ai-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-btn);
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+}
+.src-ai-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: var(--surface);
+}
+.src-ai-btn {
+  padding: 10px 20px;
+  border: 1px solid var(--gold);
+  border-radius: var(--r-btn);
+  background: var(--gold);
+  color: #fff;
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.src-ai-btn:hover { background: var(--gold-deep); border-color: var(--gold-deep); }
+.src-ai-note {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.src-ai-result:not(:empty) {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+}
+.src-ai-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.src-ai-hint { font-size: 12.5px; line-height: 1.7; color: var(--body); }
+.src-ai-sub {
+  margin: 0 0 10px;
+  font-family: var(--serif);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.src-ai-suppliers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.src-ai-sup {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--canvas);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.src-ai-sup:hover { border-color: var(--gold); background: var(--surface); }
+.src-ai-sup strong { font-size: 13px; font-weight: 600; }
+.src-ai-sup-meta { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+.src-ai-sup-go { font-size: 11px; color: var(--gold-deep); letter-spacing: 0.04em; }
+
+.src-ai-products { display: grid; gap: 6px; }
+.src-ai-prod {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 160px);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.src-ai-prod:last-child { border-bottom: 0; }
+.src-ai-prod-price { color: var(--gold-deep); font-weight: 600; }
+.src-ai-prod-sup { color: var(--muted); font-size: 11.5px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------- 筛选 ---------------- */
+
+.src-filters {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.src-filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.src-filter-label {
+  flex: none;
+  width: 52px;
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.src-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.src-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--body);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.src-chip:hover { border-color: var(--line-strong); color: var(--ink); }
+/* 选中态只用金线不用金底：一排筛选里全是金底会把页面压垮 */
+.src-chip.is-active {
+  border-color: var(--gold);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+}
+.src-chip-n { font-size: 10.5px; opacity: 0.7; font-variant-numeric: tabular-nums; }
+
+/* 全局 select 是 width:100%，在 flex 行里会被拉满整行，这里收回来 */
+.src-select {
+  width: auto;
+  min-width: 200px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.src-select:focus { outline: none; border-color: var(--gold); }
+.src-count { color: var(--muted); font-size: 11.5px; letter-spacing: 0.04em; }
+.src-clear { margin-left: auto; }
+
+/* ---------------- 供应商卡片 ---------------- */
+
+.src-list { display: grid; gap: 14px; }
+
+.src-card {
+  padding: 18px 20px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  transition: border-color 0.2s var(--ease);
+}
+.src-card:hover { border-color: var(--line-strong); }
+.src-card.is-open { border-color: var(--line-strong); }
+/* 从 AI 结果跳过来时闪一下金边：让人确认「就是这张卡」 */
+.src-card.is-flash { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-weak); }
+
+.src-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.src-id { min-width: 0; }
+.src-name {
+  margin: 0 0 5px;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.src-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--body);
+}
+.src-dot { color: var(--line-strong); }
+.src-since { flex: none; color: var(--muted); font-size: 11px; letter-spacing: 0.06em; }
+
+.src-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.src-tag {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--canvas);
+  color: var(--body);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.src-intro {
+  max-width: 760px;
+  margin: 10px 0 6px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--body);
+}
+.src-facts { margin: 0; color: var(--muted); font-size: 11.5px; letter-spacing: 0.02em; }
+
+.src-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.src-act {
+  padding: 7px 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.src-act:hover { border-color: var(--gold); color: var(--gold-deep); }
+.src-act.is-gold { border-color: var(--gold); background: var(--gold); color: #fff; }
+.src-act.is-gold:hover { background: var(--gold-deep); border-color: var(--gold-deep); color: #fff; }
+.src-act.is-quiet { color: var(--body); border-color: var(--line); }
+.src-act.is-ghost { border-color: transparent; color: var(--muted); padding: 4px 8px; }
+.src-act.is-ghost:hover { border-color: var(--line); color: var(--gold-deep); background: var(--canvas); }
+
+/* ---------------- 可供商品（行内展开） ---------------- */
+
+.src-items {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 2px;
+}
+/* 这里必须显式写：上面设了 display:grid，会把浏览器给 [hidden] 的
+   display:none 顶掉——收起状态就名存实亡，十条商品全铺在页面上 */
+.src-items[hidden] { display: none; }
+.src-items-head,
+.src-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 108px 100px 110px 56px;
+  align-items: center;
+  gap: 12px;
+}
+.src-items-head {
+  padding-bottom: 6px;
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.src-item {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.src-item:last-child { border-bottom: 0; }
+.src-item-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-item-price { color: var(--gold-deep); font-weight: 600; }
+.src-item-price em { font-style: normal; font-weight: 400; font-size: 10.5px; color: var(--muted); }
+.src-item-stock,
+.src-item-moq { color: var(--body); font-size: 12px; }
+
+/* ---------------- 用户端入口条（分类页底部） ---------------- */
+
+.src-strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 18px;
+  margin: 40px 0 8px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s var(--ease);
+}
+.src-strip:hover { border-color: var(--gold); }
+.src-strip-eyebrow {
+  grid-row: 1 / span 2;
+  grid-column: 1;
+  align-self: center;
+  color: var(--gold-deep);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+/* 显式落位：不写的话 auto-placement 会把说明挤到第三列去 */
+.src-strip-title { grid-column: 2; grid-row: 1; font-family: var(--serif); font-size: 15px; }
+.src-strip-text { grid-column: 2; grid-row: 2; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.src-strip-go {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--gold-deep);
+  font-size: 14px;
+}
+
+/* ---------------- 移动端 ---------------- */
+
+@media (max-width: 900px) {
+  .src-ai-suppliers { grid-template-columns: 1fr; }
+  .src-items-head,
+  .src-item { grid-template-columns: minmax(0, 1fr) 84px 84px 96px 48px; gap: 8px; }
+}
+
+@media (max-width: 640px) {
+  .src-topbar { padding-top: 16px; }
+  .src-ai { padding: 14px 14px 12px; }
+  .src-ai-form {
+    grid-template-columns: auto 1fr;
+    gap: 8px 10px;
+  }
+  /* 手机上按钮换行占满整行：和输入框挤在一行会把输入区压到只剩 100px */
+  .src-ai-btn { grid-column: 1 / -1; padding: 11px 16px; }
+  .src-ai-input { font-size: 16px; } /* ≥16px 防 iOS 聚焦缩放 */
+
+  .src-filter-label { width: 100%; }
+  .src-clear { margin-left: 0; }
+
+  .src-card { padding: 15px 14px 13px; }
+  .src-name { font-size: 15.5px; }
+  .src-since { display: none; }
+
+  /* 商品行在手机上两行：名称独占一行，三个数字一行，询价跟在后面 */
+  .src-items-head { display: none; }
+  .src-item {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    gap: 4px 10px;
+    padding: 11px 0;
+  }
+  .src-item-name { grid-column: 1 / -1; font-size: 13px; }
+  .src-item-price,
+  .src-item-stock,
+  .src-item-moq { font-size: 11.5px; }
+  .src-act { padding: 8px 14px; }
+  .src-act.is-ghost { padding: 6px 8px; }
+
+  .src-ai-prod { grid-template-columns: minmax(0, 1fr) auto; }
+  .src-ai-prod-sup { display: none; }
+
+  .src-strip {
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-top: 28px;
+    padding: 15px 16px;
+  }
+  .src-strip-eyebrow { grid-row: auto; grid-column: 1 / -1; }
+  .src-strip-title { grid-column: 1; grid-row: 2; }
+  .src-strip-text { grid-column: 1; grid-row: 3; }
+  .src-strip-go { grid-column: 2; grid-row: 2 / span 2; }
+}

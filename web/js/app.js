@@ -18,6 +18,7 @@ import { renderAdminNoticeTemplates } from './adminNoticeTemplates.js';
 import { renderAdminProducts } from './adminProducts.js';
 import { renderMerchantJoin, renderMerchantApply } from './merchant.js';
 import { renderMerchantDashboard } from './merchantDashboard.js';
+import { renderSourcing } from './sourcing.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
 import { askGuide, openImageSearch } from './aiShop.js';
 import { favoriteCount, onFavoritesChange } from './store/favoriteStore.js';
@@ -166,6 +167,8 @@ function dispatch({ path, query }) {
   // 商家侧：招商不需要登录（让商家先进门）；申请页带 ?id&key 时是回看已提交的申请
   else if (path === '/merchant/join') renderMerchantJoin(view);
   else if (path === '/merchant/apply') renderMerchantApply(view, query);
+  // 货源市场：独立页，不要求入驻凭证（目录是公开的），带 id/key 时给一条回工作台的路
+  else if (path === '/merchant/sourcing') renderSourcing(view, query);
   // 商家工作台：上一版只有概览页（/merchant/workspace），旧链接一律转到新工作台，
   // query（含 id/key/tab）原样带过去，收藏的链接不会因为改路由而失效
   else if (path === '/merchant/workspace' || path === '/merchant/dashboard') {

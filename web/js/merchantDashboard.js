@@ -54,6 +54,8 @@ const ICONS = {
   layers: '<path d="M12 3.4 3.6 8 12 12.6 20.4 8 12 3.4Z"/><path d="m3.6 12.6 8.4 4.6 8.4-4.6"/>',
   receipt: '<path d="M6.4 3.4h11.2v17.2l-2.8-1.9-2.8 1.9-2.8-1.9-2.8 1.9V3.4Z"/><path d="M9.2 8.2h5.6M9.2 12h5.6"/>',
   sliders: '<path d="M4 7.4h8.4M17.2 7.4H20M4 16.6h3.4M12.2 16.6H20"/><circle cx="15" cy="7.4" r="2.1"/><circle cx="10" cy="16.6" r="2.1"/>',
+  // 货源市场：店铺遮阳篷 + 门，和「商品盒子」区分开
+  store: '<path d="M4.2 9.4V19a1.2 1.2 0 0 0 1.2 1.2h13.2A1.2 1.2 0 0 0 19.8 19V9.4"/><path d="M3.4 9.4 5.6 4.2h12.8l2.2 5.2a2.6 2.6 0 0 1-4.9 1.1 2.6 2.6 0 0 1-4.9 0 2.6 2.6 0 0 1-4.9-1.1Z"/><path d="M10 20.2v-4.4h4v4.4"/>',
 };
 
 function icon(name) {
@@ -85,6 +87,16 @@ const TABS = [
 ];
 const DEFAULT_TAB = 'overview';
 const tabOf = (code) => TABS.find((t) => t.id === code) || TABS[0];
+
+/**
+ * 侧栏里「走出去」的入口。
+ * 货源市场是给商家找货的独立目录页（谁都能看，不共享工作台外壳），
+ * 所以它不是工作台的一个 tab——点到就跳走，也不该有选中态。
+ */
+const OUT_LINKS = [
+  { id: 'sourcing', label: '货源市场', short: '货源', icon: 'store', path: '/merchant/sourcing' },
+];
+const outHref = (ctx, link) => `#${link.path}?id=${encodeURIComponent(ctx.id)}&key=${encodeURIComponent(ctx.key)}`;
 
 /* ---------------- 入口 ---------------- */
 
@@ -261,13 +273,21 @@ function renderSide(ctx) {
         el('span', { class: 'mdash-shop-id num' }, ctx.app.id),
       ]),
     ]),
-    el('nav', { class: 'mdash-nav', 'aria-label': '工作台导航' }, TABS.map((t) => el('a', {
-      class: `mdash-navitem${t.id === ctx.tab ? ' is-active' : ''}`,
-      href: tabHref(ctx, t.id),
-      'aria-current': t.id === ctx.tab ? 'page' : null,
-    }, [icon(t.icon), el('span', {}, t.label)]))),
+    el('nav', { class: 'mdash-nav', 'aria-label': '工作台导航' }, [
+      ...TABS.map((t) => el('a', {
+        class: `mdash-navitem${t.id === ctx.tab ? ' is-active' : ''}`,
+        href: tabHref(ctx, t.id),
+        'aria-current': t.id === ctx.tab ? 'page' : null,
+      }, [icon(t.icon), el('span', {}, t.label)])),
+      el('span', { class: 'mdash-nav-sep', 'aria-hidden': 'true' }),
+      ...OUT_LINKS.map((l) => el('a', {
+        class: 'mdash-navitem is-out',
+        href: outHref(ctx, l),
+      }, [icon(l.icon), el('span', {}, l.label), el('span', { class: 'mdash-nav-go', 'aria-hidden': 'true' }, '→')])),
+    ]),
     el('div', { class: 'mdash-side-foot' }, [
-      el('span', { class: 'mdash-side-tag' }, '演示数据 · 仅存本机'),
+      // 这句必须跟着数据源变：平台库模式下还写「仅存本机」就是在骗人
+      el('span', { class: 'mdash-side-tag' }, ctx.state.source === 'server' ? '平台库 · 真实生效' : '演示数据 · 仅存本机'),
       el('a', { class: 'mdash-side-link', href: '#/products' }, '回到商城 →'),
     ]),
   ]);
@@ -275,11 +295,18 @@ function renderSide(ctx) {
 
 /** 移动端底部标签栏：与侧边导航同一份数据，图标 + 文字，拇指可达 */
 function renderTabbar(ctx) {
-  return el('nav', { class: 'mdash-tabbar', 'aria-label': '工作台导航（移动端）' }, TABS.map((t) => el('a', {
-    class: `mdash-tab${t.id === ctx.tab ? ' is-active' : ''}`,
-    href: tabHref(ctx, t.id),
-    'aria-current': t.id === ctx.tab ? 'page' : null,
-  }, [icon(t.icon), el('span', {}, t.label.replace('管理', ''))])));
+  return el('nav', { class: 'mdash-tabbar', 'aria-label': '工作台导航（移动端）' }, [
+    ...TABS.map((t) => el('a', {
+      class: `mdash-tab${t.id === ctx.tab ? ' is-active' : ''}`,
+      href: tabHref(ctx, t.id),
+      'aria-current': t.id === ctx.tab ? 'page' : null,
+    }, [icon(t.icon), el('span', {}, t.label.replace('管理', ''))])),
+    // 货源市场不是 tab，但手机上没侧栏，不给入口就等于这条功能不存在
+    ...OUT_LINKS.map((l) => el('a', {
+      class: 'mdash-tab is-out',
+      href: outHref(ctx, l),
+    }, [icon(l.icon), el('span', {}, l.short)])),
+  ]);
 }
 
 /**

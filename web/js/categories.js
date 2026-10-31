@@ -12,6 +12,7 @@ import { getProducts, deriveCategoryTree } from './views.js';
 import { navigate } from './router.js';
 import { isDemoMode } from './demo.js';
 import { PRICE_BANDS, bandById, bandLabel } from './store/catalog.js';
+import { sourcingStrip } from './sourcing.js';
 
 const CAT_SORTS = [
   { id: 'default', label: '类目顺序' },
@@ -122,6 +123,8 @@ export async function renderCategories(view, query = {}) {
   ]));
   const wrap = el('div', { class: 'cat-page' });
   view.appendChild(wrap);
+  // 面向商家的入口放在类目之后：想逛的人照旧往下逛商品，要采购的人有个门
+  view.appendChild(sourcingStrip());
   wrap.appendChild(el('div', { class: 'skeleton-grid' }, Array.from({ length: 8 }, () => el('div', { class: 'skeleton' }))));
 
   let products = [];

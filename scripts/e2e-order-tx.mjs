@@ -23,7 +23,7 @@
  */
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -74,6 +74,10 @@ const staticServer = spawn(
   [join(__dirname, 'static-server.mjs'), '--port', String(PORT), '--root', join(ROOT, 'web')],
   { stdio: 'ignore' },
 );
+// 独立临时库：这套用例会反复买 p244 下单扣库存，共用开发库跑到第 N 次
+// 就会「库存不足 → 结算页跳不过去」，表现为假报警（和 e2e-sync 同一个坑）
+const DB = join(ROOT, 'ai-gateway', 'data', '_e2e-ordertx.db');
+try { rmSync(DB, { force: true }); } catch { /* 首次运行不存在 */ }
 const gateway = spawn(
   process.execPath,
   ['--disable-warning=ExperimentalWarning', join(ROOT, 'ai-gateway', 'src', 'server.js')],
@@ -83,6 +87,7 @@ const gateway = spawn(
     env: {
       ...process.env,
       PORT: String(GW_PORT),
+      DB_FILE: DB,
       CORS_ORIGINS: BASE,
       RATE_LIMIT_PER_MIN: '0',
       ADMIN_API_KEY: ADMIN_KEY,
