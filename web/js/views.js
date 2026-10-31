@@ -236,6 +236,141 @@ function curatorNote() {
   ]);
 }
 
+/* ============================================================
+   首页发现区（参考 Amazon 首页的两条核心语法）
+   ------------------------------------------------------------
+   ① 类目速览 = Amazon 的「Shop by category」：一屏之内先回答
+      「这里卖什么」。每张卡用四件商品的小图拼成马赛克，
+      比纯文字导航直观，也让首屏不再只有文案。
+   ② 今日好物 = Amazon 的 deals carousel：横向轨道 + 翻页按钮，
+      卡片自带价格、原价、已售与「加购」，看完就能下手，
+      不必先点进详情。
+   两块都用已经加载好的 products + 类目树，不额外发请求。
+   数据不足时整块返回 null（首页宁可少一块，也不要半张空卡）。
+   ============================================================ */
+
+/** 类目速览：按商品数取前四；少于两个类目时这一块没有意义，不出 */
+function homeQuickTiles(products, tree) {
+  const ranked = (tree || [])
+    .filter((t) => t && t.id && t.id !== 'misc' && Number(t.count) > 0)
+    .sort((a, b) => Number(b.count) - Number(a.count))
+    .slice(0, 4);
+
+  const tiles = ranked.map((cat) => {
+    const items = products.filter((p) => p.categoryId === cat.id).slice(0, 4);
+    if (!items.length) return null;
+    return el('a', {
+      class: 'qtile',
+      href: `#/products?cat=${encodeURIComponent(cat.id)}`,
+      'aria-label': `浏览${cat.name || '该类目'}的 ${cat.count} 件商品`,
+      // data-count 决定马赛克排几列：凑不满 2×2 时不留空洞
+    }, [
+      el('div', { class: 'qtile-mosaic', 'data-count': String(items.length) },
+        items.map((p) => el('span', { class: 'qtile-shot' }, productThumb(p)))),
+      el('div', { class: 'qtile-foot' }, [
+        el('span', { class: 'qtile-name' }, cat.name || '未命名类目'),
+        el('span', { class: 'qtile-count' }, [
+          `${Number(cat.count).toLocaleString()} 件`,
+          el('span', { class: 'qtile-go', 'aria-hidden': 'true' }, '→'),
+        ]),
+      ]),
+    ]);
+  }).filter(Boolean);
+
+  // 只剩一个入口不构成「速览」，交给下面的轨道与甄选网格
+  if (tiles.length < 2) return null;
+
+  return el('section', { class: 'qtiles' }, [
+    el('div', { class: 'section-heading compact' }, [
+      el('div', {}, [
+        el('span', { class: 'eyebrow' }, 'SHOP BY CATEGORY'),
+        el('h2', {}, '按类目速览'),
+      ]),
+      el('a', { class: 'text-link', href: '#/categories' }, ['全部分类', el('span', { 'aria-hidden': 'true' }, '→')]),
+    ]),
+    el('div', { class: 'qtile-grid' }, tiles),
+  ]);
+}
+
+/** 今日好物：折扣力度为主信号、销量为辅（取对数，避免卖爆的老品挤掉所有折扣品） */
+function homeDealRail(products) {
+  const ranked = products
+    .map((p) => {
+      const price = Number(p.price) || 0;
+      const origin = Number(p.originalPrice) || 0;
+      const off = origin > price && price > 0 ? (origin - price) / origin : 0;
+      const sales = Number(p.sales) || 0;
+      return { p, score: off * 1000 + Math.log1p(sales) * 12 };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  // 每个品牌最多两件：折扣榜首的品牌不该承包整条轨道，
+  // 轨道的价值是「扫一眼看到十二种不同的好东西」
+  const brandCount = new Map();
+  const picks = [];
+  for (const { p } of ranked) {
+    if (picks.length >= 12) break;
+    const brand = p.brand || p.category || '';
+    const seen = brandCount.get(brand) || 0;
+    if (seen >= 2) continue;
+    brandCount.set(brand, seen + 1);
+    picks.push(p);
+  }
+
+  if (picks.length < 4) return null;
+
+  const track = el('div', { class: 'rail-track' });
+  const step = (dir) => {
+    if (typeof track.scrollBy !== 'function') return;
+    track.scrollBy({ left: dir * Math.max(260, track.clientWidth * 0.82), behavior: 'smooth' });
+  };
+
+  picks.forEach((p) => {
+    const off = discountText(p);
+    const sales = Number(p.sales) || 0;
+    const href = `#/product/${encodeURIComponent(p.id)}?from=home`;
+    track.appendChild(el('article', { class: 'rail-card' }, [
+      el('a', { class: 'rail-thumb', href, 'aria-label': p.name }, [
+        productThumb(p),
+        off ? el('span', { class: 'rail-badge' }, off) : null,
+      ]),
+      el('div', { class: 'rail-body' }, [
+        el('span', { class: 'rail-brand' }, p.isMerchant ? '商家直供' : (p.brand || p.category || 'MAISON 精选')),
+        el('a', { class: 'rail-name', href, title: p.name }, p.name),
+        el('div', { class: 'rail-price-row' }, [
+          el('span', { class: 'price' }, fmtPrice(p.price)),
+          Number(p.originalPrice) > Number(p.price)
+            ? el('del', { class: 'price-old' }, fmtPrice(p.originalPrice))
+            : null,
+        ]),
+        el('div', { class: 'rail-foot' }, [
+          el('span', { class: 'rail-sales' }, sales > 0 ? `已售 ${fmtSales(sales)}` : ''),
+          el('button', {
+            type: 'button',
+            class: 'rail-add',
+            'aria-label': `将 ${p.name} 加入购物袋`,
+            onclick: () => doAdd(p, 'home'),
+          }, '加购'),
+        ]),
+      ]),
+    ]));
+  });
+
+  return el('section', { class: 'rail-section' }, [
+    el('div', { class: 'section-heading compact' }, [
+      el('div', {}, [
+        el('span', { class: 'eyebrow' }, "TODAY'S PICKS"),
+        el('h2', {}, '今日好物'),
+      ]),
+      el('div', { class: 'rail-nav' }, [
+        el('button', { type: 'button', class: 'rail-arrow', 'aria-label': '向前看', onclick: () => step(-1) }, '‹'),
+        el('button', { type: 'button', class: 'rail-arrow', 'aria-label': '向后看', onclick: () => step(1) }, '›'),
+      ]),
+    ]),
+    track,
+  ]);
+}
+
 export async function renderHome(view) {
   view.innerHTML = '';
 
@@ -294,6 +429,11 @@ export async function renderHome(view) {
     ]),
   ]);
   view.appendChild(hero);
+
+  // 发现区的占位：商品与类目树都是异步的，先占好位置（Hero 之后、
+  // 最近浏览与 AI 工坊之前），拿到数据再填——避免「先渲染再挪位」造成的跳动。
+  const discovery = el('div', { class: 'home-discovery' });
+  view.appendChild(discovery);
 
   /* ---- 最近浏览（横向轨道，仅在有记录时出现） ---- */
   const recent = buildRecentSection();
@@ -370,6 +510,13 @@ export async function renderHome(view) {
   fillHeroProduct(heroImage, heroProduct, heroPick);
 
   const tree = await loadCategoryTree().catch(() => deriveCategoryTree(products));
+
+  // 发现区：先回答「卖什么」（类目速览），再给「值得买什么」（今日好物），
+  // 然后才是最近浏览、AI 工坊与本季甄选——浏览动线从宽到窄。
+  [homeQuickTiles(products, tree), homeDealRail(products)].forEach((node) => {
+    if (node) discovery.appendChild(node);
+  });
+
   const tabs = [{ id: 'all', name: '全部' }, ...tree];
   const cardsCache = new Map();
 

@@ -2319,6 +2319,22 @@ if (failed === 0) {
     console.log(`  ${badLink.length === 0 ? 'ok  ' : 'FAIL'} 商家消费者联动（演示闭环）${badLink.length ? ` → 缺失: ${badLink.join('、')}` : ''}`);
     if (badLink.length) failed++;
 
+    // 第十步：首页参考 Amazon 布局改版。锁五条：
+    //   类目速览卡（2×2 马赛克 + data-count 防空洞）、今日好物横滑轨道（折扣×销量打分 +
+    //   每品牌限两件的多样性）、翻页按钮真的 scrollBy、数据不足整块隐藏（:empty 不占位）、
+    //   卡片价格行有销量社会证明。
+    const cssHomeSrc = cssSrc;
+    const homeCases = [
+      ['类目速览卡 + 2×2 马赛克 + 空洞防护（data-count 换列数）', viewsSrc.includes('function homeQuickTiles') && viewsSrc.includes("class: 'qtile-mosaic', 'data-count'") && cssHomeSrc.includes('.qtile-mosaic[data-count="3"]')],
+      ['今日好物轨道：折扣×销量打分', viewsSrc.includes('function homeDealRail') && viewsSrc.includes('off * 1000 + Math.log1p(sales) * 12')],
+      ['轨道多样性：每品牌最多两件', viewsSrc.includes('brandCount.get(brand)') && viewsSrc.includes('if (seen >= 2) continue')],
+      ['翻页按钮真实滚动 + 数据不足整块隐藏', viewsSrc.includes("track.scrollBy({ left: dir * Math.max(260, track.clientWidth * 0.82)") && cssHomeSrc.includes('.home-discovery:empty { display: none; }')],
+      ['卡片价格行有销量（已售 N），有数据才出现', uiSrc2.includes("class: 'card-sales'") && uiSrc2.includes('`已售 ${fmtSales(p.sales)}`')],
+    ];
+    const badHome = homeCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badHome.length === 0 ? 'ok  ' : 'FAIL'} 首页发现区（类目速览 + 今日好物）${badHome.length ? ` → 缺失: ${badHome.join('、')}` : ''}`);
+    if (badHome.length) failed++;
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);

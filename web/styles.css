@@ -612,8 +612,8 @@ textarea { resize: vertical; }
   grid-template-columns: minmax(0, 1.02fr) minmax(380px, 0.88fr);
   gap: 46px;
   align-items: stretch;
-  min-height: 580px;
-  padding: 46px;
+  min-height: 520px;
+  padding: 40px 46px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--r-card);
@@ -10042,4 +10042,275 @@ textarea.mdash-input { resize: vertical; min-height: 64px; }
   .src-strip-title { grid-column: 1; grid-row: 2; }
   .src-strip-text { grid-column: 1; grid-row: 3; }
   .src-strip-go { grid-column: 2; grid-row: 2 / span 2; }
+}
+
+/* ============================================================
+   首页发现区：类目速览 + 今日好物轨道
+   ------------------------------------------------------------
+   借鉴 Amazon 首页的两条语法（分类入口卡 / 横向 carousel），
+   但配色与排版沿用本站的暖中性 + 细线 + 衬线，不搬亚马逊那套
+   蓝橙购物城表情——参考的是「先给入口、再给好货」的结构，
+   不是它的视觉。
+   ============================================================ */
+
+.home-discovery:empty { display: none; }
+
+/* ---------------- 类目速览 ---------------- */
+
+.qtiles { margin-top: 30px; }
+
+.qtile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.qtile {
+  display: block;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.22s var(--ease), box-shadow 0.22s var(--ease), transform 0.22s var(--ease);
+}
+.qtile:hover {
+  border-color: rgba(200, 169, 110, 0.55);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-2px);
+}
+
+/* 四宫格橱窗：用 gap 当内缝、整块裁圆角，比四张小圆角图更像一扇窗 */
+.qtile-mosaic {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  aspect-ratio: 1 / 0.86;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #ece6da;
+}
+/* 商品不够四件时改列数，宁可排成一排也不留空洞 */
+.qtile-mosaic[data-count="1"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.qtile-mosaic[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+.qtile-mosaic[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+
+.qtile-shot {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #ece6da;
+}
+.qtile-shot > img,
+.qtile-shot > .art-wrap,
+.qtile-shot > .art-wrap > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qtile-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 3px 2px;
+}
+.qtile-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qtile-count {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.qtile-go { color: var(--gold-deep); transition: transform 0.2s var(--ease); }
+.qtile:hover .qtile-go { transform: translateX(3px); }
+
+/* ---------------- 今日好物轨道 ---------------- */
+
+.rail-section { margin-top: 44px; }
+
+.rail-nav { display: flex; gap: 6px; }
+.rail-arrow {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.rail-arrow:hover { border-color: var(--ink); background: var(--ink); color: var(--canvas); }
+
+.rail-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 186px;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  /* 触屏惯性滑动，但不给页面留一条丑滚动条 */
+  -webkit-overflow-scrolling: touch;
+}
+.rail-track::-webkit-scrollbar { display: none; }
+
+.rail-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  scroll-snap-align: start;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.rail-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-card); }
+
+.rail-thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: #ece6da;
+}
+.rail-thumb > img,
+.rail-thumb > .art-wrap,
+.rail-thumb > .art-wrap > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rail-thumb > .art-wrap { transition: transform 0.42s var(--ease); }
+.rail-card:hover .rail-thumb > .art-wrap { transform: scale(1.045); }
+
+.rail-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: rgba(26, 26, 26, 0.82);
+  color: #fff;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.rail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 12px 12px;
+}
+.rail-brand {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.rail-name {
+  display: -webkit-box;
+  overflow: hidden;
+  min-height: 2.84em;
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.42;
+  text-decoration: none;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.rail-name:hover { opacity: 0.6; }
+.rail-price-row { display: flex; align-items: baseline; gap: 6px; }
+.rail-price-row .price { font-size: 16px; }
+.rail-price-row .price-old { font-size: 10px; }
+
+.rail-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+.rail-sales {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail-add {
+  flex: none;
+  padding: 6px 13px;
+  border: 1px solid var(--gold);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--gold-deep);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.rail-add:hover { background: var(--gold); color: #fff; }
+
+/* 卡片价格行里的销量（Amazon 的「1K+ bought」位，但只写真实数字） */
+.card-sales {
+  align-self: center;
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------- 移动端 ---------------- */
+
+@media (max-width: 900px) {
+  .qtile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .qtiles { margin-top: 24px; }
+  .qtile-grid { gap: 10px; }
+  .qtile { padding: 9px 9px 8px; }
+  .qtile-foot { padding: 8px 2px 2px; }
+  .qtile-name { font-size: 13.5px; }
+  .qtile-count { font-size: 10px; }
+
+  .rail-section { margin-top: 32px; }
+  /* 手机上滑动就是翻页，箭头是多余的一层，收掉 */
+  .rail-nav { display: none; }
+  .rail-track { grid-auto-columns: 152px; gap: 10px; }
+  .rail-body { padding: 10px 10px 11px; }
+  .rail-name { font-size: 12px; }
+  .rail-add { padding: 5px 10px; font-size: 11px; }
 }

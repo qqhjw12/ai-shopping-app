@@ -189,6 +189,11 @@ export function productCard(p, { onDetail, onAddCart, onFavorite, extra, classNa
           p.originalPrice && p.originalPrice > p.price
             ? el('del', { class: 'price-old' }, fmtPrice(p.originalPrice))
             : null,
+          // 销量是最便宜的社会证明（Amazon 的 "1K+ bought"）：
+          // 有数据才出现，没有数据不留空位，也不编造
+          Number(p.sales) > 0
+            ? el('span', { class: 'card-sales' }, `已售 ${fmtSales(p.sales)}`)
+            : null,
         ]),
         el('div', { class: 'actions' }, [
           el('button', { type: 'button', class: 'ghost', onclick: () => onDetail && onDetail(p) }, '查看'),
