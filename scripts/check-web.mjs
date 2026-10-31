@@ -2145,7 +2145,7 @@ if (failed === 0) {
       ['卡号只在页面打码回显', mSrc.includes('maskCard') && mSrc.includes('****')],
       // 断言「诚实降级分支存在」而不是「文中没出现成功二字」——注释里写着「绝不做假成功页」，
       // 按关键词反查会误伤自己的注释（这类断言写完要立刻跑一遍，别等回归时才炸）。
-      ['无网关时如实说「未提交」而非假成功', mSrc.includes('申请没有提交') && mSrc.includes('不会丢')],
+      ['无网关时如实说「未提交」，演示降级必须写明「只存在本机」', mSrc.includes('申请没有提交') && mSrc.includes('只存在本机') && mSrc.includes('merchantLocal.create')],
       ['状态页凭 id + key 双要素查回', mSrc.includes('/api/merchant/applications/${encodeURIComponent(id)}?key=')],
       ['吸底 CTA 存在且指向申请页', mSrc.includes("class: 'mz-bar'") && mSrc.includes("href: '#/merchant/apply'")],
     ];
@@ -2203,6 +2203,35 @@ if (failed === 0) {
     const badSelf = selfCases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${badSelf.length === 0 ? 'ok  ' : 'FAIL'} 商家自助/模板/导出${badSelf.length ? ` → 缺失: ${badSelf.join('、')}` : ''}`);
     if (badSelf.length) failed++;
+
+    // 第五步：资质材料 mock 上传、本地演示模式、商家工作台。
+    // 这一组锁的是「演示可以、骗人不行」这条线：
+    //   - 没有网关时能走完流程，但记录必须自带 local 标记、页面必须写「只存在本机」；
+    //   - 模拟审核只对本机记录开放，真申请没有这个按钮；
+    //   - 工作台在「未通过审核」时不假装能进。
+    const localSrc = readFileSync(dir('merchantLocal.js'), 'utf8');
+    const wsSrc = readFileSync(dir('merchantWorkspace.js'), 'utf8');
+    const demoCases = [
+      ['申请表单五步（含资质材料）', (mSrc.match(/title: '(主体资质|品牌商品|资质材料|结算售后|确认提交)'/g) || []).length === 5],
+      ['材料是清单不是文件：注释写明不收文件本体', mSrc.includes('只登记清单') && mSrc.includes('原件在签约环节')],
+      ['营业执照是唯一硬性材料', mSrc.includes("m.kind === 'license'") && mSrc.includes('请先添加营业执照')],
+      ['材料类型白名单（前端）', (mSrc.match(/v: '(license|brand_auth|inspection|other)'/g) || []).length >= 4],
+      ['本地记录带 local 标记（不冒充真提交）', localSrc.includes('local: true') && localSrc.includes('未提交平台')],
+      ['本地不存完整卡号（浏览器同步会带走）', localSrc.includes('bankNoMasked: maskCard') && !localSrc.includes('bankNo: d.bankNo')],
+      ['本机单号前缀与真单号可区分', localSrc.includes('ML${stamp}') && localSrc.includes('isLocalId')],
+      ['演示降级需要显式点击', mSrc.includes('用本地演示模式提交（只存在本机）')],
+      ['模拟审核只出现在本地记录上', mSrc.includes("class: 'mzf-demo'") && mSrc.includes('模拟审核通过') && mSrc.includes('simulate(')],
+      ['状态页有「本地演示数据」标记', mSrc.includes('mzf-local-tag') && mSrc.includes('本地演示数据')],
+      ['通过后有「进入商家工作台」入口', mSrc.includes('#/merchant/workspace?id=') && mSrc.includes('进入商家工作台')],
+      ['app.js 注册工作台路由', appSrc.includes("path === '/merchant/workspace'")],
+      ['工作台未通过审核时不假装能进', wsSrc.includes('工作台还没开门')],
+      ['工作台三个模块如实标「未开放」', wsSrc.includes('未开放') && wsSrc.includes('还在内测')],
+      ['工作台能读本地演示记录', wsSrc.includes('merchantLocal.isLocalId') && wsSrc.includes('merchantLocal.latest')],
+      ['审核台展示材料清单，缺材料写明「未提交」', amSrc.includes('materialsLine') && amSrc.includes('未提交')],
+    ];
+    const badDemo = demoCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badDemo.length === 0 ? 'ok  ' : 'FAIL'} 材料上传/本地演示/工作台${badDemo.length ? ` → 缺失: ${badDemo.join('、')}` : ''}`);
+    if (badDemo.length) failed++;
 
   } catch (e) {
     failed++;

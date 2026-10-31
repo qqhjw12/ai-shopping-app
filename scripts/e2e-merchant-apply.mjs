@@ -101,7 +101,7 @@ try {
   await go('/merchant/apply');
   check('申请页打开默认在第 1 步', (await page.locator('.mzf-prog.is-current .mzf-prog-t').innerText()).includes('主体资质'));
   await next();
-  check('空表单点下一步被拦住', (await page.locator('.mzf-alert').isVisible()) && (await page.locator('.mzf-panel[hidden]').count()) === 3);
+  check('空表单点下一步被拦住', (await page.locator('.mzf-alert').isVisible()) && (await page.locator('.mzf-panel[hidden]').count()) === 4);
   check('错误定位到字段（≥3 处标红）', (await page.locator('.mzf-field.has-error').count()) >= 3, String(await page.locator('.mzf-field.has-error').count()));
   await page.screenshot({ path: '.shots/mzf-step1-errors.png', fullPage: true });
 
@@ -137,9 +137,32 @@ try {
   await page.locator('.mzf-chip', { hasText: '电脑办公' }).click();
   await page.locator('.mzf-chip', { hasText: '家居家具' }).click();
   await next();
-  check('第 2 步通过后进入第 3 步', (await page.locator('.mzf-prog.is-current .mzf-prog-t').innerText()).includes('结算售后'));
+  check('第 2 步通过后进入第 3 步', (await page.locator('.mzf-prog.is-current .mzf-prog-t').innerText()).includes('资质材料'));
 
-  /* 4) 草稿：填一半刷新还在 */
+  /* 4) 第三步：资质材料（mock 上传：只登记清单，不上传文件本体） */
+  check('材料清单初始为空并提示营业执照必填', (await page.locator('.mzu-empty').innerText()).includes('营业执照'));
+  await next();
+  check('没有营业执照进不了下一步', (await page.locator('.mzf-field[data-field="materials"].has-error').count()) === 1);
+  await page.locator('[data-field="materials"] input.mzu-file').first().setInputFiles({
+    name: '营业执照-砚白.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('not-a-real-image'),
+  });
+  await page.waitForTimeout(250);
+  check('选完文件后列表出现一条材料', (await page.locator('.mzu-item').count()) === 1, String(await page.locator('.mzu-item').count()));
+  const matText = await page.locator('.mzu-item').first().innerText();
+  check('列表显示材料类型与文件名', matText.includes('营业执照') && matText.includes('营业执照-砚白.jpg'), matText.replace(/\n/g, ' '));
+  check('错误随选文件清空', (await page.locator('.mzf-field[data-field="materials"].has-error').count()) === 0);
+  await page.locator('[data-field="materials"] input.mzu-file').nth(1).setInputFiles({
+    name: '品牌授权.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 fake'),
+  });
+  await page.waitForTimeout(250);
+  check('可以再加一份材料', (await page.locator('.mzu-item').count()) === 2);
+  await page.locator('.mzu-item').nth(1).locator('.mzu-del').click();
+  check('移除按钮能删材料', (await page.locator('.mzu-item').count()) === 1);
+  await page.screenshot({ path: '.shots/mzf-step3-materials.png', fullPage: true });
+  await next();
+  check('第 3 步通过后进入第 4 步', (await page.locator('.mzf-prog.is-current .mzf-prog-t').innerText()).includes('结算售后'));
+
+  /* 5) 草稿：填一半刷新还在 */
   await fill('bankAccount', APPLICANT.company);
   await fill('bankBranch', '招商银行杭州分行营业部');
   await page.waitForTimeout(700); // 草稿是防抖写入（400ms）
@@ -147,19 +170,21 @@ try {
   await page.waitForTimeout(1400);
   const restored = await page.locator('[data-field="bankAccount"] input').inputValue();
   check('刷新后草稿被恢复（含当前步）', restored === APPLICANT.company && (await page.locator('.mzf-draft').isVisible()));
-  check('恢复后仍停在第 3 步', (await page.locator('.mzf-prog.is-current .mzf-prog-t').innerText()).includes('结算售后'));
+  check('恢复后仍停在第 4 步', (await page.locator('.mzf-prog.is-current .mzf-prog-t').innerText()).includes('结算售后'));
+  check('刷新后材料清单也还在（草稿含材料）', (await page.locator('.mzu-item').count()) === 1);
 
-  /* 5) 第三步：结算与售后 */
+  /* 6) 第四步：结算与售后 */
   await fill('bankNo', '6225880123456789');
   await page.locator('.mzf-seg-item', { hasText: '7 天无理由' }).click();
   await page.locator('.mzf-seg-item', { hasText: '48 小时内' }).click();
   await next();
-  check('第 3 步通过后进入确认页', (await page.locator('.mzf-prog.is-current .mzf-prog-t').innerText()).includes('确认提交'));
+  check('第 4 步通过后进入确认页', (await page.locator('.mzf-prog.is-current .mzf-prog-t').innerText()).includes('确认提交'));
 
   /* 6) 确认页：摘要 + 承诺 + 提交 */
-  check('确认页摘要 6 行', (await page.locator('.mzf-sum-row').count()) === 6, String(await page.locator('.mzf-sum-row').count()));
+  check('确认页摘要 7 行（含资质材料）', (await page.locator('.mzf-sum-row').count()) === 7, String(await page.locator('.mzf-sum-row').count()));
   const summaryText = await page.locator('.mzf-summary').innerText();
   check('摘要里卡号是打码的', summaryText.includes('****') && !summaryText.includes('6225880123456789'));
+  check('摘要里能看到材料份数', summaryText.includes('1 份') && summaryText.includes('营业执照'), summaryText.replace(/\n/g, ' ').slice(0, 90));
   await page.screenshot({ path: '.shots/mzf-step4-confirm.png', fullPage: true });
 
   await page.locator('.mzf-submit').click();
@@ -190,6 +215,9 @@ try {
   /* 9) 服务端真伪核验：页面说的「已提交」，用 Node 侧 fetch 再确认一遍 */
   const verify = await fetch(`${API}/api/merchant/applications/${appId}?key=${(url.match(/key=([^&]+)/) || [])[1]}`).then((r) => r.json());
   check('库里确有此单且品牌一致（Node 侧复核）', verify?.application?.brand === APPLICANT.brand, JSON.stringify(verify).slice(0, 120));
+  check('材料清单真落库（Node 侧复核）', Array.isArray(verify?.application?.materials)
+    && verify.application.materials.length === 1
+    && verify.application.materials[0].kind === 'license', JSON.stringify(verify?.application?.materials));
   const noKey = await fetch(`${API}/api/merchant/applications/${appId}`).then((r) => r.status);
   check('无凭证查不到（404）', noKey === 404, String(noKey));
 
@@ -217,12 +245,13 @@ try {
   await demo.goto(`http://127.0.0.1:${PORT}/index.html#/merchant/apply`, { waitUntil: 'load' });
   await demo.evaluate((payload) => {
     // 直接种一份「已填到确认页」的草稿，省掉重复填表；这一步测的是提交失败时的表现
-    localStorage.setItem('maison_merchant_draft_v1', JSON.stringify({ data: payload, step: 4, savedAt: Date.now() }));
+    localStorage.setItem('maison_merchant_draft_v1', JSON.stringify({ data: payload, step: 5, savedAt: Date.now() }));
   }, {
     entityKind: 'studio', company: APPLICANT.company, creditCode: APPLICANT.creditCode, contact: '周砚',
     phone: '13800138000', email: 'zhou@yanbai.design', brand: APPLICANT.brand, brandSource: 'owned',
     categories: ['home'], skuRange: '50-200', priceRange: '100-500',
     bankAccount: APPLICANT.company, bankNo: '6225880123456789', returnPolicy: '7days', shipWithin: '48h',
+    materials: [{ kind: 'license', name: '营业执照.jpg', size: 1024 }],
   });
   await demo.reload({ waitUntil: 'load' });
   await demo.waitForTimeout(1200);

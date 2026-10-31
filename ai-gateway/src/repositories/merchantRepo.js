@@ -90,6 +90,12 @@ function toPublic(row) {
     phoneMasked: maskMiddle(row.phone, 3, 4),
     emailMasked: maskEmail(row.email),
     categories: safeJson(row.categories, []),
+    // 材料清单是「申报了什么」，不是文件本体。老库（v21 之前）默认 '[]'，
+    // safeJson 再兜一层：坏 JSON 不该让整条申请查不出来
+    materials: (() => {
+      const list = safeJson(row.materials, []);
+      return Array.isArray(list) ? list : [];
+    })(),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     reviewNote: row.status === 'reviewing' ? '' : row.review_note || '',
@@ -169,8 +175,8 @@ export function createApplication(userId, p, { submitKey, queryKeyHash }) {
         (id, user_id, entity_kind, company, credit_code, contact, phone, email,
          brand, brand_source, categories, sku_range, price_range, dropship,
          bank_account, bank_branch, bank_no_masked, return_policy, ship_within, note,
-         status, submit_key, query_key_hash)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing',?,?)
+         materials, status, submit_key, query_key_hash)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing',?,?)
     `).run(
       id,
       userId,
@@ -192,6 +198,7 @@ export function createApplication(userId, p, { submitKey, queryKeyHash }) {
       p.returnPolicy,
       p.shipWithin,
       p.note,
+      JSON.stringify(p.materials || []),
       submitKey,
       queryKeyHash,
     );
@@ -393,6 +400,7 @@ const COLUMN_OF = {
   brand: 'brand',
   brandSource: 'brand_source',
   categories: 'categories',
+  materials: 'materials',
   skuRange: 'sku_range',
   priceRange: 'price_range',
   dropship: 'dropship',
@@ -420,7 +428,13 @@ export function updateApplication(id, patch, { diff = '', actor = 'merchant' } =
   const entries = Object.entries(patch).filter(([k]) => COLUMN_OF[k]);
   if (!entries.length) throw Object.assign(new Error('没有需要更新的内容'), { status: 400 });
   const sets = entries.map(([k]) => `${COLUMN_OF[k]} = ?`).join(', ');
-  const values = entries.map(([k, v]) => (k === 'categories' ? JSON.stringify(v) : (typeof v === 'boolean' ? (v ? 1 : 0) : v)));
+  // 两个 JSON 列：categories 是 id 数组，materials 是对象数组。布尔值统一转 0/1，
+  // 否则 SQLite 存 "true" 字符串，读回来 safeJson 解析不了（早期 update 就踩过这个）
+  const values = entries.map(([k, v]) => (
+    k === 'categories' || k === 'materials'
+      ? JSON.stringify(v ?? [])
+      : (typeof v === 'boolean' ? (v ? 1 : 0) : v)
+  ));
 
   const db = getDb();
   db.exec('BEGIN');

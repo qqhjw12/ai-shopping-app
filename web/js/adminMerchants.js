@@ -37,6 +37,8 @@ const FILTERS = [
 const DEFAULT_FILTER = 'reviewing';
 
 const STATUS_TEXT = { reviewing: '待审核', approved: '已通过', rejected: '未通过', withdrawn: '已撤回' };
+// 材料类型标签：运营看「有没有这份东西」，不看文件名后缀
+const MATERIAL_LABEL = { license: '营业执照', brand_auth: '品牌授权', inspection: '质检报告', other: '其他材料' };
 const ENTITY_LABEL = {
   brand: '原创品牌',
   factory: '源头工厂',
@@ -253,7 +255,19 @@ function factsBlock(r) {
     // 库里本来就只有前 4 后 4：完整卡号从来没进过服务端存储
     fact('结算账号', el('span', { class: 'num' }, r.bankNoMasked || '—')),
     fact('售后承诺', `${labelOf(RETURN_LABEL, r.returnPolicy)} · ${labelOf(SHIP_LABEL, r.shipWithin)}发货`),
+    fact('资质材料', materialsLine(r.materials)),
   ]);
+}
+
+/**
+ * 材料清单：只显示清单（类型），因为线上本来就没收文件本体；文件名放 title 里。
+ * 一份都没有时写「未提交」而不是留空——审核结论常常就卡在这一项上。
+ */
+function materialsLine(materials) {
+  const list = Array.isArray(materials) ? materials : [];
+  if (!list.length) return el('span', { class: 'mzr-mat-none' }, '未提交');
+  return el('span', { class: 'mzr-mats' }, list.map((m) =>
+    el('span', { class: 'mzr-mat', title: m.name }, MATERIAL_LABEL[m.kind] || m.kind)));
 }
 
 function noticeLine(notices) {

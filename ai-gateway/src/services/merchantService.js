@@ -18,6 +18,27 @@ export const PRICE_RANGES = ['lt100', '100-500', '500-2000', 'gt2000'];
 export const RETURN_POLICIES = ['7days', '15days'];
 export const SHIP_WITHIN = ['24h', '48h', '72h'];
 
+/**
+ * 资质材料类型。收着这四类是因为审核要看的东西就这几样：
+ *   license     营业执照（必有，主体是谁全靠它）
+ *   brand_auth  品牌授权（代理/独家时必须有，自有品牌可没有）
+ *   inspection  质检报告（食品、母婴、电器类目会被要求）
+ *   other       其他（专利、产地证明等）
+ * 白名单而不是自由文本：前端传什么就存什么的话，运营会在一堆
+ * 「营业执照.png」「License」「license 」里挑，筛选和统计全部作废。
+ */
+export const MATERIAL_KINDS = ['license', 'brand_auth', 'inspection', 'other'];
+export const MATERIAL_LABEL = {
+  license: '营业执照',
+  brand_auth: '品牌授权',
+  inspection: '质检报告',
+  other: '其他材料',
+};
+/** 单份材料在清单里的上限；总份数上限 8 —— 超过说明商家在批量塞截图。 */
+const MAX_MATERIALS = 8;
+const MAX_MATERIAL_NAME = 100;
+const MAX_MATERIAL_SIZE = 20 * 1024 * 1024;
+
 const CATEGORY_IDS = new Set(CATEGORIES.map((c) => c.id));
 
 const clamp = (v, max) => String(v == null ? '' : v).trim().slice(0, max);
@@ -88,6 +109,25 @@ const RULES = {
     if (list.length > 3) return fail(f, 'categories', '主营类目最多选 3 个');
     return list;
   },
+  /**
+   * 资质材料清单：只收清单（类型/文件名/大小），不收文件本体。
+   * 每一项都过一遍规范化，未知类型整体拒绝——半接受的清单会让运营
+   * 看到「3 份材料」而其中一份根本不知道是什么。
+   */
+  materials: (v, f) => {
+    const raw = Array.isArray(v) ? v : [];
+    if (raw.length > MAX_MATERIALS) return fail(f, 'materials', `材料最多 ${MAX_MATERIALS} 份`);
+    const list = [];
+    for (const item of raw) {
+      const kind = String((item && item.kind) || '').trim();
+      if (!MATERIAL_KINDS.includes(kind)) return fail(f, 'materials', '材料类型不在可选范围内');
+      const name = clamp(item && item.name, MAX_MATERIAL_NAME);
+      if (name.length < 1) return fail(f, 'materials', '材料文件名不能为空');
+      const size = Math.max(0, Math.min(MAX_MATERIAL_SIZE, Number(item && item.size) || 0));
+      list.push({ kind, name, size });
+    }
+    return list;
+  },
   skuRange: (v, f) => {
     const x = String(v || '').trim();
     if (!SKU_RANGES.includes(x)) return fail(f, 'skuRange', '请选择预估 SKU 数量');
@@ -140,6 +180,7 @@ export const FIELD_LABEL = {
   brand: '品牌名称',
   brandSource: '品牌来源',
   categories: '主营类目',
+  materials: '资质材料',
   skuRange: 'SKU 数量',
   priceRange: '价格带',
   dropship: '一件代发',
@@ -195,7 +236,8 @@ export function normalizePatch(payload = {}, current = {}) {
     if (v === undefined) continue;
     const column = RULE_TO_COLUMN[name] || name;
     const before = current[column];
-    const same = name === 'categories'
+    // 数组列（类目、材料）按序列化比较：引用永远不相等，逐项比又漏掉顺序差异
+    const same = Array.isArray(v)
       ? JSON.stringify(Array.isArray(before) ? before : []) === JSON.stringify(v)
       : (typeof v === 'boolean' ? Boolean(before) === v : String(before ?? '') === String(v));
     if (same) continue;
@@ -465,6 +507,7 @@ const EXPORT_COLUMNS = [
   ['brand', '品牌'],
   ['brandSourceLabel', '品牌来源'],
   ['categoryLabel', '主营类目'],
+  ['materialsLabel', '资质材料'],
   ['skuLabel', '预估 SKU'],
   ['priceLabel', '主力价格带'],
   ['dropshipLabel', '一件代发'],
@@ -510,6 +553,11 @@ function exportRow(r, catLabel) {
     entityKindLabel: ENTITY_LABEL[r.entityKind] || r.entityKind || '',
     brandSourceLabel: BRAND_SOURCE_LABEL[r.brandSource] || r.brandSource || '',
     categoryLabel: (r.categories || []).map((id) => catLabel.get(id) || id).join('、'),
+    // 材料只导出「类型:文件名」：运营核对的是「有没有这份东西」，
+    // 文件大小、登记时间对表格读者没有意义，反而把单元格撑得很宽
+    materialsLabel: (Array.isArray(r.materials) ? r.materials : [])
+      .map((m) => `${MATERIAL_LABEL[m.kind] || m.kind}:${m.name}`)
+      .join('；'),
     skuLabel: SKU_LABEL[r.skuRange] || r.skuRange || '',
     priceLabel: PRICE_LABEL[r.priceRange] || r.priceRange || '',
     dropshipLabel: r.dropship ? '是' : '否',

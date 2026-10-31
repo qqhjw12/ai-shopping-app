@@ -10,6 +10,7 @@
 //      演示商品库」，并在页脚注明来源，不硬编码一个好看的数字冒充真实规模。
 import { el, openModal, toast } from './ui.js';
 import { api, isMissingEndpoint } from './api.js';
+import * as merchantLocal from './merchantLocal.js';
 import { getProducts } from './views.js';
 
 const fmt = (n) => (Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString('en-US') : '—');
@@ -214,7 +215,7 @@ export async function renderMerchantJoin(v) {
 }
 
 /**
- * 申请页：分四步把资料收齐（主体资质 → 品牌商品 → 结算售后 → 确认提交）。
+ * 申请页：分五步把资料收齐（主体资质 → 品牌商品 → 资质材料 → 结算售后 → 确认提交）。
  *
  * 三条自我约束（都是「宁可少做一点也不做错」）：
  *   1) 提交必须真落库。网关不可达时（静态演示站）如实提示「未提交」，草稿留在本机——
@@ -283,6 +284,14 @@ export function renderMerchantApply(v, query = {}) {
   );
 
   panels[2].append(
+    materialsField((list) => {
+      data.materials = list;
+      clearFieldError('materials');
+      scheduleSave();
+    }, data.materials),
+  );
+
+  panels[3].append(
     fieldText('bankAccount', '开户名', data.bankAccount, { placeholder: '与营业执照主体一致', maxlength: 60 }),
     fieldText('bankBranch', '开户行（选填）', data.bankBranch, { placeholder: '如：招商银行杭州分行营业部', maxlength: 60 }),
     fieldText('bankNo', '银行卡号', data.bankNo, {
@@ -296,10 +305,10 @@ export function renderMerchantApply(v, query = {}) {
     fieldText('note', '补充说明（选填）', data.note, { placeholder: '产地、工艺、特殊资质等想让我们知道的', maxlength: 200 }),
   );
 
-  /* ---------------- 第四步：回读确认 ---------------- */
+  /* ---------------- 第五步：回读确认 ---------------- */
   const summary = el('dl', { class: 'mzf-summary' });
   const agree = el('div', { class: 'mzf-agree' });
-  panels[3].append(summary, agree);
+  panels[4].append(summary, agree);
 
   /* ---------------- 底部导航 ---------------- */
   const errBox = el('div', { class: 'mzf-alert', role: 'alert', hidden: true });
@@ -345,8 +354,8 @@ export function renderMerchantApply(v, query = {}) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (state.busy) return;
-    if (state.step !== 3) {
-      goStep(3);
+    if (state.step !== APPLY_STEPS.length - 1) {
+      goStep(APPLY_STEPS.length - 1);
       return;
     }
     const problems = {};
@@ -393,8 +402,12 @@ export function renderMerchantApply(v, query = {}) {
     row(1, '类目与价格', [catNames.join('、'), labelOf(SKU_RANGES, data.skuRange), labelOf(PRICE_RANGES, data.priceRange)]
       .filter(Boolean)
       .join(' · '));
-    row(2, '结算', [data.bankAccount, data.bankBranch, maskCard(data.bankNo)].filter(Boolean).join(' · '));
-    row(2, '售后与时效', [labelOf(RETURN_POLICIES, data.returnPolicy), labelOf(SHIP_WITHIN, data.shipWithin)].filter(Boolean).join(' · '));
+    const mats = Array.isArray(data.materials) ? data.materials : [];
+    row(2, '资质材料', mats.length
+      ? `${mats.length} 份 · ${mats.map((m) => materialLabel(m.kind)).join('、')}`
+      : '');
+    row(3, '结算', [data.bankAccount, data.bankBranch, maskCard(data.bankNo)].filter(Boolean).join(' · '));
+    row(3, '售后与时效', [labelOf(RETURN_POLICIES, data.returnPolicy), labelOf(SHIP_WITHIN, data.shipWithin)].filter(Boolean).join(' · '));
   }
 
   /* ---------------- 步骤切换 ---------------- */
@@ -531,14 +544,39 @@ export function renderMerchantApply(v, query = {}) {
         errBox.append(
           el('p', { class: 'mzf-alert-note' },
             noBackend
-              ? '你现在打开的是静态演示站（没有后端）。启动网关后重试；已填内容保存在本机草稿里，不会丢。'
+              ? '这台站没有后端（静态演示站）。你可以先启动网关再重试，或者用本地演示模式把流程走完——'
               : String((e && e.message) || '网络异常，请重试。')),
         );
+        if (noBackend) {
+          // 本地演示模式入口**必须显式点击**：自动降级会让商家以为资料已经交给平台了。
+          // 按钮文案把「只存在本机」写在脸上，点的人不会误解。
+          errBox.append(el('div', { class: 'mzf-alert-actions' }, [
+            el('button', { type: 'button', class: 'mz-btn mz-btn--ghost', onclick: () => submitLocal() },
+              '用本地演示模式提交（只存在本机）'),
+          ]));
+        }
       }
     } finally {
       state.busy = false;
       btnSubmit.disabled = false;
       btnSubmit.textContent = '提交入驻申请';
+    }
+  }
+
+  /**
+   * 本地演示提交：没有网关时把申请写进本机 localStorage。
+   * 与真提交共用同一套字段，状态固定「审核中」，状态页会打上「本地演示数据」标记。
+   */
+  function submitLocal() {
+    hideAlert();
+    try {
+      const res = merchantLocal.create(data);
+      clearDraft();
+      saveLast({ id: res.application.id, key: res.queryKey, at: new Date().toISOString(), local: true });
+      location.hash = `#/merchant/apply?id=${encodeURIComponent(res.application.id)}&key=${encodeURIComponent(res.queryKey)}`;
+    } catch (err) {
+      showAlert('本地演示记录没有存下来', {});
+      errBox.append(el('p', { class: 'mzf-alert-note' }, String((err && err.message) || '浏览器拒绝了本地存储。')));
     }
   }
 
@@ -554,7 +592,7 @@ export function renderMerchantApply(v, query = {}) {
       el('a', { class: 'mz-back', href: '#/merchant/join' }, '← 返回招商页'),
       el('span', { class: 'eyebrow' }, 'MERCHANT APPLICATION'),
       el('h1', { class: 'mz-apply-title' }, '入驻申请'),
-      el('p', { class: 'mz-lede' }, '四步填完，约 10 分钟。提交后 3 个工作日内出审核结果，通过即可签约上架。'),
+      el('p', { class: 'mz-lede' }, '五步填完，约 10 分钟。提交后 3 个工作日内出审核结果，通过即可签约上架。'),
       draftNote,
       progress,
       form,
@@ -619,6 +657,7 @@ const catNames = (ids) => (Array.isArray(ids)
 const APPLY_STEPS = [
   { title: '主体资质', fields: ['entityKind', 'company', 'creditCode', 'contact', 'phone', 'email'] },
   { title: '品牌商品', fields: ['brand', 'brandSource', 'categories', 'skuRange', 'priceRange', 'dropship'] },
+  { title: '资质材料', fields: ['materials'] },
   { title: '结算售后', fields: ['bankAccount', 'bankBranch', 'bankNo', 'returnPolicy', 'shipWithin', 'note'] },
   { title: '确认提交', fields: [] },
 ];
@@ -712,6 +751,117 @@ function fieldToggle(name, label, checked, hint) {
   );
 }
 
+/* ---------------- 资质材料（清单式 mock 上传） ---------------- */
+
+const MATERIAL_KINDS = [
+  { v: 'license', t: '营业执照', need: true },
+  { v: 'brand_auth', t: '品牌授权', need: false },
+  { v: 'inspection', t: '质检报告', need: false },
+  { v: 'other', t: '其他材料', need: false },
+];
+const materialLabel = (kind) => (MATERIAL_KINDS.find((k) => k.v === kind) || {}).t || kind;
+const MAX_MATERIALS = 8;
+
+function fmtSize(bytes) {
+  const n = Number(bytes) || 0;
+  if (!n) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * 资质材料清单。
+ *
+ * 只登记清单，不上传文件——这条口径必须写在界面上，否则商家以为传完就完事，
+ * 等到签约环节被要求补原件时会觉得平台在加码。
+ * 演示辅助（「用示例数据」）是给静态演示站用的：没有文件也能把流程走完，
+ * 但它填的是文件名，不会假装解析了内容。
+ *
+ * @param {(list:Array)=>void} onChange 清单变化回调（写进 data.materials 并触发草稿保存）
+ * @param {Array} initial
+ */
+function materialsField(onChange, initial = []) {
+  let list = Array.isArray(initial) ? initial.slice() : [];
+  const rows = el('ul', { class: 'mzu-list' });
+
+  const draw = () => {
+    rows.innerHTML = '';
+    if (!list.length) {
+      rows.append(el('li', { class: 'mzu-empty' }, '还没有添加材料。营业执照是必填项。'));
+      return;
+    }
+    list.forEach((m, i) => {
+      rows.append(el('li', { class: 'mzu-item' }, [
+        el('span', { class: 'mzu-kind' }, materialLabel(m.kind)),
+        el('span', { class: 'mzu-name', title: m.name }, m.name),
+        el('span', { class: 'mzu-size num' }, fmtSize(m.size)),
+        el('button', {
+          type: 'button',
+          class: 'mzu-del',
+          'aria-label': `移除 ${m.name}`,
+          onclick: () => {
+            list.splice(i, 1);
+            push();
+          },
+        }, '移除'),
+      ]));
+    });
+  };
+  const push = () => {
+    draw();
+    onChange(list.slice());
+  };
+
+  const add = (kind, name, size) => {
+    if (list.length >= MAX_MATERIALS) return '材料最多 8 份';
+    list.push({ kind, name: String(name || '').slice(0, 100), size: Number(size) || 0 });
+    push();
+    return '';
+  };
+
+  const buttons = MATERIAL_KINDS.map((k) => {
+    // 每个类型一个真实的 file input（隐藏）：能选真文件就不该只给假按钮，
+    // 但选完只取 name/size，文件本身不上传 —— 见函数头注释
+    const input = el('input', {
+      type: 'file',
+      class: 'mzu-file',
+      accept: 'image/*,.pdf,.jpg,.jpeg,.png',
+      onchange: (e) => {
+        const f = (e.target.files || [])[0];
+        if (f) add(k.v, f.name, f.size);
+        e.target.value = '';
+      },
+    });
+    return el('label', { class: `mzu-btn${k.need ? ' is-need' : ''}` }, [
+      input,
+      el('span', {}, `＋ ${k.t}`),
+    ]);
+  });
+
+  const demoBtn = el('button', {
+    type: 'button',
+    class: 'mzu-demo',
+    onclick: () => {
+      // 演示填充：只补还没填的必填项，不覆盖商家真选过的文件
+      if (!list.some((m) => m.kind === 'license')) add('license', '营业执照-示例.jpg', 482_316);
+      if (!list.some((m) => m.kind === 'brand_auth')) add('brand_auth', '品牌授权书-示例.pdf', 209_920);
+    },
+  }, '没有文件？用示例数据填充');
+
+  const shell = el('div', { class: 'mzf-field is-wide', 'data-field': 'materials' }, [
+    el('span', { class: 'mzf-label' }, '资质材料'),
+    el('div', { class: 'mzu-add' }, buttons),
+    rows,
+    el('span', { class: 'mzf-hint' },
+      '线上只登记清单，原件在签约环节由运营向你索取。支持 JPG / PNG / PDF，单份不超过 20MB。'),
+    el('div', { class: 'mzu-foot' }, [demoBtn]),
+    el('span', { class: 'mzf-err' }),
+  ]);
+  draw();
+  return shell;
+}
+
 /**
  * 客户端校验：只为「少一次往返」，不是防线。
  * 文案与服务端 merchantService 保持同义——两边说法不一致时，商家会以为自己看错了。
@@ -734,6 +884,11 @@ function validateStep(step, d) {
     if (!SKU_RANGES.some((o) => o.v === d.skuRange)) f.skuRange = '请选择预估 SKU 数量';
     if (!PRICE_RANGES.some((o) => o.v === d.priceRange)) f.priceRange = '请选择主力价格带';
   } else if (step === 2) {
+    // 营业执照是唯一的硬性材料：连主体都证明不了，后面审什么都是空的。
+    // 其余三类按经营形态按需（代理要授权书、食品母婴要质检报告），不在这里拦。
+    const list = Array.isArray(d.materials) ? d.materials : [];
+    if (!list.some((m) => m && m.kind === 'license')) f.materials = '请先添加营业执照';
+  } else if (step === 3) {
     if (s(d.bankAccount).trim().length < 2) f.bankAccount = '请填写开户名（与营业执照一致）';
     if (!/^\d{12,24}$/.test(s(d.bankNo).replace(/\s/g, ''))) f.bankNo = '银行卡号为 12–24 位数字';
     if (!RETURN_POLICIES.some((o) => o.v === d.returnPolicy)) f.returnPolicy = '请选择退货政策';
@@ -925,6 +1080,7 @@ function openEditSheet({ data, id, key, onSaved }) {
 
     const err = el('p', { class: 'mze-error', role: 'alert' });
     const saveBtn = el('button', { class: 'mz-btn mz-btn--gold', type: 'submit' }, '保存修改');
+    let editMaterials = Array.isArray(data.materials) ? data.materials.slice() : [];
 
     const form = el('form', { class: 'mze-form' }, [
       el('h2', { class: 'mze-title' }, '修改申请资料'),
@@ -950,6 +1106,8 @@ function openEditSheet({ data, id, key, onSaved }) {
         el('span', { class: 'mze-label' }, '主营类目（最多 3 个）'),
         catBox,
       ]),
+      // 材料清单也能改：审核常以「材料不全」驳回，让商家补交一次不用重填整张表
+      materialsField((list) => { editMaterials = list; }, data.materials),
       fieldOf('补充说明', note),
       err,
       el('div', { class: 'mze-actions' }, [
@@ -990,6 +1148,9 @@ function openEditSheet({ data, id, key, onSaved }) {
       if (JSON.stringify([...cats].sort()) !== JSON.stringify((data.categories || []).slice().sort())) {
         patch.categories = cats;
       }
+      // 材料按「类型 + 文件名」比较：重新选同一个文件不该算一次修改
+      const matKey = (l) => JSON.stringify((Array.isArray(l) ? l : []).map((m) => [m.kind, m.name]));
+      if (matKey(editMaterials) !== matKey(data.materials)) patch.materials = editMaterials;
       if (!Object.keys(patch).length) {
         err.textContent = '没有改动任何内容';
         return;
@@ -1077,22 +1238,32 @@ async function renderApplicationStatus(v, id, key) {
 
   let data = null;
   let error = null;
-  try {
-    const res = await api(`/api/merchant/applications/${encodeURIComponent(id)}?key=${encodeURIComponent(key)}`, { retries: 1 });
-    data = res.application;
-  } catch (e) {
-    error = e;
+  // 本地演示记录优先：静态演示站连网关都没有，去 /api 问一遍只会拿到 404，
+  // 然后在页面上写「查不到」——可这条记录就在本机躺着。
+  if (merchantLocal.isLocalId(id)) {
+    data = merchantLocal.get(id, key);
+    if (!data) error = { kind: 'client', status: 404 };
+  } else {
+    try {
+      const res = await api(`/api/merchant/applications/${encodeURIComponent(id)}?key=${encodeURIComponent(key)}`, { retries: 1 });
+      data = res.application;
+    } catch (e) {
+      error = e;
+    }
   }
 
   const card = el('div', { class: 'mz-apply-card mzf-result' });
   if (!data) {
+    const localGone = merchantLocal.isLocalId(id);
     card.append(
       el('span', { class: 'mzf-status is-unknown' }, '无法读取'),
-      el('h2', {}, '这份申请查不到'),
+      el('h2', {}, localGone ? '这条演示记录不在这台设备上' : '这份申请查不到'),
       el('p', { class: 'mzf-result-lede' },
-        error && (error.kind === 'offline' || isMissingEndpoint(error))
-          ? '当前是静态演示站，没有后端可查。启动网关后重新打开本页即可看到状态。'
-          : '查询链接可能不完整，或申请编号与凭证不匹配。请核对链接里的编号与 key。'),
+        localGone
+          ? '本地演示记录只存在提交它的那台设备、那个浏览器里。换浏览器、清过站点数据，或者用了无痕窗口，都会读不到。'
+          : (error && (error.kind === 'offline' || isMissingEndpoint(error))
+            ? '当前是静态演示站，没有后端可查。启动网关后重新打开本页即可看到状态。'
+            : '查询链接可能不完整，或申请编号与凭证不匹配。请核对链接里的编号与 key。')),
       el('div', { class: 'mzf-result-actions' }, [
         el('a', { class: 'mz-btn mz-btn--gold', href: '#/merchant/apply' }, '重新填写申请'),
         el('a', { class: 'mz-btn mz-btn--ghost', href: '#/merchant/join' }, '回到招商页'),
@@ -1115,24 +1286,71 @@ async function renderApplicationStatus(v, id, key) {
   };
 
   const HEAD = {
-    reviewing: ['已收到，正在审核', '资料已进入审核队列，3 个工作日内会通过短信与邮箱告知结果。'],
-    approved: ['已通过审核', data.reviewNote || '审核结果已生成，请留意短信与邮箱通知。'],
+    reviewing: ['已收到，正在审核', data.local
+      ? '资料已存在本机。这是演示记录，没有提交给平台，所以不会有真的审核结果——除非你点下面的「模拟审核」。'
+      : '资料已进入审核队列，3 个工作日内会通过短信与邮箱告知结果。'],
+    approved: ['已通过审核', data.reviewNote || (data.local ? '（演示）这条申请已标记为通过，可以进入商家工作台看看里面有什么。' : '审核结果已生成，请留意短信与邮箱通知。')],
     rejected: ['这次没有通过', data.reviewNote ? `驳回理由：${data.reviewNote}` : '审核结果已生成，请留意短信与邮箱通知。'],
     withdrawn: ['申请已撤回', '这份申请已按你的要求撤回，平台不再继续审核。想重新入驻，随时可以再提交一份。'],
   };
   const [headline, lede] = HEAD[data.status] || ['审核状态', data.reviewNote || ''];
+
+  /** 演示：只改本机记录，不动任何服务端状态 */
+  const simulate = (status, note = '') => {
+    const next = merchantLocal.setStatus(id, status, note);
+    if (!next) {
+      toast('这条演示记录已经不在了（清过站点数据？）', { kind: 'error' });
+      return;
+    }
+    reload();
+  };
+
+  const workspaceHref = `#/merchant/workspace?id=${encodeURIComponent(id)}&key=${encodeURIComponent(key)}`;
+  const actions = (() => {
+    if (data.status === 'reviewing' && !data.local) {
+      // 只有真申请才给「改 / 撤」：本地演示记录没有服务端可改，
+      // 摆一个点了会报错的按钮，比不给按钮更伤信任
+      return [
+        el('button', {
+          class: 'mz-btn mz-btn--gold',
+          type: 'button',
+          onclick: () => openEditSheet({ data, id, key, onSaved: reload }),
+        }, '修改资料'),
+        el('button', {
+          class: 'mz-btn mz-btn--ghost',
+          type: 'button',
+          onclick: () => openWithdrawSheet({ data, id, key, onDone: reload }),
+        }, '撤回申请'),
+        linkBtn,
+      ];
+    }
+    if (data.status === 'approved') {
+      return [
+        el('a', { class: 'mz-btn mz-btn--gold', href: workspaceHref }, '进入商家工作台'),
+        el('a', { class: 'mz-btn mz-btn--ghost', href: '#/products' }, '先去逛逛商城'),
+        linkBtn,
+      ];
+    }
+    return [
+      el('a', { class: 'mz-btn mz-btn--ghost', href: '#/merchant/join' }, '回到招商页'),
+      el('a', { class: 'mz-btn mz-btn--ghost', href: '#/merchant/apply' }, '重新填写申请'),
+      linkBtn,
+    ];
+  })();
 
   // 用数组 + filter 而不是直接 append(…, null, …)：
   // DOM 的 append 会把 null 当成字符串 "null" 插进页面（el() 会过滤，原生 append 不会）
   card.append(...[
     el('div', { class: 'mzf-result-head' }, [
       el('span', { class: `mzf-status is-${data.status}` }, data.statusLabel),
+      // 「本地演示数据」必须贴着状态标签：这是整页最容易被误读的一处
+      data.local ? el('span', { class: 'mzf-local-tag', title: '只存在这台设备的浏览器里' }, '本地演示数据') : null,
       el('div', { class: 'mzf-idrow' }, [
         el('span', { class: 'mzf-idlabel' }, '申请编号'),
         el('strong', { class: 'mzf-id' }, data.id),
         copyBtn,
       ]),
-    ]),
+    ].filter(Boolean)),
     el('h2', {}, headline),
     el('p', { class: 'mzf-result-lede' }, lede),
     // 商家改过几次必须自己看得到：运营拿着他以为的最新版在审，
@@ -1147,33 +1365,41 @@ async function renderApplicationStatus(v, id, key) {
       el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '品牌'), el('dd', {}, data.brand || '—')]),
       el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '联系人'), el('dd', {}, `${data.contact || '—'} · ${data.phoneMasked || '—'}`)]),
       el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '主营类目'), el('dd', {}, catNames(data.categories).join('、') || '—')]),
+      el('div', { class: 'mzf-sum-row' }, [
+        el('dt', {}, '资质材料'),
+        el('dd', {}, (Array.isArray(data.materials) && data.materials.length)
+          ? `${data.materials.length} 份 · ${[...new Set(data.materials.map((m) => materialLabel(m.kind)))].join('、')}`
+          : '未提交'),
+      ]),
       el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '提交时间'), el('dd', {}, fmtStamp(data.createdAt))]),
       data.withdrawnAt
         ? el('div', { class: 'mzf-sum-row' }, [el('dt', {}, '撤回时间'), el('dd', {}, fmtStamp(data.withdrawnAt))])
         : null,
     ].filter(Boolean)),
-    // 只有审核中才给「改 / 撤」：终态的申请不能改（那是改一份已经被审过的证据），
-    // 平台也不允许商家自己撤回一个已经通过的结论
-    data.status === 'reviewing'
-      ? el('div', { class: 'mzf-result-actions' }, [
-        el('button', {
-          class: 'mz-btn mz-btn--gold',
-          type: 'button',
-          onclick: () => openEditSheet({ data, id, key, onSaved: reload }),
-        }, '修改资料'),
-        el('button', {
-          class: 'mz-btn mz-btn--ghost',
-          type: 'button',
-          onclick: () => openWithdrawSheet({ data, id, key, onDone: reload }),
-        }, '撤回申请'),
-        linkBtn,
-      ])
-      : el('div', { class: 'mzf-result-actions' }, [
-        el('a', { class: 'mz-btn mz-btn--ghost', href: '#/merchant/join' }, '回到招商页'),
-        el('a', { class: 'mz-btn mz-btn--gold', href: '#/products' }, data.status === 'approved' ? '先去逛逛商城' : '重新填写申请'),
-        linkBtn,
-      ]),
-    el('p', { class: 'mzf-foot' }, '把这个链接存进收藏夹，随时回来查看审核进度。链接里含查询凭证，不要转发给无关的人。'),
+    el('div', { class: 'mzf-result-actions' }, actions),
+    // 演示区：故意做得低调（小字 + 虚线），它是给演示者用的，不是给商家用的功能
+    data.local
+      ? el('div', { class: 'mzf-demo' }, [
+        el('span', { class: 'mzf-demo-tag' }, '演示'),
+        el('span', { class: 'mzf-demo-note' }, '模拟审核只改本机记录，不发通知。真实审核在运营台完成。'),
+        data.status !== 'approved'
+          ? el('button', { type: 'button', class: 'mzf-demo-btn', onclick: () => simulate('approved') }, '模拟审核通过')
+          : null,
+        data.status !== 'rejected'
+          ? el('button', {
+            type: 'button',
+            class: 'mzf-demo-btn',
+            onclick: () => simulate('rejected', '营业执照主体名称与填写的主体名称不一致（演示数据）'),
+          }, '模拟驳回')
+          : null,
+        data.status !== 'reviewing'
+          ? el('button', { type: 'button', class: 'mzf-demo-btn', onclick: () => simulate('reviewing') }, '重置为审核中')
+          : null,
+      ].filter(Boolean))
+      : null,
+    el('p', { class: 'mzf-foot' }, data.local
+      ? '这条记录存在本机浏览器里（localStorage），刷新、关掉再打开都还在；换设备或清站点数据就会消失。'
+      : '把这个链接存进收藏夹，随时回来查看审核进度。链接里含查询凭证，不要转发给无关的人。'),
   ].filter(Boolean));
 
   wrap.replaceChild(card, wrap.querySelector('.mzf-loading'));
