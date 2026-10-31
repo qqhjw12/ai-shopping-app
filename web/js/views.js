@@ -14,6 +14,7 @@ import { recordVisit, listRecent, clearRecent } from './store/recentStore.js';
 import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
 import { setDemoMode, isDemoMode } from './demo.js';
+import { listMerchantMallProducts } from './store/merchantShopStore.js';
 import { trackEvent, fetchProductStats } from './track.js';
 import {
   SORTS, PRICE_BANDS, bandById, bandLabel,
@@ -59,6 +60,25 @@ async function loadRealDemo() {
 }
 const ALL_DEMO = async () => demoProducts.concat(await loadRealDemo());
 
+// 商家侧联动（演示模式）：工作台自建且在售的商品拼进消费者目录。
+// 数据仍住在 merchantShopStore 的 localStorage 桶里——不复制第二份，避免
+// 「两个真源」；每次取数现读，商家上架/下架后刷新或重进列表即可见。
+// 网关模式下不拼：那批货已真实写入平台库（products.merchant_id），见
+// e2e-merchant-workspace；在这边再拼一次反而会把演示货漏进真实商城。
+// category 中文标签从演示目录借：商家商品只有 categoryId，借个同类目的
+// 标签让 meta 行/相关推荐/热门搜索照常工作。
+const merchantCatLabels = new Map(
+  demoProducts
+    .filter((p) => p.categoryId && p.category)
+    .map((p) => [p.categoryId, p.category]),
+);
+function merchantMallProducts() {
+  return listMerchantMallProducts().map((p) => ({
+    ...p,
+    category: merchantCatLabels.get(p.categoryId) || '',
+  }));
+}
+
 // 商品缓存（列表/详情复用，避免重复请求）
 let productsCache = null;
 export async function getProducts() {
@@ -72,7 +92,9 @@ export async function getProducts() {
       productsCache = await ALL_DEMO();
     }
   }
-  return productsCache;
+  // 商家货每次现拼（不走缓存）：演示模式下工作台刚上架的商品，
+  // 消费者端下一次进列表就能看到——这正是本轮联动的验收标准。
+  return isDemoMode() ? productsCache.concat(merchantMallProducts()) : productsCache;
 }
 
 // 演示模式提示条：仅在未连接网关时展示，说明当前为内置示例数据
@@ -103,7 +125,8 @@ export async function searchProducts(query, topK = 12) {
 async function demoSearch(query, topK) {
   const q = (query || '').toLowerCase().trim();
   if (!q) return [];
-  const items = await ALL_DEMO();
+  // 商家自建的在售商品也参与本地检索：名字/店铺名都能搜到
+  const items = (await ALL_DEMO()).concat(merchantMallProducts());
   return items
     .map((p) => {
       const hay = [p.name, p.brand, p.category, (p.tags || []).join(' '), p.description].join(' ').toLowerCase();
@@ -156,6 +179,17 @@ function pickEditorial(products, count = 8) {
       used.add(String(p.id));
     }
   });
+
+  // 商家上新保底位（演示联动）：商家自建的在售商品保证有露脸位，否则编辑
+  // 选品被固定清单占满时，商家上架了消费者在首页永远看不到。最多 3 个、
+  // 且不占首卡（hero 永远是编辑之选），露脸但不抢戏。
+  products
+    .filter((p) => p.isMerchant && !used.has(String(p.id)))
+    .slice(0, 3)
+    .forEach((p) => {
+      picked.push(p);
+      used.add(String(p.id));
+    });
 
   // 补齐时优先照顾未出现的类目，让首页保持编辑式的内容节奏，而不是同类商品堆叠。
   const categories = new Set(picked.map((p) => p.categoryId));

@@ -2299,6 +2299,25 @@ if (failed === 0) {
     console.log(`  ${badSrc.length === 0 ? 'ok  ' : 'FAIL'} 货源市场（供应商目录）${badSrc.length ? ` → 缺失: ${badSrc.join('、')}` : ''}`);
     if (badSrc.length) failed++;
 
+    // 第九步：商家侧 ↔ 消费者侧数据联动（演示模式闭环）。锁六条：
+    //   桥接只读共享演示仓（不造第二份数据源）、只拼自建在售货（种子/审核中/下架不进商城）、
+    //   每次取数现读（不做实时推送也不吃陈旧缓存）、仅在演示模式拼（真链路已进平台库）、
+    //   卡片角落有极小「商家」标签且普通商品没有、跨店 id 防撞号。
+    const mssSrc2 = readFileSync(dir('store/merchantShopStore.js'), 'utf8');
+    const viewsSrc = readFileSync(dir('views.js'), 'utf8');
+    const uiSrc2 = readFileSync(dir('ui.js'), 'utf8');
+    const linkCases = [
+      ['桥接读共享演示仓（不复制第二份数据源）', mssSrc2.includes('export function listMerchantMallProducts') && mssSrc2.includes('readAll()')],
+      ['只拼商家自建且在售的商品（种子/非在售不进商城）', mssSrc2.includes('p.seed || p.status') && mssSrc2.includes("'on'")],
+      ['跨店 id 防撞号（商家编号::商品id）', mssSrc2.includes('`${merchantId}::${p.id}`')],
+      ['列表每次现读、仅演示模式拼接', viewsSrc.includes('isDemoMode() ? productsCache.concat(merchantMallProducts())') && viewsSrc.includes('listMerchantMallProducts')],
+      ['演示检索也覆盖商家商品', viewsSrc.includes('concat(merchantMallProducts())')],
+      ['卡片角落极小「商家」标签，普通商品没有', uiSrc2.includes("p.isMerchant ? el('span', { class: 'badge-merchant' }, '商家')") && uiSrc2.includes('if (p.isMerchant)')],
+    ];
+    const badLink = linkCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badLink.length === 0 ? 'ok  ' : 'FAIL'} 商家消费者联动（演示闭环）${badLink.length ? ` → 缺失: ${badLink.join('、')}` : ''}`);
+    if (badLink.length) failed++;
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);

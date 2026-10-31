@@ -1195,7 +1195,7 @@ textarea { resize: vertical; }
   gap: 6px;
   max-width: calc(100% - 70px);
 }
-.badge-off, .badge-out, .badge-ai, .badge-real {
+.badge-off, .badge-out, .badge-ai, .badge-real, .badge-merchant {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1216,6 +1216,8 @@ textarea { resize: vertical; }
 .badge-ai { color: var(--gold-deep); }
 .badge-out { background: rgba(26, 26, 26, 0.62); border-color: rgba(255, 255, 255, 0.16); color: var(--canvas); }
 .badge-real { color: var(--body); }
+/* 商家自建商品（演示联动）：比 badge-real 更收敛一档，一眼能扫到但不抢戏 */
+.badge-merchant { color: var(--gold-deep); letter-spacing: 0.08em; }
 .badge-off.lg { font-size: 11px; padding: 6px 11px; }
 .thumb-add {
   position: absolute;
@@ -3044,7 +3046,7 @@ textarea { resize: vertical; }
   .pcard .actions button { flex: 1; padding: 7px 6px; font-size: 10.5px; }
   .pcard .actions button.ghost { flex: 0 0 auto; }
   .card-badges { left: 8px; top: 8px; }
-  .badge-off, .badge-out, .badge-ai { padding: 4px 7px; font-size: 8px; }
+  .badge-off, .badge-out, .badge-ai, .badge-merchant { padding: 4px 7px; font-size: 8px; }
   .thumb-add { right: 8px; bottom: 8px; width: 30px; height: 30px; font-size: 17px; }
   .editorial-tile { min-height: 260px; padding: 24px 20px; }
   .editorial-tile h3 { font-size: 28px; margin-top: 20px; }

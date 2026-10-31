@@ -106,6 +106,7 @@ export function revealCards(container) {
 
 /** 商品品牌 / 类目小标签 */
 function productMeta(p) {
+  if (p.isMerchant) return `${p.merchantShop || p.brand || '商家'} · 商家直供`;
   return [p.brand || p.category, p.brand && p.category].filter(Boolean).join(' · ');
 }
 
@@ -159,6 +160,8 @@ export function productCard(p, { onDetail, onAddCart, onFavorite, extra, classNa
       el('span', { class: 'thumb-shade', 'aria-hidden': 'true' }),
       el('div', { class: 'card-badges' }, [
         aiPick ? el('span', { class: 'badge-ai' }, '✦ AI 推荐') : null,
+        // 商家自建商品（演示联动）：角落一枚极小标签区分来源，卡片其余样式不动
+        p.isMerchant ? el('span', { class: 'badge-merchant' }, '商家') : null,
         off ? el('span', { class: 'badge-off' }, off) : null,
         Number(p.totalStock) === 0 ? el('span', { class: 'badge-out' }, '暂时缺货') : null,
       ]),

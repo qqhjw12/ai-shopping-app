@@ -414,3 +414,49 @@ export function clearAllShops() {
     return false;
   }
 }
+
+/* ---------------- 对外：消费者侧桥接 ---------------- */
+
+/**
+ * 消费者端联动（演示模式）：把所有桶里「商家自建且在售」的商品读出来，
+ * 映射成商城商品形状。三条口径：
+ *
+ *   1) 只挑自建货——种子商品带 seed 字段，不进消费者列表。否则每逛一家
+ *      演示店，商城就多三件「手作粗陶马克杯」，演示数据污染真实浏览。
+ *   2) 审核中/已下架不出现——和平台库口径一致（未过审/下架的商品在
+ *      列表、计数、分类、品牌、详情处处不存在，不是前端藏起来）。
+ *   3) 纯读不写、每次现读——商家上架/下架后，刷新或重新进列表就是最新，
+ *      不做实时推送。id 用 `商家编号::商品id` 拼接：两家店的 MP0001 不能撞号。
+ */
+export function listMerchantMallProducts() {
+  const all = readAll();
+  const out = [];
+  for (const [merchantId, bucket] of Object.entries(all)) {
+    if (!bucket || bucket.schema !== SCHEMA || !Array.isArray(bucket.products)) continue;
+    const shopName = String((bucket.shop && bucket.shop.name) || '').trim() || '商家直供';
+    for (const p of bucket.products) {
+      if (!p || p.seed || p.status !== 'on') continue;
+      const price = Number(p.price) || 0;
+      const stock = Number(p.stock) || 0;
+      out.push({
+        id: `${merchantId}::${p.id}`,
+        name: String(p.name || ''),
+        price,
+        categoryId: String(p.categoryId || ''),
+        brand: shopName,
+        totalStock: stock,
+        // 单默认 SKU：商城侧的属性筛选/库存合计都按 SKU 走，缺了会被当无货
+        skus: [{ id: `${p.id}-s1`, spec: '默认', price, stock }],
+        rating: 0,
+        reviewsCount: 0,
+        sales: 0,
+        description: `${shopName} 供货 · 商家自建商品（演示数据，未接平台库）`,
+        isMerchant: true,
+        merchantShop: shopName,
+        createdAt: p.createdAt || '',
+        updatedAt: p.updatedAt || '',
+      });
+    }
+  }
+  return out;
+}
