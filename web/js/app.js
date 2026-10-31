@@ -13,6 +13,7 @@ import { renderLogin } from './login.js';
 import { renderTools } from './tools.js';
 import { renderAnalytics } from './analytics.js';
 import { renderAdminAftersales } from './adminAftersales.js';
+import { renderMerchantJoin, renderMerchantApply } from './merchant.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
 import { askGuide, openImageSearch } from './aiShop.js';
 import { favoriteCount, onFavoritesChange } from './store/favoriteStore.js';
@@ -115,6 +116,7 @@ function setActiveNav(path) {
     : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') ? 'products'
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
+    : path.startsWith('/merchant') ? 'merchant'
     : path.startsWith('/account') || path.startsWith('/coupons') || path.startsWith('/checkout') || path.startsWith('/orders') || path.startsWith('/favorites') || path.startsWith('/login') ? 'account'
     : '';
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.nav === key));
@@ -128,6 +130,8 @@ function dispatch({ path, query }) {
     return;
   }
   setActiveNav(path);
+  // 招商页有吸底 CTA：给 body 挂标记，把 AI 浮窗抬到它上面，避免两个按钮叠在一起
+  document.body.classList.toggle('has-merchant-bar', path === '/merchant/join');
   window.scrollTo(0, 0);
   syncSearchInput(path === '/search' ? query.q : '');
   if (path === '/' || path === '') renderHome(view);
@@ -150,6 +154,9 @@ function dispatch({ path, query }) {
   }
   // 运营侧：不进登录守卫（运营不是买家），门禁在页面内部用管理密钥
   else if (path === '/admin/aftersales') renderAdminAftersales(view, query);
+  // 商家侧：招商不需要登录（让商家先进门），申请表单下一步接
+  else if (path === '/merchant/join') renderMerchantJoin(view);
+  else if (path === '/merchant/apply') renderMerchantApply(view);
   else if (path === '/orders') renderOrders(view);
   else if (path === '/favorites') renderFavorites(view);
   else renderNotFound(view);

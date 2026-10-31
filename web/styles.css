@@ -7276,3 +7276,454 @@ body.flt-sheet-open { overflow: hidden; }
   .cat-quick { margin-bottom: 12px; }
   .cat-quick-item { padding: 7px 12px; }
 }
+
+/* ============================================================
+   商家入驻（招商）
+   ------------------------------------------------------------
+   招商页与商城共用同一套色板与字体（暖中性 / 衬线标题 / 克制的金），
+   差异只在两处深色区块——平台数据面板与收尾 CTA 带。
+   深色只用来承载「规模与承诺」，正文仍是浅底，避免变成广告页。
+   ============================================================ */
+
+/* 顶栏入口：金色文字 + 发丝分隔，不进主视觉重量 */
+.nav a.nav-merchant {
+  position: relative;
+  color: var(--gold-deep);
+  font-weight: 500;
+}
+.nav a.nav-merchant::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 50%;
+  width: 1px;
+  height: 12px;
+  margin-top: -6px;
+  background: var(--line-strong);
+}
+.nav a.nav-merchant:hover { color: var(--ink); }
+.nav a.nav-merchant.active::after { display: none; }
+
+.merchant { padding-bottom: 104px; } /* 给吸底 CTA 留出等高留白 */
+
+.mz-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+.mz-back:hover { color: var(--ink); }
+
+/* ---------------- 首屏 ---------------- */
+.mz-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+  gap: 44px;
+  align-items: stretch;
+  margin: 0 0 66px;
+}
+.mz-hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8px 0;
+}
+.mz-hero h1 {
+  margin: 22px 0 18px;
+  font-family: var(--serif);
+  font-size: clamp(36px, 4.2vw, 54px);
+  font-weight: 500;
+  line-height: 1.16;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+.mz-hero h1 em {
+  font-style: italic;
+  color: var(--gold-deep);
+  letter-spacing: 0.005em;
+}
+.mz-lede {
+  max-width: 540px;
+  margin: 0;
+  color: var(--body);
+  font-size: 15px;
+  line-height: 1.85;
+}
+.mz-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 30px 0 16px;
+}
+.mz-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 26px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s var(--ease);
+}
+.mz-btn--gold {
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 1px 2px rgba(26, 26, 26, 0.06);
+}
+.mz-btn--gold:hover { background: #d2b47b; transform: translateY(-1px); }
+.mz-btn--ghost {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.mz-btn--ghost:hover { background: rgba(255, 255, 255, 0.72); border-color: var(--ink); }
+.mz-btn:active { transform: scale(0.985); }
+.mz-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+
+/* 深色数据面板：唯一承载「平台规模」的地方 */
+.mz-stats {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 34px;
+  border-radius: var(--r-card);
+  background:
+    radial-gradient(circle at 92% -6%, rgba(200, 169, 110, 0.26), transparent 20rem),
+    linear-gradient(158deg, #202020, #151515);
+  box-shadow: 0 20px 54px rgba(26, 26, 26, 0.18);
+}
+.mz-stats .eyebrow { color: rgba(250, 249, 246, 0.46); }
+.mz-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 26px 20px;
+}
+.mz-stat-k {
+  display: block;
+  font-family: var(--serif);
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #f7f5f0;
+  font-variant-numeric: tabular-nums;
+}
+.mz-stat-l {
+  display: block;
+  margin-top: 7px;
+  color: rgba(250, 249, 246, 0.44);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.mz-stats-foot {
+  margin: 0;
+  color: rgba(250, 249, 246, 0.32);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+/* ---------------- 区块通用 ---------------- */
+.mz-section { margin: 0 0 72px; }
+
+/* 平台优势：四张安静的文字卡片（发丝线分栏，无图标） */
+.mz-why-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+.mz-why {
+  padding: 26px 26px 8px 0;
+  border-right: 1px solid var(--line);
+}
+.mz-why:last-child { border-right: 0; padding-right: 0; }
+.mz-why-idx {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--gold-deep);
+}
+.mz-why h3 {
+  margin: 12px 0 10px;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.mz-why p {
+  margin: 0;
+  color: var(--body);
+  font-size: 12.5px;
+  line-height: 1.85;
+}
+
+/* 入驻流程：横向步骤条 */
+.mz-flow { border-top: 1px solid var(--line); padding-top: 40px; }
+.mz-steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 34px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.mz-steps::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 13px;
+  height: 1px;
+  background: var(--line-strong);
+}
+.mz-step { position: relative; padding: 0 24px 0 0; }
+.mz-step-dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 1px solid rgba(200, 169, 110, 0.72);
+  border-radius: 50%;
+  background: var(--canvas);
+  color: var(--gold-deep);
+  font-family: var(--serif);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.mz-step h3 {
+  margin: 16px 0 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.mz-step p {
+  margin: 0;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+/* 适合的商家类型 */
+.mz-fit-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 56px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.mz-fit-list li {
+  display: flex;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mz-fit-idx {
+  flex: none;
+  padding-top: 2px;
+  color: var(--gold-deep);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12px;
+}
+.mz-fit-list strong {
+  display: block;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+.mz-fit-list p {
+  margin: 5px 0 0;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* 收尾深色带 */
+.mz-final {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 46px;
+  border-radius: var(--r-card);
+  background:
+    radial-gradient(circle at 88% 0%, rgba(200, 169, 110, 0.22), transparent 18rem),
+    linear-gradient(158deg, #202020, #151515);
+  box-shadow: 0 18px 48px rgba(26, 26, 26, 0.16);
+}
+.mz-final .eyebrow { color: rgba(250, 249, 246, 0.42); }
+.mz-final h2 {
+  margin: 12px 0 0;
+  color: #f7f5f0;
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.mz-final p {
+  margin: 10px 0 0;
+  color: rgba(250, 249, 246, 0.56);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+/* ---------------- 吸底 CTA ---------------- */
+.mz-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 72;
+  border-top: 1px solid var(--line);
+  background: rgba(250, 249, 246, 0.88);
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+  -webkit-backdrop-filter: saturate(140%) blur(18px);
+  backdrop-filter: saturate(140%) blur(18px);
+}
+.mz-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+.mz-bar-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mz-bar-copy strong { color: var(--ink); font-size: 13px; font-weight: 500; }
+.mz-bar-copy span { color: var(--muted); font-size: 11px; }
+.mz-bar .mz-btn { flex: none; min-height: 46px; padding: 0 22px; }
+
+/* 招商页有吸底条时，把 AI 浮窗抬到它上面（否则两个按钮叠在右下角） */
+body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+
+/* ---------------- 申请页（表单下一步接入） ---------------- */
+.mz-apply { max-width: 760px; margin: 0 auto; padding-bottom: 40px; }
+.mz-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.mz-apply-title {
+  margin: 0 0 14px;
+  font-family: var(--serif);
+  font-size: clamp(30px, 3.4vw, 42px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.mz-apply-card {
+  margin-top: 28px;
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+.mz-mats {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 26px;
+  padding: 0;
+  list-style: none;
+}
+.mz-mats li {
+  display: flex;
+  gap: 12px;
+  color: var(--body);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.mz-mats li::before { content: "—"; flex: none; color: var(--gold-deep); }
+.mz-apply-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ---------------- 响应式 ---------------- */
+@media (max-width: 980px) {
+  .mz-hero { grid-template-columns: 1fr; gap: 26px; margin-bottom: 52px; }
+  .mz-stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 16px; }
+  .mz-stat-k { font-size: 26px; }
+  .mz-why-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mz-why { padding: 24px 22px 6px 0; }
+  .mz-why:nth-child(2n) { border-right: 0; padding-right: 0; }
+  .mz-why:nth-child(-n + 2) { border-bottom: 1px solid var(--line); }
+  .mz-steps { grid-template-columns: 1fr; margin-top: 26px; }
+  .mz-steps::before { left: 13px; right: auto; top: 14px; bottom: 18px; width: 1px; height: auto; }
+  .mz-step { padding: 0 0 24px 44px; }
+  .mz-step:last-child { padding-bottom: 4px; }
+  .mz-step-dot { position: absolute; left: 0; top: 0; }
+  .mz-step h3 { margin-top: 2px; }
+  .mz-fit-list { grid-template-columns: 1fr; gap: 0; }
+  .mz-final { padding: 36px 30px; }
+}
+
+@media (max-width: 820px) {
+  /* 移动端导航是横向可滚条：商家入口做成 44px 高的胶囊，触控热区达标 */
+  .nav { align-items: center; }
+  .nav a.nav-merchant {
+    height: 44px;
+    padding: 0 14px;
+    border: 1px solid rgba(200, 169, 110, 0.42);
+    border-radius: var(--r-pill);
+  }
+  .nav a.nav-merchant::before { display: none; }
+  .mz-bar-copy span { display: none; }
+  .mz-bar .mz-btn { min-height: 44px; padding: 0 18px; font-size: 12.5px; }
+  .mz-final h2 { font-size: 26px; }
+}
+
+@media (max-width: 620px) {
+  .merchant { padding-bottom: 92px; }
+  .mz-hero h1 { font-size: 34px; margin-top: 18px; }
+  .mz-lede { font-size: 14px; }
+  .mz-stats { padding: 26px; }
+  .mz-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 14px; }
+  .mz-stat-k { font-size: 24px; }
+  .mz-why { padding: 22px 18px 4px 0; }
+  .mz-why h3 { font-size: 18px; }
+  .mz-section { margin-bottom: 52px; }
+  .mz-final { padding: 30px 22px; }
+  .mz-final .mz-btn { width: 100%; }
+  .mz-apply-card { padding: 24px 20px; }
+  .mz-cta-row .mz-btn { flex: 1 1 auto; }
+}

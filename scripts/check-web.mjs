@@ -2106,5 +2106,40 @@ if (failed === 0) {
   }
 }
 
+/* ---------------- 商家入驻入口 / 招商页断言（入口浅 / 锚点不走 hash / 热区达标） ---------------- */
+// 招商页的两条隐形约定值得锁死：
+//   1) 页内锚点绝不能写 href="#xxx"（hash 是 SPA 路由，会被当成路由 404）——只能 scrollIntoView；
+//   2) 平台数据必须真取 /api/stats 或本地现算，不允许硬编码「好看的数字」。
+if (failed === 0) {
+  console.log('\n商家入驻断言（入口 / 锚点 / 热区 / 数据来源）');
+  try {
+    const { readFileSync } = await import('node:fs');
+    const dir = (f) => join(WEB_DIR, f);
+    const rootFile = (f) => join(WEB_DIR, '..', f);
+    const htmlSrc = readFileSync(rootFile('index.html'), 'utf8');
+    const cssSrc = readFileSync(rootFile('styles.css'), 'utf8');
+    const appSrc = readFileSync(dir('app.js'), 'utf8');
+    const mSrc = readFileSync(dir('merchant.js'), 'utf8');
+
+    const cases = [
+      ['顶栏与页脚都有商家入驻入口', htmlSrc.includes('href="#/merchant/join" data-nav="merchant"') && htmlSrc.includes('<a href="#/merchant/join">商家入驻</a>')],
+      ['app.js 注册了招商页与申请页路由', appSrc.includes("path === '/merchant/join'") && appSrc.includes("path === '/merchant/apply'")],
+      ['招商页挂 has-merchant-bar（抬 AI 浮窗）', appSrc.includes("body.classList.toggle('has-merchant-bar'")],
+      ['移动端导航胶囊 44px 热区', cssSrc.includes('.nav a.nav-merchant') && /@media \(max-width: 820px\)[\s\S]*height: 44px;\s*\n\s*padding: 0 14px;\s*\n\s*border: 1px solid rgba\(200, 169, 110, 0\.42\)/.test(cssSrc)],
+      ['页内锚点用 scrollIntoView（不写 hash 锚）', mSrc.includes('scrollIntoView') && !mSrc.includes("href: '#mz-flow'") && !mSrc.includes("href: '#join-flow'")],
+      ['平台数据真取 /api/stats + 本地现算兜底', mSrc.includes('/api/stats') && mSrc.includes('getProducts()')],
+      ['优势区四卡 / 流程五步 / 商家类型 ≥6', mSrc.includes('零成本开店') && (mSrc.match(/t: '/g) || []).length >= 15],
+      ['申请页如实标注表单未开放（无假表单）', mSrc.includes('表单下一步开放') && !mSrc.includes('type: \'submit\'')],
+      ['吸底 CTA 存在且指向申请页', mSrc.includes("class: 'mz-bar'") && mSrc.includes("href: '#/merchant/apply'")],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 商家入驻${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);
