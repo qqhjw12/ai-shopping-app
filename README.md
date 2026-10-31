@@ -42,7 +42,7 @@
 本仓库是「宏之蓝 / macrozheng mall」生态的一个 AI 增强示例（Route A）：
 
 - **后端 `ai-gateway`**：Node.js（ESM）网关，提供商品检索、AI 导购/客服/问答流式接口，以及对 Dify 中枢的编排。
-  - `RUN_MODE=local`：内置 **SQLite 数据库**——示例种子 256 款，经 `npm run db:ingest` 已灌入真实开放数据商品至 **12313 款 / 12639 SKU / 36939 评价 / 3210 品牌**（含食品生鲜 12023 款、带真实商品图 12057 款）+ 本地哈希嵌入 + 本地对话引擎，**零外部依赖即可演示**。
+  - `RUN_MODE=local`：内置 **SQLite 数据库**——示例种子 256 款，经 `db:ingest` + `db:dummyjson` + `db:cleveland` 已灌入真实开放数据商品至 **43757 款 / 46083 SKU / 129077 评价 / 15430 品牌**（图书文娱 21824、食品生鲜 12602、美妆个护 6685、宠物 1777、健康保健 308、母婴玩具 217…）+ 本地哈希嵌入 + 本地对话引擎，**零外部依赖即可演示**。
   - `RUN_MODE=docker`：接入真实 Qdrant（向量）、Elasticsearch（关键词）、Ollama（嵌入）、Dify（智能客服 / 商品问答 / 导购 Agent / 运营文案 / 订单售后），失败自动降级。
 - **前端 `web/`**：原生 ES Module 单页应用，hash 路由、购物车服务端持久化（离线回落 localStorage）、AI 浮窗（导购/客服/问答均 SSE 逐字渲染）、商品详情深链分享（含来源埋点）、程序化生成的 SVG 商品图。
 
@@ -105,7 +105,7 @@
 | `conversations` / `messages` | 会话与消息（多轮上下文、可回放，重启不丢） |
 | `track_events` | 埋点事件（替代原内存环形缓冲，聚合走 SQL） |
 
-种子规模：**256 商品（示例）/ 556 SKU / 16 一级类目 / 48 二级类目 / 23 品牌 / 768 评价 / 7 订单 / 8 FAQ / 5 政策 / 6 张券**。执行 `npm run db:ingest` 后可扩至 **12313 商品 / 12639 SKU / 3210 品牌 / 36939 评价**——其中 Free-Ecommerce 50 款 + Open Food Facts 12007 款真实商品（食品生鲜 12023 款，全部带真实商品图）。
+种子规模：**256 商品（示例）/ 556 SKU / 16 一级类目 / 48 二级类目 / 23 品牌 / 768 评价 / 7 订单 / 8 FAQ / 5 政策 / 6 张券**。执行 `db:ingest`（+ `db:dummyjson` + `db:cleveland`）后可扩至 **43757 商品 / 46083 SKU / 15430 品牌 / 129077 评价**——Free-Ecommerce 50 + Open Food Facts 家族 21449 + Open Library 19808 + DummyJSON 194 + 克利夫兰 CC0 藏品 2000，母婴 / 健康 / 文创等原先的空档品类均由开放数据填实。
 `npm run db:seed` 幂等灌数据，`npm run db:reset` 清空重灌；两端都在启动时自动执行迁移 + 缺数据才种子。
 
 ### 购物交易链路（后端）
@@ -815,6 +815,8 @@ S3_FORCE_PATH_STYLE=0                            # 真 AWS 用 vhost；OSS/R2/Mi
 - **Free-Ecommerce-Products-Api**（GitHub 开源，开放使用）：含真实商品图（GitHub Pages 图床）与美元标价，覆盖美妆 / 电子 / 服饰 / 家居 / 健康 5 大类。
 - **Open Food Facts**（ODbL 开放数据库，CC-BY 商品图）：覆盖「食品生鲜」及合规的非食品类目（美妆个护 / 宠物粮 / 母婴 / 营养补剂），按 `categories_tags` 自动分流到对应一级类目，体量可达数十万款。
 - **Open Library**（开放图书元数据，封面为 Open Library 开放图）：覆盖「图书文娱」一级类目，按 subject 分流到二级类目（畅销图书 / 文创手作 / 乐器音像），只保留「有书名 + 有封面图」的真实书目，体量可达数万款。
+- **DummyJSON**（公开演示 API，无 ToS 限制）：约 200 件带图合成商品，补齐手机数码 / 服饰鞋包 / 家用电器 / 车载出行等「无开放数据源可爬」的核心品类的空档，统一「海外直邮」叙事（`npm run db:dummyjson`）。
+- **克利夫兰艺术博物馆 Open Access**（CC0，免 API Key）：4 万余件开放藏品，取「有图有标题」者映射为「文创手作 / 乐器音像」的艺术复刻商品，图片为博物馆 CDN 直链（`npm run db:cleveland`）。曾尝试 Art Institute of Chicago API，被 Cloudflare 人机校验硬拦后改用本源。
 
 导入后每张商品图存为 `products.image_url`，前端在「图片不可达（离线 / 图床 404）」时**自动回退**到程序化 SVG 封面，绝不出现破图。
 
@@ -845,13 +847,20 @@ INGEST_FAMILIES=ol npm run db:ingest -- --fetch
 # 控制 Open Library 图书抓取上限（默认 25000）
 OL_CAP=30000 npm run db:ingest -- --fetch
 
+# DummyJSON 合成商品（补核心品类空档，幂等可重复执行）
+npm run db:dummyjson
+
+# 克利夫兰艺术博物馆 CC0 藏品 → 文创手作 / 乐器音像（幂等；CMA_CAP 控制上限，默认 2000）
+npm run db:cleveland
+
 # 清空已导入的真实商品后重灌
 npm run db:ingest -- --reset
 ```
 
 要点：
 
-- **幂等**：真实商品以 `fe_` / `off_` 前缀独立 ID，与示例商品互不覆盖；重复运行安全（`INSERT OR REPLACE` + 事务批量写入）。
+- **幂等**：真实商品以 `fe_` / `off_` / `dj_` / `cma_` 等前缀独立 ID，与示例商品互不覆盖；重复运行安全（先清旧前缀再 `INSERT OR REPLACE` + 事务批量写入，`reviews` 为纯 INSERT 故入库前必先 DELETE 防翻倍）。
+- **母婴 / 补剂分流**：主 OFF 库的 `baby-foods / infant-formulas / diapers / baby-wipes` 等标签分流到「母婴玩具」（奶粉辅食 → baby_milk，尿裤湿巾 → baby_care，diaper/nappy 字样按字面识别不依赖 baby 关键词）；`dietary-supplements / vitamins / sports-nutrition` 等标签分流到「健康保健」——`world.openproductfacts.org` 在部分网络下不可达，同名类目从主库取。
 - **高吞吐 + 多类目**：Open Food Facts 走 v2 搜索 API 分页抓取、按 `code` 去重、只保留「有商品名 + 有封面图」的真实条目；覆盖食品生鲜及合规非食品类目（美妆个护 / 宠物粮 / 母婴 / 营养补剂），按 `categories_tags` 自动分流到对应一级与二级类目；每个类目**增量落盘**，超时中断可续跑不丢进度。Open Library 另按 subject 翻页抓取真实书目（只留带封面图者），覆盖「图书文娱」一级类目下的畅销图书 / 文创手作 / 乐器音像二级类目。
 - **演示包限幅**：数据库可以无限大，但 `web/js/demo-real-data.js` 默认按固定步长抽样至 `DEMO_CAP`（默认 3000）款，保证 GitHub Pages 首屏不被大文件拖慢；且每次导入**全量同步** fe_/off_ 商品（先清后插），重复运行不会产生重复评价。
 - **容错**：限流（429/5xx）自动重试退避；断网时 `--fetch` 回退到本地快照；实时抓取与已提交缓存**合并（按 `code` 去重、只增不减）**，主食品库间歇 503 部分失败时也不会回退已抓数据，多次运行可累积增量。

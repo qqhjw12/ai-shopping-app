@@ -109,7 +109,9 @@ function offTopCategory(tags) {
   const t = (tags || []).join(' ').toLowerCase();
   if (/cosmetic|makeup|make-up|lipstick|foundation|mascara|eyeshadow|perfume|fragrance|deodorant|shampoo|conditioner|soap|toothpaste|sunscreen|skin-care|skincare|moisturizer|cleanser/i.test(t)) return 'beauty';
   if (/pet.?food|cat.?food|dog.?food|feline|canine/i.test(t)) return 'pet';
-  if (/baby|infant|toddler/i.test(t)) return 'baby';
+  // 婴儿分流：除 baby/infant 外，纸尿裤类标签（diapers/nappies/nappy）也要进母婴——
+  // 这类商品按字面是「卫生用品」，tags 里可能一个 baby 字样都没有
+  if (/baby|infant|toddler|diaper|napp(y|ie)/i.test(t)) return 'baby';
   if (/dietary.?supplement|vitamin|sport.?nutrition|protein|nutri/i.test(t)) return 'health';
   return 'food';
 }
@@ -395,6 +397,13 @@ const FOOD_CATS = [
   'dried-products', 'nuts', 'seeds', 'dry-pasta',
   // ===== 标签维度（用于扩量，OFF 这些标签下商品极多）=====
   'vegetarian', 'organic', 'bio', 'gluten-free', 'halal', 'low-fat', 'no-added-sugar', 'fair-trade',
+  // ===== 母婴分流（用户提议：扩 OFF 的非食品分流）=====
+  // 奶粉辅食走 baby_milk，尿裤湿巾/奶瓶奶嘴走 baby_care，其余落到 baby_care 兜底
+  'baby-foods', 'baby-milks', 'infant-formulas', 'baby-infant-formulas', 'follow-on-milks',
+  'diapers', 'nappies', 'baby-wipes', 'baby-bottles', 'baby-teats', 'baby-care-products',
+  // ===== 营养补剂分流（world.openproductfacts.org 本机不可达，改从主库同名类目取，
+  // offTopCategory 会把 vitamin/supplement/protein 标签分流到健康保健）=====
+  'dietary-supplements', 'vitamins', 'sports-nutrition', 'proteins', 'minerals', 'food-supplements',
 ];
 // 各家族：抓取主机、类目、缓存 key、默认一级类目（非食品家族用默认类目，避免被 tags 误分流）
 // 注意：OFF 对未认证「深层整库分页」会返回 401（第 11 页起拦截），故一律走 categories_tags 浅分页，
