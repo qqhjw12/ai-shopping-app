@@ -2294,6 +2294,7 @@ if (failed === 0) {
       ['工作台侧栏有货源市场出站项', dashSrc.includes('OUT_LINKS') && dashSrc.includes('货源市场') && dashSrc.includes("'/merchant/sourcing'")],
       ['移动端底部标签也有货源入口', dashSrc.includes('mdash-tab is-out')],
       ['分类页底部入口条 + 页脚链接（不进顶栏）', catSrc.includes('sourcingStrip') && indexHtml.includes('#/merchant/sourcing') && srcPageSrc.includes('src-strip')],
+      ['深色锚点语法与招商页同源（AI 面板暗化 + 收尾暗带）', srcPageSrc.includes('src-ai-eyebrow') && srcPageSrc.includes('src-final') && cssSrc.includes('linear-gradient(158deg, #202020, #151515)')],
     ];
     const badSrc = srcCases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${badSrc.length === 0 ? 'ok  ' : 'FAIL'} 货源市场（供应商目录）${badSrc.length ? ` → 缺失: ${badSrc.join('、')}` : ''}`);

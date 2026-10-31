@@ -140,7 +140,7 @@ export function renderSourcing(view, query = {}) {
     ]),
   ]));
 
-  /* ---- AI 找货 ---- */
+  /* ---- AI 找货（页面的深色锚点：与招商页 PLATFORM NOW 同一语法） ---- */
   const aiResult = el('div', { class: 'src-ai-result' });
   const aiInput = el('input', {
     class: 'src-ai-input',
@@ -168,11 +168,13 @@ export function renderSourcing(view, query = {}) {
     paintAi();
   });
 
-  view.appendChild(el('section', { class: 'src-ai' }, [
+  const aiSection = el('section', { class: 'src-ai' }, [
+    el('span', { class: 'eyebrow src-ai-eyebrow' }, 'AI SOURCING DESK'),
     aiForm,
     el('p', { class: 'src-ai-note' }, '演示能力：按主营类目、供应能力与起订量在这份演示目录里匹配，不接真实询价通道。'),
     aiResult,
-  ]));
+  ]);
+  view.appendChild(aiSection);
 
   /* ---- 筛选 ---- */
   const filterBar = el('div', { class: 'src-filters' });
@@ -304,6 +306,26 @@ export function renderSourcing(view, query = {}) {
 
   paint();
   paintAi();
+
+  /* ---- 收尾锚点（暗色，与招商页 NEXT STEP 同一语法）：
+     不是装饰——两个按钮都有真实行为：回到顶部问 AI / 按来路返回 ---- */
+  view.appendChild(el('section', { class: 'src-final' }, [
+    el('div', { class: 'src-final-copy' }, [
+      el('span', { class: 'eyebrow' }, 'STILL LOOKING'),
+      el('h2', {}, '没扫到合适的货源？'),
+      el('p', {}, '换个说法再问一次 AI，或者先回去看看商城行情。'),
+    ]),
+    el('div', { class: 'src-final-actions' }, [
+      el('button', {
+        class: 'src-act is-gold', type: 'button',
+        onclick: () => {
+          aiSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          aiInput.focus({ preventScroll: true });
+        },
+      }, '再问一次 AI 找货'),
+      el('a', { class: 'src-act on-dark', href: backTo.href }, `← ${backTo.label}`),
+    ]),
+  ]));
 
   // 深链进来时把 AI 结果区带到视野里（?q= 是分享过来的搜索词）
   if (st.need) setTimeout(() => aiResult.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
