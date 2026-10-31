@@ -2210,7 +2210,8 @@ if (failed === 0) {
     //   - 模拟审核只对本机记录开放，真申请没有这个按钮；
     //   - 工作台在「未通过审核」时不假装能进。
     const localSrc = readFileSync(dir('merchantLocal.js'), 'utf8');
-    const wsSrc = readFileSync(dir('merchantWorkspace.js'), 'utf8');
+    const dashSrc = readFileSync(dir('merchantDashboard.js'), 'utf8');
+    const shopStoreSrc = readFileSync(join(WEB_DIR, 'store', 'merchantShopStore.js'), 'utf8');
     const demoCases = [
       ['申请表单五步（含资质材料）', (mSrc.match(/title: '(主体资质|品牌商品|资质材料|结算售后|确认提交)'/g) || []).length === 5],
       ['材料是清单不是文件：注释写明不收文件本体', mSrc.includes('只登记清单') && mSrc.includes('原件在签约环节')],
@@ -2222,16 +2223,36 @@ if (failed === 0) {
       ['演示降级需要显式点击', mSrc.includes('用本地演示模式提交（只存在本机）')],
       ['模拟审核只出现在本地记录上', mSrc.includes("class: 'mzf-demo'") && mSrc.includes('模拟审核通过') && mSrc.includes('simulate(')],
       ['状态页有「本地演示数据」标记', mSrc.includes('mzf-local-tag') && mSrc.includes('本地演示数据')],
-      ['通过后有「进入商家工作台」入口', mSrc.includes('#/merchant/workspace?id=') && mSrc.includes('进入商家工作台')],
-      ['app.js 注册工作台路由', appSrc.includes("path === '/merchant/workspace'")],
-      ['工作台未通过审核时不假装能进', wsSrc.includes('工作台还没开门')],
-      ['工作台三个模块如实标「未开放」', wsSrc.includes('未开放') && wsSrc.includes('还在内测')],
-      ['工作台能读本地演示记录', wsSrc.includes('merchantLocal.isLocalId') && wsSrc.includes('merchantLocal.latest')],
+      ['通过后有「进入商家工作台」入口', mSrc.includes('#/merchant/dashboard?id=') && mSrc.includes('进入商家工作台')],
+      ['app.js 注册工作台路由且旧地址能转过去', appSrc.includes("path === '/merchant/dashboard'") && appSrc.includes("'/merchant/workspace'")],
+      ['工作台未通过审核时不假装能进', dashSrc.includes('工作台还没开门')],
+      ['工作台能读本地演示记录', dashSrc.includes('merchantLocal.isLocalId') && dashSrc.includes('merchantLocal.latest')],
       ['审核台展示材料清单，缺材料写明「未提交」', amSrc.includes('materialsLine') && amSrc.includes('未提交')],
+      ['工作台经营数据常驻「演示」标注', dashSrc.includes('mdash-note') && dashSrc.includes('本机示例数据')],
     ];
     const badDemo = demoCases.filter(([, ok]) => !ok).map(([label]) => label);
-    console.log(`  ${badDemo.length === 0 ? 'ok  ' : 'FAIL'} 材料上传/本地演示/工作台${badDemo.length ? ` → 缺失: ${badDemo.join('、')}` : ''}`);
+    console.log(`  ${badDemo.length === 0 ? 'ok  ' : 'FAIL'} 材料上传/本地演示/工作台入口${badDemo.length ? ` → 缺失: ${badDemo.join('、')}` : ''}`);
     if (badDemo.length) failed++;
+
+    // 第六步：商家工作台（商品 / 库存 / 订单）。锁数据层的四条底线：
+    //   按商家分桶、种子确定性、写失败不吞、经营规则不因为「是演示」就放松。
+    const dashCases = [
+      ['侧边导航五个模块', (dashSrc.match(/id: '(overview|products|inventory|orders|settings)',/g) || []).length === 5],
+      ['概览四张卡来自真实统计而非硬编码', dashSrc.includes('statsOf') && dashSrc.includes('在售商品') && dashSrc.includes('库存预警')],
+      ['新商品进「审核中」（演示也不绕过审核）', shopStoreSrc.includes("status: 'reviewing'")],
+      ['审核中的商品不能上下架', shopStoreSrc.includes('审核中的商品不能上下架')],
+      ['已发货的订单不能重复发货', shopStoreSrc.includes('这单已经发过货了')],
+      ['库存预警只算在售/待上架', shopStoreSrc.includes("p.status !== 'off' && p.stock <= p.warnAt")],
+      ['发货必须填运单号且校验形状', shopStoreSrc.includes('trackingNo') && shopStoreSrc.includes('{6,32}')],
+      ['按商家分桶（同机多店不串数据）', shopStoreSrc.includes("all[String(merchantId || '')] = bucket")],
+      ['种子数据确定性（不用随机）', shopStoreSrc.includes('SEED_NAMES') && shopStoreSrc.includes('SEED_STOCK')],
+      ['写失败如实抛出（隐私模式不静默丢数据）', shopStoreSrc.includes("code: 'storage'")],
+      ['工作台样式沿用设计令牌', cssSrc.includes('.mdash-table') && cssSrc.includes('var(--r-card)') && cssSrc.includes('var(--line)')],
+      ['移动端侧栏收成底部标签', cssSrc.includes('.mdash-tabbar') && cssSrc.includes('.mdash-side { display: none;')],
+    ];
+    const badDash = dashCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badDash.length === 0 ? 'ok  ' : 'FAIL'} 商家工作台（商品/库存/订单）${badDash.length ? ` → 缺失: ${badDash.join('、')}` : ''}`);
+    if (badDash.length) failed++;
 
   } catch (e) {
     failed++;

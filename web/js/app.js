@@ -16,7 +16,7 @@ import { renderAdminAftersales } from './adminAftersales.js';
 import { renderAdminMerchants } from './adminMerchants.js';
 import { renderAdminNoticeTemplates } from './adminNoticeTemplates.js';
 import { renderMerchantJoin, renderMerchantApply } from './merchant.js';
-import { renderMerchantWorkspace } from './merchantWorkspace.js';
+import { renderMerchantDashboard } from './merchantDashboard.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
 import { askGuide, openImageSearch } from './aiShop.js';
 import { favoriteCount, onFavoritesChange } from './store/favoriteStore.js';
@@ -135,6 +135,8 @@ function dispatch({ path, query }) {
   setActiveNav(path);
   // 招商页有吸底 CTA：给 body 挂标记，把 AI 浮窗抬到它上面，避免两个按钮叠在一起
   document.body.classList.toggle('has-merchant-bar', path === '/merchant/join');
+  // 工作台在移动端有底部标签栏：让 AI 浮窗抬上去，别和导航叠在一起
+  document.body.classList.toggle('has-dash-bar', path === '/merchant/dashboard');
   window.scrollTo(0, 0);
   syncSearchInput(path === '/search' ? query.q : '');
   if (path === '/' || path === '') renderHome(view);
@@ -162,7 +164,16 @@ function dispatch({ path, query }) {
   // 商家侧：招商不需要登录（让商家先进门）；申请页带 ?id&key 时是回看已提交的申请
   else if (path === '/merchant/join') renderMerchantJoin(view);
   else if (path === '/merchant/apply') renderMerchantApply(view, query);
-  else if (path === '/merchant/workspace') renderMerchantWorkspace(view, query);
+  // 商家工作台：上一版只有概览页（/merchant/workspace），旧链接一律转到新工作台，
+  // query（含 id/key/tab）原样带过去，收藏的链接不会因为改路由而失效
+  else if (path === '/merchant/workspace' || path === '/merchant/dashboard') {
+    if (path === '/merchant/workspace') {
+      const q = new URLSearchParams(query).toString();
+      navigate(`/merchant/dashboard${q ? `?${q}` : ''}`);
+    } else {
+      renderMerchantDashboard(view, query);
+    }
+  }
   else if (path === '/orders') renderOrders(view);
   else if (path === '/favorites') renderFavorites(view);
   else renderNotFound(view);

@@ -1305,7 +1305,7 @@ async function renderApplicationStatus(v, id, key) {
     reload();
   };
 
-  const workspaceHref = `#/merchant/workspace?id=${encodeURIComponent(id)}&key=${encodeURIComponent(key)}`;
+  const workspaceHref = `#/merchant/dashboard?id=${encodeURIComponent(id)}&key=${encodeURIComponent(key)}`;
   const actions = (() => {
     if (data.status === 'reviewing' && !data.local) {
       // 只有真申请才给「改 / 撤」：本地演示记录没有服务端可改，

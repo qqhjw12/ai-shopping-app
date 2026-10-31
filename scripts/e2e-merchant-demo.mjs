@@ -176,15 +176,19 @@ try {
 
   await page.locator('.mzf-result-actions a', { hasText: '进入商家工作台' }).click();
   await page.waitForTimeout(1400);
-  check('工作台页打开（hash 路由）', page.url().includes('#/merchant/workspace'), page.url());
-  check('工作台显示品牌名', (await page.locator('.mzw-title').innerText()).includes(APPLICANT.brand));
-  check('工作台标「已通过审核」', (await page.locator('.mzw-badge').innerText()).includes('已通过'));
-  check('工作台概览 4 张卡', (await page.locator('.mzw-stat').count()) === 4, String(await page.locator('.mzw-stat').count()));
-  check('工作台待办 3 条', (await page.locator('.mzw-todo-row').count()) === 3);
-  check('未开放的模块如实标注', (await page.locator('.mzw-todo').innerText()).includes('未开放'));
-  check('工作台列出材料清单', (await page.locator('.mzw-mats li').count()) === 2);
-  check('工作台说明这是本地演示数据', (await page.locator('.mzw-local').innerText()).includes('本地演示数据'));
+  // 上一版工作台在 #/merchant/workspace，现在统一是 #/merchant/dashboard
+  check('工作台页打开（hash 路由）', page.url().includes('#/merchant/dashboard'), page.url());
+  check('工作台侧栏显示品牌名', (await page.locator('.mdash-shop-name').innerText()).includes(APPLICANT.brand));
+  check('侧边导航五个模块', (await page.locator('.mdash-navitem').count()) === 5, String(await page.locator('.mdash-navitem').count()));
+  check('概览 4 张数据卡', (await page.locator('.mdash-card').count()) === 4, String(await page.locator('.mdash-card').count()));
+  check('工作台常驻「演示数据」标注', (await page.locator('.mdash-note').innerText()).includes('本机示例数据'));
+  check('种子数据按申请派生（不是空店）', (await page.locator('.mdash-table tbody tr').count()) >= 3);
   await page.screenshot({ path: '.shots/mzd-workspace.png', fullPage: true });
+
+  // 旧链接兼容：/merchant/workspace 应转到 /merchant/dashboard
+  await go(`/merchant/workspace?id=${appId}&key=${encodeURIComponent((url.match(/key=([^&]+)/) || [])[1] || '')}`);
+  await page.waitForTimeout(1000);
+  check('旧地址 #/merchant/workspace 自动转到工作台', page.url().includes('#/merchant/dashboard'), page.url());
 
   // 驳回路径：回到状态页再走一次
   await go(`/merchant/apply?id=${appId}&key=${encodeURIComponent((url.match(/key=([^&]+)/) || [])[1] || '')}`);
@@ -215,11 +219,12 @@ try {
   await m.waitForTimeout(1200);
   const hScrollApply = await m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
   check('移动端申请页无横向滚动', hScrollApply);
-  await m.evaluate(() => { location.hash = '#/merchant/workspace'; });
+  await m.evaluate(() => { location.hash = '#/merchant/dashboard'; });
   await m.waitForTimeout(1200);
   const hScrollWs = await m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
   check('移动端工作台无横向滚动', hScrollWs);
-  check('移动端工作台显示真实店铺（不是空态）', (await m.locator('.mzw-title').innerText().catch(() => '')).includes(APPLICANT.brand));
+  check('移动端工作台显示真实店铺（不是空态）', (await m.locator('.mdash-shop-name').innerText().catch(() => '')).includes(APPLICANT.brand));
+  check('移动端底部标签栏出现（侧栏收起）', (await m.locator('.mdash-tabbar').isVisible()) && !(await m.locator('.mdash-side').isVisible()));
   await m.screenshot({ path: '.shots/mzd-workspace-mobile.png', fullPage: true });
   check('移动端无 JS 错误', mErrors.length === 0, mErrors.join(' | '));
   await m.close();

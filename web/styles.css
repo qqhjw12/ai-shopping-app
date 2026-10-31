@@ -8795,3 +8795,649 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   font-size: 10.5px;
 }
 .mzr-mat-none { color: #8d3b31; font-size: 11px; }
+
+/* ============================================================
+   商家工作台（#/merchant/dashboard）
+   ------------------------------------------------------------
+   与买家侧刻意拉开：这里是干活的界面，不是橱窗。
+   · 密度优先：正文 12.5px / 表格 12.5px / 标签 10.5px，行距 1.6 起
+   · 分隔只用 1px var(--line)，不叠卡片阴影、不用重色块
+   · 强调色仅 var(--gold)；红（#8d3b31）只给「库存预警 / 失败 / 危险操作」
+   · 圆角与字体全部沿用令牌：--r-card 16 / --r-btn 12 / --r-pill 999、--serif / --sans
+   ============================================================ */
+
+.mdash {
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+  gap: 30px;
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: 6px 0 48px;
+  align-items: start;
+}
+
+/* ---------------- 侧边导航 ---------------- */
+
+.mdash-side {
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 18px;
+  padding: 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+
+.mdash-shop { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mdash-shop-text { display: grid; gap: 2px; min-width: 0; }
+.mdash-shop-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mdash-shop-id { color: var(--muted); font-size: 10px; letter-spacing: 0.04em; }
+
+/* 字标：真 Logo 要等对象存储，先用「一个字 + 一档低饱和底色」占位 */
+.mdash-logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  color: #fff;
+  font-family: var(--serif);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+.mdash-logo.is-lg { width: 54px; height: 54px; font-size: 20px; border-radius: 14px; }
+.mdash-logo.tone-0, .mdash-tone.tone-0 { background: #2b2b2b; }
+.mdash-logo.tone-1, .mdash-tone.tone-1 { background: #b98b6a; }
+.mdash-logo.tone-2, .mdash-tone.tone-2 { background: #8a9a72; }
+.mdash-logo.tone-3, .mdash-tone.tone-3 { background: #6f8b83; }
+.mdash-logo.tone-4, .mdash-tone.tone-4 { background: #6d7a94; }
+.mdash-logo.tone-5, .mdash-tone.tone-5 { background: #c8a96e; }
+
+.mdash-nav { display: grid; gap: 2px; }
+.mdash-navitem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--body);
+  font-size: 12.5px;
+  text-decoration: none;
+  transition: background 0.16s var(--ease), color 0.16s var(--ease);
+}
+.mdash-navitem:hover { background: rgba(26, 26, 26, 0.03); color: var(--ink); }
+/* 当前模块：左细金线 + 淡金底，不用整块深色——侧栏整块深色会让内容区显得更空 */
+.mdash-navitem.is-active {
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+.mdash-ico { display: inline-flex; }
+.mdash-ico svg { width: 16px; height: 16px; }
+
+.mdash-side-foot {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.mdash-side-tag { color: var(--muted); font-size: 10px; letter-spacing: 0.04em; }
+.mdash-side-link { color: var(--body); font-size: 11.5px; text-decoration: none; }
+.mdash-side-link:hover { color: var(--gold-deep); }
+
+/* ---------------- 主内容区 ---------------- */
+
+.mdash-main { display: grid; gap: 18px; min-width: 0; }
+
+.mdash-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.mdash-head-main { display: grid; gap: 3px; }
+.mdash-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--ink);
+}
+.mdash-sub { margin: 0; color: var(--muted); font-size: 11.5px; }
+.mdash-head-side { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.mdash-head-flag {
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(164, 72, 60, 0.07);
+  color: #8d3b31;
+  font-size: 10.5px;
+}
+.mdash-link-quiet {
+  color: var(--muted);
+  font-size: 11.5px;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.mdash-link-quiet:hover { color: var(--gold-deep); border-bottom-color: var(--gold-deep); }
+
+/* 演示标注：常驻，但不抢视觉——工作台里的一切经营数据都只在本机 */
+.mdash-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--gold);
+  background: rgba(200, 169, 110, 0.07);
+  color: var(--body);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.mdash-note-tag {
+  color: var(--gold-deep);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mdash-stack { display: grid; gap: 20px; }
+.mdash-lede { margin: 0; color: var(--body); font-size: 12px; }
+.mdash-foot { margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.75; }
+.mdash-empty {
+  margin: 0;
+  padding: 18px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-btn);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* ---------------- 概览：安静的数据卡 ---------------- */
+
+.mdash-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.mdash-card {
+  display: grid;
+  gap: 3px;
+  padding: 15px 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  text-decoration: none;
+  transition: border-color 0.18s var(--ease), transform 0.18s var(--ease);
+}
+.mdash-card:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.mdash-card-label { color: var(--muted); font-size: 10.5px; letter-spacing: 0.06em; }
+.mdash-card-value {
+  font-family: var(--serif);
+  font-size: 27px;
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.mdash-card-hint { color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+/* 预警卡不整块变红：只把数字染红，别的卡片还是安静的 */
+.mdash-card.is-warn .mdash-card-value { color: #8d3b31; }
+
+.mdash-split { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 20px; }
+
+.mdash-block {
+  display: grid;
+  gap: 10px;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  min-width: 0;
+}
+.mdash-block.is-danger { border-color: rgba(164, 72, 60, 0.24); }
+.mdash-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mdash-block-head h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.mdash-lowlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  /* grid 默认 align-content: stretch 会把行距撑开成「两张卡」，列表要顶格排 */
+  align-content: start;
+}
+.mdash-lowlist li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.mdash-low-text { display: grid; gap: 1px; min-width: 0; }
+.mdash-low-text strong { font-size: 12px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mdash-low-text span { color: var(--muted); font-size: 10.5px; }
+.mdash-low-num { color: #8d3b31; font-size: 12px; white-space: nowrap; }
+
+.mdash-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.mdash-quick-btn {
+  display: grid;
+  gap: 3px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--canvas);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease);
+}
+.mdash-quick-btn:hover { border-color: var(--gold); background: var(--gold-weak); }
+.mdash-quick-btn strong { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+.mdash-quick-btn span { color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+
+/* ---------------- 工具条与筛选 ---------------- */
+
+.mdash-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.mdash-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mdash-chip {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--body);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all 0.16s var(--ease);
+}
+.mdash-chip:hover { border-color: var(--line-strong); color: var(--ink); }
+.mdash-chip.is-active { border-color: var(--gold); background: var(--gold-weak); color: var(--gold-deep); }
+
+/* ---------------- 表格：细线分隔，无重色块 ---------------- */
+
+.mdash-tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+.mdash-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.mdash-table th {
+  padding: 10px 12px 9px;
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-align: left;
+  white-space: nowrap;
+}
+.mdash-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--body);
+  vertical-align: middle;
+}
+.mdash-table tbody tr:last-child td { border-bottom: 0; }
+.mdash-table tbody tr.is-clickable { cursor: pointer; }
+.mdash-table tbody tr.is-clickable:hover { background: rgba(26, 26, 26, 0.018); }
+.mdash-table tbody tr.is-low { background: rgba(164, 72, 60, 0.032); }
+.mdash-table .c-price, .mdash-table .c-stock, .mdash-table .c-warn { white-space: nowrap; }
+.mdash-table .c-act { text-align: right; white-space: nowrap; }
+.mdash-dim { color: var(--muted); }
+
+.mdash-cell-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mdash-cell-text { display: grid; gap: 1px; min-width: 0; }
+.mdash-cell-text strong {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mdash-cell-text span { color: var(--muted); font-size: 10.5px; }
+
+/* 商品封面占位：程序化 SVG 撑满小方块 */
+.mdash-thumb {
+  display: block;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--canvas);
+}
+.mdash-thumb.is-sm { width: 32px; height: 32px; border-radius: 8px; }
+.mdash-thumb.is-lg { width: 64px; height: 64px; border-radius: 12px; }
+.mdash-thumb > .art-wrap,
+.mdash-thumb > .art-wrap > svg { display: block; width: 100%; height: 100%; }
+
+/* 状态胶囊：同一形状，靠底色与描边区分，不靠颜色记忆 */
+.mdash-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--body);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.mdash-pill.is-on { border-color: rgba(200, 169, 110, 0.5); background: var(--gold-weak); color: var(--gold-deep); }
+.mdash-pill.is-off { color: var(--muted); }
+.mdash-pill.is-reviewing { border-style: dashed; border-color: var(--line-strong); color: var(--body); }
+.mdash-pill.is-low { border-color: rgba(164, 72, 60, 0.35); background: rgba(164, 72, 60, 0.07); color: #8d3b31; }
+.mdash-pill.is-o-pending { border-color: rgba(200, 169, 110, 0.5); background: var(--gold-weak); color: var(--gold-deep); }
+.mdash-pill.is-o-shipped { border-color: var(--line-strong); color: var(--ink); }
+.mdash-pill.is-o-done { color: var(--muted); }
+
+.mdash-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold-deep);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+}
+.mdash-link:hover { border-bottom-color: var(--gold-deep); }
+.mdash-link.is-quiet { color: var(--muted); }
+.mdash-link.is-quiet:hover { color: var(--ink); border-bottom-color: var(--line-strong); }
+.mdash-order-id { color: var(--ink); font-size: 11.5px; letter-spacing: 0.02em; }
+
+/* ---------------- 库存：内联数字 / 步进 ---------------- */
+
+.mdash-stepper { display: inline-flex; align-items: center; gap: 4px; }
+.mdash-step {
+  width: 24px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--body);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.16s var(--ease);
+}
+.mdash-step:hover { border-color: var(--gold); color: var(--gold-deep); }
+.mdash-stock-input {
+  width: 72px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: center;
+}
+.mdash-stock-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-weak); background: var(--surface); }
+/* 去掉数字输入的上下箭头：一行里有两个步进按钮了，再来一组会挤 */
+.mdash-stock-input::-webkit-outer-spin-button,
+.mdash-stock-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ---------------- 按钮 ---------------- */
+
+.mdash-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-btn);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.16s var(--ease);
+}
+.mdash-btn:hover { border-color: var(--gold); color: var(--gold-deep); }
+.mdash-btn.is-gold { border-color: var(--gold); background: var(--gold); color: #fff; }
+.mdash-btn.is-gold:hover { background: var(--gold-deep); border-color: var(--gold-deep); color: #fff; }
+.mdash-btn.is-danger { border-color: rgba(164, 72, 60, 0.4); color: #8d3b31; background: none; }
+.mdash-btn.is-danger:hover { background: rgba(164, 72, 60, 0.06); border-color: rgba(164, 72, 60, 0.6); }
+
+/* ---------------- 表单 / 侧滑面板 ---------------- */
+
+.mdash-form { display: grid; gap: 14px; }
+.mdash-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.mdash-field { display: grid; gap: 5px; min-width: 0; }
+.mdash-field.is-wide { grid-column: 1 / -1; }
+.mdash-label { color: var(--muted); font-size: 10.5px; letter-spacing: 0.06em; }
+.mdash-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.mdash-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-weak); }
+textarea.mdash-input { resize: vertical; min-height: 64px; }
+.mdash-hint { color: var(--muted); font-size: 10.5px; line-height: 1.6; }
+.mdash-error { margin: 0; color: #8d3b31; font-size: 11.5px; }
+.mdash-error:empty { display: none; }
+
+.mdash-sheet-title { margin: 0; font-family: var(--serif); font-size: 21px; font-weight: 500; color: var(--ink); }
+.mdash-sheet-sub { margin: -6px 0 4px; color: var(--body); font-size: 11.5px; line-height: 1.7; }
+.mdash-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.mdash-sheet-head .mdash-sheet-title { font-size: 17px; letter-spacing: 0.02em; }
+.mdash-sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+
+/* 详情/表单面板：从右侧滑出（视觉是抽屉，遮罩与 Esc 复用弹层那套） */
+.modal.is-sheet {
+  left: auto;
+  right: 0;
+  top: 0;
+  width: min(520px, 100vw);
+  height: 100%;
+  max-height: 100vh;
+  border-radius: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  transform: none;
+  padding: 24px;
+  animation: mdash-sheet-in 0.22s var(--ease);
+}
+@keyframes mdash-sheet-in {
+  from { transform: translateX(22px); opacity: 0.5; }
+  to { transform: none; opacity: 1; }
+}
+
+.mdash-imgbox {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-btn);
+  background: var(--canvas);
+}
+.mdash-imgbox-t { display: block; font-size: 12px; font-weight: 500; color: var(--ink); }
+.mdash-imgbox-d { margin: 3px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.6; }
+
+.mdash-logobox {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--canvas);
+}
+.mdash-logobox-body { display: grid; gap: 10px; flex: 1 1 auto; min-width: 0; }
+.mdash-t.tones { display: flex; flex-wrap: wrap; gap: 6px; }
+.mdash-tone {
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #fff;
+  font-family: var(--serif);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.82;
+  transition: all 0.16s var(--ease);
+}
+.mdash-tone:hover { opacity: 1; }
+.mdash-tone.is-active { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--gold); opacity: 1; }
+
+/* ---------------- 详情键值 / 时间线 ---------------- */
+
+.mdash-kv-list { display: grid; gap: 0; }
+.mdash-kv {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mdash-kv:last-child { border-bottom: 0; }
+.mdash-kv > span { color: var(--muted); font-size: 11px; }
+.mdash-kv > strong { color: var(--ink); font-size: 12.5px; font-weight: 500; word-break: break-all; }
+.mdash-mats { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+.mdash-mat {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--body);
+  font-size: 10.5px;
+}
+
+.mdash-timeline { display: grid; gap: 10px; padding: 14px 0 4px; }
+.mdash-tl-step { display: flex; align-items: flex-start; gap: 10px; }
+.mdash-tl-dot {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 10px;
+}
+.mdash-tl-step.is-done .mdash-tl-dot { border-color: var(--gold); color: var(--gold-deep); }
+.mdash-tl-step div { display: grid; gap: 1px; }
+.mdash-tl-step strong { font-size: 12px; font-weight: 500; color: var(--body); }
+.mdash-tl-step.is-done strong { color: var(--ink); }
+.mdash-tl-step span { color: var(--muted); font-size: 10.5px; }
+
+/* ---------------- 移动端：侧栏收成底部标签 ---------------- */
+
+.mdash-tabbar { display: none; }
+
+@media (max-width: 1080px) {
+  .mdash { grid-template-columns: 188px minmax(0, 1fr); gap: 22px; }
+  .mdash-split { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
+  .mdash {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding-bottom: 104px; /* 给底部标签栏留出等高留白 */
+  }
+  .mdash-side { display: none; }
+
+  .mdash-tabbar {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+    background: rgba(250, 249, 246, 0.96);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+  .mdash-tab {
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    padding: 6px 2px;
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 10px;
+    text-decoration: none;
+  }
+  .mdash-tab.is-active { color: var(--gold-deep); background: var(--gold-weak); }
+  .mdash-tab .mdash-ico svg { width: 19px; height: 19px; }
+
+  /* AI 浮窗让位：底部标签栏比它更常用 */
+  body.has-dash-bar .ai-widget { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+
+  .mdash-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mdash-quick { grid-template-columns: 1fr; }
+  .mdash-head { align-items: flex-start; }
+  .mdash-head-side { width: 100%; justify-content: flex-start; }
+
+  /* 表格在手机上藏掉次要列，而不是让它横向滚出屏幕 */
+  .mdash-table th, .mdash-table td { padding: 9px 8px; }
+  /* 首列（商品名）给足宽度：table 自动布局会让 nowrap+ellipsis 的列缩成 1 个字 */
+  .mdash-table th:first-child, .mdash-table td:first-child { width: 44%; min-width: 128px; }
+  /* 预警线在手机上藏掉：预警本身已经用红色行 + 红胶囊表达了 */
+  .mdash-table .c-warn { display: none; }
+  .mdash-stock-input { width: 56px; }
+  .mdash-table .c-cat, .mdash-table .c-time, .mdash-table .d-only { display: none; }
+  .mdash-thumb { width: 34px; height: 34px; border-radius: 8px; }
+  .mdash-thumb.is-sm { width: 28px; height: 28px; }
+  .mdash-card-value { font-size: 23px; }
+  .mdash-tabbar .mdash-tab span { white-space: nowrap; }
+}
+
+@media (max-width: 640px) {
+  .mdash-form-grid { grid-template-columns: 1fr; }
+  .mdash-sheet-actions { justify-content: stretch; }
+  .mdash-sheet-actions > * { flex: 1 1 auto; }
+  .modal.is-sheet { width: 100vw; padding: 18px; }
+  .mdash-logobox { flex-direction: column; }
+}
