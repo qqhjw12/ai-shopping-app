@@ -2238,7 +2238,7 @@ if (failed === 0) {
     //   按商家分桶、种子确定性、写失败不吞、经营规则不因为「是演示」就放松。
     const dashCases = [
       ['侧边导航五个模块', (dashSrc.match(/id: '(overview|products|inventory|orders|settings)',/g) || []).length === 5],
-      ['概览四张卡来自真实统计而非硬编码', dashSrc.includes('statsOf') && dashSrc.includes('在售商品') && dashSrc.includes('库存预警')],
+      ['概览四张卡来自数据源统计而非硬编码', dashSrc.includes('state.stats') && dashSrc.includes('在售商品') && dashSrc.includes('库存预警')],
       ['新商品进「审核中」（演示也不绕过审核）', shopStoreSrc.includes("status: 'reviewing'")],
       ['审核中的商品不能上下架', shopStoreSrc.includes('审核中的商品不能上下架')],
       ['已发货的订单不能重复发货', shopStoreSrc.includes('这单已经发过货了')],
@@ -2253,6 +2253,28 @@ if (failed === 0) {
     const badDash = dashCases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${badDash.length === 0 ? 'ok  ' : 'FAIL'} 商家工作台（商品/库存/订单）${badDash.length ? ` → 缺失: ${badDash.join('、')}` : ''}`);
     if (badDash.length) failed++;
+
+    // 第七步：工作台接真后端。锁五条：
+    //   数据源可切换且如实标注、写操作全走适配层、真链路不给「模拟通过」、
+    //   图片走对象存储（存键不存 URL）、运营台有独立商品审核入口。
+    const wsApiSrc = readFileSync(dir('merchantWorkspaceApi.js'), 'utf8');
+    const adminProdSrc = readFileSync(dir('adminProducts.js'), 'utf8');
+    const adminSharedSrc = readFileSync(dir('adminShared.js'), 'utf8');
+    const beCases = [
+      ['数据源适配层：真后端优先、无网关退回本地', wsApiSrc.includes('serverAdapter') && wsApiSrc.includes('localAdapter') && wsApiSrc.includes('merchant/workspace')],
+      ['页面写操作全部走适配层（不直连 store）', (dashSrc.match(/ctx\.adapter\./g) || []).length >= 5],
+      ['真链路不给「模拟通过」（审核只能在运营台）', dashSrc.includes('等运营审核')],
+      ['数据来源如实标注（平台库 / 演示 二选一）', dashSrc.includes("onServer ? '平台库' : '演示'")],
+      ['图片上传：canvas 压缩后传对象存储，入库只存键', dashSrc.includes('compressImageFile') && wsApiSrc.includes('merchant/media') && wsApiSrc.includes('return { key: d.key, url:')],
+      ['商品图与 Logo 分开命名空间', wsApiSrc.includes('kind=${encodeURIComponent(kind)}') && dashSrc.includes("uploadImage(dataUrl, 'logo')")],
+      ['运营台新增商品审核页并注册路由', appSrc.includes("path === '/admin/products'") && adminProdSrc.includes('商家商品审核台')],
+      ['商品审核第四个标签（与另两个台共用钥匙）', adminSharedSrc.includes("code: 'products'")],
+      ['驳回必须写理由（商品审核同样）', adminProdSrc.includes('驳回必须填写理由')],
+      ['商品审核展示审核轨迹', adminProdSrc.includes('apr-events') && adminProdSrc.includes('EVENT_TEXT')],
+    ];
+    const badBe = beCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badBe.length === 0 ? 'ok  ' : 'FAIL'} 工作台接真后端（平台库/审核台/图片）${badBe.length ? ` → 缺失: ${badBe.join('、')}` : ''}`);
+    if (badBe.length) failed++;
 
   } catch (e) {
     failed++;

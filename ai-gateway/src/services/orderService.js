@@ -98,7 +98,8 @@ export function previewOrder({ userId, items, addressId, couponId, shippingMetho
 
   const lines = [];
   for (const it of source) {
-    const p = db.prepare('SELECT id, name, price FROM products WHERE id = ?').get(it.productId);
+    // 未过审（或已下架）的商家商品不能下单：购物车里可能躺着一件刚被驳回的货
+    const p = db.prepare("SELECT id, name, price FROM products WHERE id = ? AND review_status = 'approved'").get(it.productId);
     if (!p) throw Object.assign(new Error(`商品 ${it.productId} 不存在`), { status: 400 });
     let unit = p.price;
     let spec = '';

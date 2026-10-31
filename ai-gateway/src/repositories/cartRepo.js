@@ -43,7 +43,7 @@ export function listCart(userId) {
 /** 加购：已存在则累加，超过库存则截断；无 sku 时取该商品第一个 SKU */
 export function addToCart({ userId, productId, skuId = null, qty = 1 }) {
   const db = getDb();
-  const product = db.prepare('SELECT id FROM products WHERE id = ?').get(productId);
+  const product = db.prepare("SELECT id FROM products WHERE id = ? AND review_status = 'approved'").get(productId);
   if (!product) throw Object.assign(new Error('商品不存在'), { status: 404 });
 
   let sid = skuId;

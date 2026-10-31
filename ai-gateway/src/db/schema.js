@@ -764,6 +764,59 @@ const MIGRATIONS = [
       ALTER TABLE merchant_applications ADD COLUMN materials TEXT NOT NULL DEFAULT '[]';
     `,
   },
+  {
+    version: 22,
+    name: 'merchant-products-and-shop',
+    sql: `
+      -- 商家商品正式并入平台商品池。
+      --
+      -- 为什么不另开 merchant_products 表：商品一旦能被下单，它就必须和平台自营商品
+      -- 一起被人搜、被人加购、被下单扣库存、被评价。开两张表等于把「售卖」这条链路上
+      -- 每一个 JOIN 都写成 UNION，检索、购物车校验、订单明细全部要分叉，
+      -- 而这种分叉在半年内一定会漏掉一处（典型症状：商家商品能加购但下单报「商品不存在」）。
+      --
+      -- 所以归属打在 products 上，审核状态也打在 products 上：
+      --   merchant_id 为空 = 平台自营（历史数据与种子数据全部落到这个分支）
+      --   review_status 默认 approved，只有商家新增的商品是 pending
+      -- 商城侧一律只认 approved（见 productRepo / orderService），未过审商品物理上不可售。
+      ALTER TABLE products ADD COLUMN merchant_id   TEXT NOT NULL DEFAULT '';
+      ALTER TABLE products ADD COLUMN review_status TEXT NOT NULL DEFAULT 'approved';
+      ALTER TABLE products ADD COLUMN review_note   TEXT NOT NULL DEFAULT '';
+      ALTER TABLE products ADD COLUMN reviewed_at   TEXT;
+      ALTER TABLE products ADD COLUMN reviewed_by   TEXT NOT NULL DEFAULT '';
+      -- 库存预警线（商家自己设的）：工作台据此标「库存预警」，平台商品不参与该口径
+      ALTER TABLE products ADD COLUMN warn_at       INTEGER NOT NULL DEFAULT 10;
+      CREATE INDEX IF NOT EXISTS idx_products_merchant ON products(merchant_id);
+      CREATE INDEX IF NOT EXISTS idx_products_review   ON products(review_status);
+
+      -- 商家商品的状态变更轨迹：谁在什么时候把它审过了、商家什么时候下的架。
+      -- 与 merchant_application_events 同一套思路——审核结论必须可追溯，
+      -- 否则商家来问「我这件怎么被下架了」，运营只能回一句「系统里没有记录」。
+      CREATE TABLE IF NOT EXISTS merchant_product_events (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id     TEXT NOT NULL,
+        application_id TEXT NOT NULL DEFAULT '',
+        event          TEXT NOT NULL,              -- submitted/approved/rejected/on/off/stock
+        note           TEXT NOT NULL DEFAULT '',
+        actor          TEXT NOT NULL DEFAULT '',
+        created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_mpe_product ON merchant_product_events(product_id, id);
+
+      -- 店铺资料：店名 / 简介 / 字标 / 主色 / Logo 对象键。
+      -- Logo 存**对象键**，不存 URL：预签名地址 15 分钟就过期，存下来第二天是死链。
+      CREATE TABLE IF NOT EXISTS merchant_shops (
+        application_id TEXT PRIMARY KEY REFERENCES merchant_applications(id) ON DELETE CASCADE,
+        name           TEXT NOT NULL,
+        intro          TEXT NOT NULL DEFAULT '',
+        logo_text      TEXT NOT NULL DEFAULT '',
+        logo_color     INTEGER NOT NULL DEFAULT 0,
+        logo_key       TEXT NOT NULL DEFAULT '',
+        created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

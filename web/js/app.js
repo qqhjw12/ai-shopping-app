@@ -15,6 +15,7 @@ import { renderAnalytics } from './analytics.js';
 import { renderAdminAftersales } from './adminAftersales.js';
 import { renderAdminMerchants } from './adminMerchants.js';
 import { renderAdminNoticeTemplates } from './adminNoticeTemplates.js';
+import { renderAdminProducts } from './adminProducts.js';
 import { renderMerchantJoin, renderMerchantApply } from './merchant.js';
 import { renderMerchantDashboard } from './merchantDashboard.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
@@ -160,6 +161,7 @@ function dispatch({ path, query }) {
   // 运营侧：不进登录守卫（运营不是买家），门禁在页面内部用管理密钥
   else if (path === '/admin/aftersales') renderAdminAftersales(view, query);
   else if (path === '/admin/merchants') renderAdminMerchants(view, query);
+  else if (path === '/admin/products') renderAdminProducts(view, query);
   else if (path === '/admin/notice-templates') renderAdminNoticeTemplates(view, query);
   // 商家侧：招商不需要登录（让商家先进门）；申请页带 ?id&key 时是回看已提交的申请
   else if (path === '/merchant/join') renderMerchantJoin(view);

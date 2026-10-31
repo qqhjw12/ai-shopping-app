@@ -34,6 +34,8 @@ import * as couponCatalogService from './services/couponCatalogService.js';
 import * as aftersaleService from './services/aftersaleService.js';
 import * as ledgerService from './services/ledgerService.js';
 import * as merchantService from './services/merchantService.js';
+import * as merchantShopService from './services/merchantShopService.js';
+import * as merchantShopRepo from './repositories/merchantShopRepo.js';
 import * as noticeService from './services/noticeService.js';
 import * as noticeTemplateService from './services/noticeTemplateService.js';
 import { toCsv, contentDisposition } from './services/csv.js';
@@ -1447,6 +1449,216 @@ async function route(req, res, url) {
     return guarded(() => noticeService.queueStats());
   }
 
+  /* ============================================================
+     商家工作台（#/merchant/dashboard 的数据源）
+     ============================================================
+     鉴权一律是「入驻编号 + 查询凭证」双要素：凭证不对与编号不存在统一 404，
+     不给枚举留口子；申请没通过则 403（工作台对未开业的店不开放）。
+     这些端点读写的是**真实交易库**：商品进 products 表，订单读 orders。 */
+
+  /** 从 query 里取一份已通过审核的申请；取不到就直接回错误响应，返回 null */
+  const merchantOf = (req, res, url) => {
+    try {
+      return merchantShopService.requireApprovedMerchant(url.searchParams.get('id'), url.searchParams.get('key'));
+    } catch (e) {
+      sendError(res, e.status || 404, e.message, req.reqId);
+      return null;
+    }
+  };
+
+  // 一次拉全工作台：店铺 + 商品 + 订单 + 概览数字。
+  // 分成四个请求也做得到，但工作台是「打开就要看见全貌」的页面，
+  // 四个并发请求只会让首屏出现「店铺名有了、商品还在转」的半截状态。
+  if (req.method === 'GET' && url.pathname === '/api/merchant/workspace') {
+    const app = merchantOf(req, res, url);
+    if (!app) return;
+    return guarded(() => {
+      const shop = merchantShopService.getShop(app);
+      const products = merchantShopService.listProducts(app);
+      const orders = merchantShopService.listOrders(app);
+      return {
+        application: {
+          id: app.id,
+          brand: app.brand,
+          company: app.company,
+          status: app.status,
+          categories: app.categories || [],
+          materials: (app.materials || []).map((m) => ({ kind: m.kind, name: m.name })),
+          bankNoMasked: app.bankNoMasked || '',
+        },
+        shop,
+        products: products.items,
+        productCounts: products.counts,
+        orders: orders.items,
+        orderCounts: orders.counts,
+        stats: merchantShopRepo.statsOf(app.id),
+        source: 'server',
+      };
+    });
+  }
+
+  // 商品图 / 店铺 Logo 上传：与买家秀同一套闸门（长度预检 → IP 频率 → 并发 → 配额），
+  // 只是配额按「商家编号」计——同一家店不该因为是两个人操作就翻倍。
+  if (req.method === 'POST' && url.pathname === '/api/merchant/media') {
+    const app = merchantOf(req, res, url);
+    if (!app) return;
+    const declared = Number(req.headers['content-length'] || 0);
+    const maxBody = Math.ceil(UPLOAD_LIMIT * 1.4);
+    if (declared && declared > maxBody) {
+      return sendError(res, 413, `image too large (max ${Math.round(UPLOAD_LIMIT / 1024 / 1024)}MB)`, req.reqId);
+    }
+    const ipGate = uploadIpWindow.hit(req.ip);
+    if (!ipGate.allowed) {
+      res.setHeader('Retry-After', String(ipGate.retryAfterSec));
+      return sendError(res, 429, '上传过于频繁，请稍后再试', req.reqId);
+    }
+    const release = uploadGate.acquire();
+    if (!release) {
+      res.setHeader('Retry-After', '2');
+      return sendError(res, 503, '上传繁忙，请稍后再试', req.reqId);
+    }
+    try {
+      const decoded = await decodeImageBody(req, res, UPLOAD_LIMIT);
+      if (!decoded) return;
+      const { buf, ext } = decoded;
+      const quota = uploadDailyQuota.hit(`merchant:${app.id}`);
+      if (!quota.allowed) {
+        res.setHeader('Retry-After', String(quota.retryAfterSec));
+        return sendError(res, 429, '今日上传已达上限，请明天再试', req.reqId);
+      }
+      // kind 决定命名空间：商品图与 Logo 必须分开，否则孤儿清理会互相误删
+      const kind = String(url.searchParams.get('kind') || 'product');
+      const ns = kind === 'logo' ? 'shops' : 'products';
+      try {
+        const saved = await storeImage(buf, ext, ns);
+        log.info({
+          reqId: req.reqId, event: 'merchant.upload', merchantId: app.id, ns, key: saved.key, bytes: buf.length,
+        });
+        return send(res, 201, saved);
+      } catch (e) {
+        log.error({ reqId: req.reqId, err: e.message, event: 'merchant.upload_failed' });
+        return sendError(res, 502, '图片存储失败，请稍后重试', req.reqId);
+      }
+    } finally {
+      release();
+    }
+  }
+
+  if (url.pathname === '/api/merchant/shop') {
+    const app = merchantOf(req, res, url);
+    if (!app) return;
+    if (req.method === 'GET') return guarded(() => ({ shop: merchantShopService.getShop(app) }));
+    if (req.method === 'PUT') {
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      try {
+        const shop = merchantShopService.updateShop(app, parsed);
+        log.info('merchant.shop_updated', { reqId: req.reqId, merchantId: app.id });
+        return send(res, 200, { shop });
+      } catch (e) {
+        return sendError(res, e.status || 400, e.message, req.reqId);
+      }
+    }
+  }
+
+  if (url.pathname === '/api/merchant/products') {
+    const app = merchantOf(req, res, url);
+    if (!app) return;
+    if (req.method === 'GET') return guarded(() => merchantShopService.listProducts(app));
+    if (req.method === 'POST') {
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      try {
+        const r = merchantShopService.createProduct(app, parsed);
+        // 日志只记编号与状态，不记商品名（商家还没公开的选品不该进日志）
+        log.info('merchant.product_submitted', { reqId: req.reqId, merchantId: app.id, productId: r.product.id });
+        return send(res, 201, r);
+      } catch (e) {
+        return sendError(res, e.status || 400, e.message, req.reqId);
+      }
+    }
+  }
+
+  const merchantProductMatch = url.pathname.match(/^\/api\/merchant\/products\/([^/]+)$/);
+  if (merchantProductMatch && req.method === 'PATCH') {
+    const app = merchantOf(req, res, url);
+    if (!app) return;
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    const pid = decodeURIComponent(merchantProductMatch[1]);
+    try {
+      if (parsed.action === 'stock') {
+        return send(res, 200, merchantShopService.updateStock(app, pid, parsed.stock));
+      }
+      if (parsed.action === 'on' || parsed.action === 'off') {
+        const r = merchantShopService.setProductStatus(app, pid, parsed.action === 'on' ? 'on_sale' : 'off_sale');
+        log.info('merchant.product_status', { reqId: req.reqId, merchantId: app.id, productId: pid, status: parsed.action });
+        return send(res, 200, r);
+      }
+      return sendError(res, 400, 'action 只能是 stock / on / off', req.reqId);
+    } catch (e) {
+      return sendError(res, e.status || 400, e.message, req.reqId);
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/merchant/orders') {
+    const app = merchantOf(req, res, url);
+    if (!app) return;
+    return guarded(() => merchantShopService.listOrders(app, Object.fromEntries(url.searchParams)));
+  }
+
+  const merchantOrderMatch = url.pathname.match(/^\/api\/merchant\/orders\/([^/]+)$/);
+  if (merchantOrderMatch && req.method === 'PATCH') {
+    const app = merchantOf(req, res, url);
+    if (!app) return;
+    const parsed = await readJson(req);
+    if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+    try {
+      const r = merchantShopService.shipOrder(app, decodeURIComponent(merchantOrderMatch[1]), parsed);
+      log.info('merchant.order_shipped', {
+        reqId: req.reqId, merchantId: app.id, orderId: decodeURIComponent(merchantOrderMatch[1]),
+      });
+      return send(res, 200, r);
+    } catch (e) {
+      return sendError(res, e.status || 400, e.message, req.reqId);
+    }
+  }
+
+  /* ---------------- 运营侧：商家商品审核 ---------------- */
+
+  if (req.method === 'GET' && url.pathname === '/api/admin/products') {
+    if (!requireAdmin(req, res)) return;
+    return guarded(() => merchantShopService.listForReview(Object.fromEntries(url.searchParams)));
+  }
+
+  const adminProductMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)$/);
+  if (adminProductMatch) {
+    const id = decodeURIComponent(adminProductMatch[1]);
+    if (req.method === 'GET') {
+      if (!requireAdmin(req, res)) return;
+      return guarded(() => ({
+        product: merchantShopRepo.findProduct(id),
+        events: merchantShopService.productEvents(id),
+      }));
+    }
+    if (req.method === 'PATCH') {
+      if (!requireAdmin(req, res)) return;
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      try {
+        const r = await merchantShopService.reviewProduct(id, parsed, {
+          by: adminActor(req),
+        });
+        log.info('merchant.product_reviewed', {
+          reqId: req.reqId, productId: id, action: parsed.action, actor: adminActor(req),
+        });
+        return send(res, 200, r);
+      } catch (e) {
+        return sendError(res, e.status || 400, e.message, req.reqId);
+      }
+    }
+  }
+
   // 导购推荐（AI 抽屉）：检索 + 可选 LLM 导购语。不落会话，永远带商品卡。
   // 前端拿到失败 / 超时会回落本地规则，所以这里 5xx 也可以放心抛。
   // 图片搜索（色彩特征）：前端只传主色签名，原图不上传。检索失败 / 无近色时前端回落本地模拟。
@@ -1873,6 +2085,11 @@ function collectReferencedKeys() {
   }
   for (const row of getDb().prepare('SELECT evidence FROM aftersales').all()) {
     add(row.evidence, (v) => (v && typeof v === 'object' ? v.key : ''));
+  }
+  // 商家商品图与店铺 Logo 也要收进来：孤儿清理是按命名空间逐个比对的，
+  // 引用集里没有它们，就等于把整店商品图判成孤儿——上线第二天店铺全白。
+  for (const key of merchantShopRepo.listMerchantMediaKeys()) {
+    if (storage.isObjectKey(key)) referenced.add(key);
   }
   return referenced;
 }

@@ -9441,3 +9441,104 @@ textarea.mdash-input { resize: vertical; min-height: 64px; }
   .modal.is-sheet { width: 100vw; padding: 18px; }
   .mdash-logobox { flex-direction: column; }
 }
+
+/* ============================================================
+   运营台 · 商家商品审核（#/admin/products）
+   ------------------------------------------------------------
+   沿用运营台既有的卡片语言（.adm-card / .adm-status / .mzr-filters），
+   这里只补「图片 + 三个数字 + 两个按钮」这一层排版。
+   设计令牌：圆角 var(--r-card)、细线 var(--line)、强调色 var(--gold)、
+   字体标题 var(--serif) 正文 var(--sans)。
+   ============================================================ */
+.apr-list { display: grid; gap: 14px; }
+
+.apr-card { padding: 14px 16px 12px; }
+
+.apr-body {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  margin: 10px 0 12px;
+}
+
+/* 商品图：本地驱动与对象存储都给现签地址，为空时显示「无图」而不是破图 */
+.apr-thumb {
+  width: 76px;
+  height: 76px;
+  border-radius: var(--r-btn);
+  overflow: hidden;
+  background: var(--paper-2, #f3efe8);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--ink-3, #8a8378);
+}
+.apr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.apr-meta { min-width: 0; display: grid; gap: 5px; }
+.apr-name { font-family: var(--serif); font-size: 16px; font-weight: 600; letter-spacing: .01em; }
+
+/* 价格/库存/类目一行读完：审核要的是三个关键数字，不是一段描述 */
+.apr-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 13px;
+  color: var(--ink-2, #4a463f);
+}
+.apr-line > span:first-child { color: var(--gold-deep); font-variant-numeric: tabular-nums; }
+.apr-dim { color: var(--ink-3, #8a8378); font-size: 12px; }
+
+.apr-note {
+  font-size: 12.5px;
+  color: #8d3b31;
+  background: rgba(141, 59, 49, .06);
+  border-left: 2px solid rgba(141, 59, 49, .5);
+  padding: 5px 9px;
+  border-radius: 0 var(--r-btn) var(--r-btn) 0;
+}
+
+.apr-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.apr-act { font-size: 12.5px; padding: 7px 14px; }
+
+.apr-sub {
+  font-family: var(--serif);
+  font-size: 14px;
+  margin: 16px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.apr-events { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.apr-events li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 6px; align-items: start; }
+.apr-ev-dot { color: var(--gold); line-height: 1.5; }
+.apr-events strong { display: block; font-size: 12.5px; font-weight: 600; }
+.apr-events span { font-size: 12px; color: var(--ink-3, #8a8378); }
+
+@media (max-width: 640px) {
+  .apr-body { grid-template-columns: 56px minmax(0, 1fr); }
+  .apr-thumb { width: 56px; height: 56px; }
+  .apr-actions > * { flex: 1 1 auto; }
+}
+
+/* 工作台：图片上传（商品图 / Logo）与真图渲染
+   隐藏原生 file input，用按钮触发——原生控件在各浏览器里长得都不一样，
+   而这一页的按钮语言已经统一了。 */
+.mdash-file { display: none; }
+.mdash-upload { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; flex-wrap: wrap; }
+.mdash-upload .mdash-btn { font-size: 12.5px; padding: 7px 14px; }
+.mdash-imgbox-body { min-width: 0; }
+
+/* 真图：按容器裁切，不拉伸变形 */
+.mdash-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+
+/* Logo 有真图时清掉字标颜色，只留图片本身 */
+.mdash-logo.is-photo { color: transparent; background-size: cover; background-position: center; }

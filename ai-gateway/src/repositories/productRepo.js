@@ -1,5 +1,6 @@
 // 商品仓储：所有商品读取都走这里（SQLite），保证列表/详情/检索/对话共用同一份真实数据。
 import { getDb } from '../db/connection.js';
+import { resolveMedia } from '../storage/index.js';
 
 function safeJson(text, fallback) {
   try {
@@ -38,8 +39,9 @@ function mapProduct(row) {
     coverColor: row.cover_color || '',
     highlight: row.highlight || '',
     highlights: safeJson(row.highlights, []),
-    // 真实商品图 URL（来自合规开放数据源）；为空时前端回退到程序化 SVG 封面
-    pic: row.image_url || '',
+    // 商品图：可能是开放数据源的绝对 URL，也可能是商家上传的对象键（现签一次）。
+    // 统一过 resolveMedia：绝对 URL 原样返回，对象键换成本次可访问的地址。
+    pic: resolveMedia(row.image_url || ''),
   };
 }
 
@@ -113,7 +115,9 @@ export function listProducts(q = {}) {
   }
 
   const orderBy = SORT_SQL[sort] || SORT_SQL.default;
-  let sql = `${BASE_SELECT}${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY ${orderBy}`;
+  // 只认审核通过的商品：商家新提交的货在运营放行前物理上不可售（不是靠前端藏起来）
+  where.push("p.review_status = 'approved'");
+  let sql = `${BASE_SELECT} WHERE ${where.join(' AND ')} ORDER BY ${orderBy}`;
   const limitNum = Number(limit) || 0;
   const offsetNum = Number(offset) || 0;
   if (limitNum > 0) {
@@ -166,19 +170,22 @@ export function countProductsFiltered(q = {}) {
     args.push(like, like, like, like);
   }
   const join = category || keyword ? ' LEFT JOIN categories c ON c.id = p.category_id' : '';
+  where.push("p.review_status = 'approved'");
   return db
-    .prepare(`SELECT COUNT(*) AS n FROM products p${join}${where.length ? ` WHERE ${where.join(' AND ')}` : ''}`)
+    .prepare(`SELECT COUNT(*) AS n FROM products p${join} WHERE ${where.join(' AND ')}`)
     .get(...args).n;
 }
 
 export function countProducts() {
-  return getDb().prepare('SELECT COUNT(*) AS n FROM products').get().n;
+  // 只数能被买到的货：待审商品算进「全站商品数」会让买家觉得有货但搜不到
+  return getDb().prepare("SELECT COUNT(*) AS n FROM products WHERE review_status = 'approved'").get().n;
 }
 
 export function getProductById(id) {
   if (id == null) return null;
   const db = getDb();
-  const row = db.prepare(`${BASE_SELECT} WHERE p.id = ?`).get(String(id));
+  // 未过审的商品对外等同不存在：详情页不能成为绕过审核的旁门
+  const row = db.prepare(`${BASE_SELECT} WHERE p.id = ? AND p.review_status = 'approved'`).get(String(id));
   return mapProduct(row);
 }
 
@@ -266,7 +273,8 @@ export function categoryTree() {
   const tops = db
     .prepare(`
       SELECT c.id, c.name, c.icon, c.desc, c.sort, COUNT(p.id) AS count
-      FROM categories c LEFT JOIN products p ON p.category_id = c.id
+      FROM categories c
+      LEFT JOIN products p ON p.category_id = c.id AND p.review_status = 'approved'
       WHERE c.parent_id IS NULL
       GROUP BY c.id ORDER BY c.sort
     `)
@@ -274,7 +282,8 @@ export function categoryTree() {
   const subs = db
     .prepare(`
       SELECT c.id, c.name, c.parent_id, c.sort, COUNT(p.id) AS count
-      FROM categories c LEFT JOIN products p ON p.sub_category_id = c.id
+      FROM categories c
+      LEFT JOIN products p ON p.sub_category_id = c.id AND p.review_status = 'approved'
       WHERE c.parent_id IS NOT NULL
       GROUP BY c.id ORDER BY c.sort
     `)
@@ -299,7 +308,8 @@ export function listBrands({ categoryId } = {}) {
     return db
       .prepare(`
         SELECT b.id, b.name, b.logo_color AS logoColor, b.category_id AS categoryId, COUNT(p.id) AS count
-        FROM brands b JOIN products p ON p.brand = b.name AND p.category_id = ?
+        FROM brands b
+        JOIN products p ON p.brand = b.name AND p.category_id = ? AND p.review_status = 'approved'
         GROUP BY b.id ORDER BY count DESC
       `)
       .all(categoryId);
@@ -307,7 +317,7 @@ export function listBrands({ categoryId } = {}) {
   return db
     .prepare(`
       SELECT b.id, b.name, b.logo_color AS logoColor, b.category_id AS categoryId,
-             (SELECT COUNT(*) FROM products p WHERE p.brand = b.name) AS count
+             (SELECT COUNT(*) FROM products p WHERE p.brand = b.name AND p.review_status = 'approved') AS count
       FROM brands b ORDER BY count DESC
     `)
     .all();
@@ -318,7 +328,7 @@ export function stats() {
   const db = getDb();
   const one = (sql) => db.prepare(sql).get().n;
   return {
-    products: one('SELECT COUNT(*) AS n FROM products'),
+    products: one("SELECT COUNT(*) AS n FROM products WHERE review_status = 'approved'"),
     skus: one('SELECT COUNT(*) AS n FROM product_skus'),
     categories: one('SELECT COUNT(*) AS n FROM categories WHERE parent_id IS NULL'),
     subCategories: one('SELECT COUNT(*) AS n FROM categories WHERE parent_id IS NOT NULL'),

@@ -1,6 +1,6 @@
 // 运营台共用件：管理密钥、操作人署名、请求头、两个台子的切换。
 //
-// 两个运营台（售后审核 / 商家入驻审核）共用同一把钥匙和同一个署名，
+// 三个运营台（售后审核 / 商家入驻审核 / 商品审核）共用同一把钥匙和同一个署名，
 // 所以这里刻意用**同一组 sessionStorage 槽位**：运营在售后台输过一次，
 // 切到商家审核台就不用再输——同一班人、同一把钥匙，没理由让人输两遍。
 //
@@ -78,6 +78,7 @@ export function adminTabs(active) {
   const tabs = [
     { code: 'aftersales', label: '售后审核', href: '#/admin/aftersales?status=reviewing' },
     { code: 'merchants', label: '商家入驻审核', href: '#/admin/merchants?status=reviewing' },
+    { code: 'products', label: '商品审核', href: '#/admin/products?reviewStatus=pending' },
     { code: 'templates', label: '通知模板', href: '#/admin/notice-templates' },
   ];
   return el('nav', { class: 'adm-tabs', 'aria-label': '运营台切换' },

@@ -22,6 +22,8 @@ import { productArt } from './art.js';
 import { api, isMissingEndpoint } from './api.js';
 import * as merchantLocal from './merchantLocal.js';
 import * as shopStore from './store/merchantShopStore.js';
+import { createAdapter } from './merchantWorkspaceApi.js';
+import { compressImageFile } from './imgUpload.js';
 import { FORM_CATEGORIES } from './merchant.js';
 
 /* ---------------- 小工具 ---------------- */
@@ -29,6 +31,12 @@ import { FORM_CATEGORIES } from './merchant.js';
 const catName = (id) => (FORM_CATEGORIES.find((c) => c.id === id) || {}).t || '未分类';
 
 const money = (n) => `¥${Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
+
+/**
+ * 商品状态文案。多一个「未通过」是必要的：运营驳回之后商品会一直挂在列表里，
+ * 没有这个标签，商家只会看到一件「既不在售也无法上架」的货，然后来问为什么。
+ */
+const PRODUCT_STATUS_TEXT = { reviewing: '审核中', on: '在售', off: '已下架', rejected: '未通过' };
 
 /** 本地时区的 MM-DD HH:mm：工作台是给商家看自己的单，别按 UTC 显示 */
 function fmtTime(iso, { withYear = false } = {}) {
@@ -55,10 +63,14 @@ function icon(name) {
   return s;
 }
 
-/** 商品封面占位：程序化 SVG（本机没有对象存储，真图上传留在后续） */
+/**
+ * 商品封面：有真图就显示真图，没有就退回程序化 SVG。
+ * 真图是商家上传到对象存储的（库里只存对象键，展示时现签地址）。
+ */
 function thumb(product, cls = '') {
-  const box = el('span', { class: `mdash-thumb ${cls}`.trim(), 'aria-hidden': 'true' });
-  box.appendChild(productArt({ id: product.id, categoryId: product.categoryId }));
+  const box = el('span', { class: `mdash-thumb ${cls}`.trim(), 'aria-hidden': product.imageUrl ? 'false' : 'true' });
+  if (product.imageUrl) box.appendChild(el('img', { src: product.imageUrl, alt: '', loading: 'lazy' }));
+  else box.appendChild(productArt({ id: product.id, categoryId: product.categoryId }));
   return box;
 }
 
@@ -105,16 +117,26 @@ export async function renderMerchantDashboard(v, query = {}) {
     return;
   }
 
+  // 数据源：真记录优先读网关（平台商品表 + 交易库），连不上退回本机演示数据。
+  // 403 说明审核没过（或凭证失效），与「还没开门」同一个出口。
+  let adapter;
+  try {
+    adapter = await createAdapter(app, { id, key, isLocalId: merchantLocal.isLocalId(id) });
+  } catch (e) {
+    v.append(gateNotApproved(app, { id, key }));
+    return;
+  }
+
   let state;
   try {
-    state = shopStore.ensureShop(app);
+    state = adapter.initial || (await adapter.load());
   } catch (e) {
     v.append(gateBroken(e));
     return;
   }
 
   const tab = TABS.some((t) => t.id === query.tab) ? query.tab : DEFAULT_TAB;
-  const ctx = { app, id, key, tab, state };
+  const ctx = { app, id, key, tab, adapter, state };
   v.append(renderShell(ctx));
 }
 
@@ -222,6 +244,12 @@ function renderShell(ctx) {
 function renderSide(ctx) {
   const name = el('strong', { class: 'mdash-shop-name' }, ctx.state.shop.name);
   const logo = el('span', { class: `mdash-logo tone-${ctx.state.shop.logoColor || 0}` }, ctx.state.shop.logoText || '店');
+  // 上传过 Logo 就显示真图；没有就用字标 + 主色占位（不空着，也不假装有图）
+  if (ctx.state.shop.logoUrl) {
+    logo.classList.add('is-photo');
+    logo.style.backgroundImage = `url("${ctx.state.shop.logoUrl}")`;
+    logo.textContent = '';
+  }
   ctx.sideName = name;
   ctx.sideLogo = logo;
 
@@ -255,11 +283,19 @@ function renderTabbar(ctx) {
 }
 
 /**
- * 重画当前模块。每次都从 store 重新读（store 无缓存），
- * 这样「改完库存 → 概览数字跟着变」不需要任何手写同步逻辑。
+ * 从数据源重新取一遍再画。
+ * 这样「改完库存 → 概览数字跟着变」「发完货 → 待发货少一单」都不需要手写同步逻辑——
+ * 手写同步一定会漏，漏的那一处就是页面上两个数字互相打脸的 bug。
+ */
+async function refresh(ctx) {
+  ctx.state = await ctx.adapter.load();
+  paint(ctx);
+}
+
+/**
+ * 重画当前模块（不重新取数）。
  */
 function paint(ctx) {
-  ctx.state = shopStore.getShop(ctx.app.id) || shopStore.ensureShop(ctx.app);
   const tab = tabOf(ctx.tab);
 
   ctx.head.innerHTML = '';
@@ -272,10 +308,12 @@ function paint(ctx) {
   ]);
 
   ctx.body.innerHTML = '';
+  const onServer = ctx.state.source === 'server';
   ctx.body.append(el('div', { class: 'mdash-note' }, [
-    el('span', { class: 'mdash-note-tag' }, '演示'),
-    el('span', {},
-      '商品与订单是本机示例数据，不接平台库：新增、上下架、改库存、发货都只改这台浏览器，不会影响商城。'),
+    el('span', { class: 'mdash-note-tag' }, onServer ? '平台库' : '演示'),
+    el('span', {}, onServer
+      ? '商品与订单来自平台库：新增商品提交后进运营审核，通过即在商城可搜可买；上下架、改库存、发货都真实生效。'
+      : '商品与订单是本机示例数据，不接平台库：新增、上下架、改库存、发货都只改这台浏览器，不会影响商城。'),
   ]));
   ctx.body.append(PAGES[tab.id](ctx));
 }
@@ -286,21 +324,25 @@ function headActions(ctx, tab) {
     out.push(el('button', { class: 'mdash-btn is-gold', type: 'button', onclick: () => openProductSheet(ctx) }, '+ 新增商品'));
   }
   if (tab.id === 'inventory') {
-    const low = shopStore.statsOf(ctx.state).lowStockCount;
+    const low = ctx.state.stats.lowStockCount;
     if (low) out.push(el('span', { class: 'mdash-head-flag' }, `${low} 个商品低于预警线`));
   }
   if (tab.id === 'orders') {
-    const pending = shopStore.statsOf(ctx.state).pendingCount;
+    const pending = ctx.state.stats.pendingCount;
     if (pending) out.push(el('span', { class: 'mdash-head-flag' }, `${pending} 单待发货`));
   }
   out.push(el('a', { class: 'mdash-link-quiet', href: `#/merchant/apply?id=${encodeURIComponent(ctx.id)}&key=${encodeURIComponent(ctx.key)}` }, '申请详情'));
   return out;
 }
 
-/** 统一的写操作包装：store 抛什么，页面就 toast 什么，绝不让异常冒到 window */
-function act(fn, okText) {
+/**
+ * 统一的写操作包装：数据源抛什么，页面就 toast 什么，绝不让异常冒到 window。
+ * 异步是因为真后端要走网络，但错误口径与本地模式保持一致：
+ * 页面只关心「成不成」和「给用户看哪句话」。
+ */
+async function act(fn, okText) {
   try {
-    const r = fn();
+    const r = await fn();
     if (okText) toast(okText, 'ok');
     return { ok: true, value: r };
   } catch (e) {
@@ -313,7 +355,7 @@ function act(fn, okText) {
 
 function pageOverview(ctx) {
   const state = ctx.state;
-  const s = shopStore.statsOf(state);
+  const s = state.stats;
   const recent = [...state.orders]
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .slice(0, 5);
@@ -387,6 +429,7 @@ const PRODUCT_FILTERS = [
   { id: 'on', label: '在售' },
   { id: 'off', label: '已下架' },
   { id: 'reviewing', label: '审核中' },
+  { id: 'rejected', label: '未通过' },
 ];
 
 function pageProducts(ctx) {
@@ -430,7 +473,8 @@ function pageProducts(ctx) {
 }
 
 function productRow(ctx, p) {
-  const canToggle = p.status !== 'reviewing';
+  const local = ctx.state.source === 'local';
+  const canToggle = p.status === 'on' || p.status === 'off';
   const next = p.status === 'on' ? 'off' : 'on';
 
   return el('tr', { 'data-product': p.id }, [
@@ -444,27 +488,32 @@ function productRow(ctx, p) {
     el('td', { class: 'c-cat mdash-dim' }, catName(p.categoryId)),
     el('td', { class: 'c-price num' }, money(p.price)),
     el('td', { class: 'c-stock d-only num' }, String(p.stock)),
-    el('td', {}, el('span', { class: `mdash-pill is-${p.status}` }, shopStore.PRODUCT_STATUS_LABEL[p.status] || p.status)),
+    el('td', {}, el('span', { class: `mdash-pill is-${p.status}` }, PRODUCT_STATUS_TEXT[p.status] || p.status)),
     el('td', { class: 'c-act' }, [
       canToggle
         ? el('button', {
           class: 'mdash-link',
           type: 'button',
-          onclick: () => {
-            const r = act(() => shopStore.setProductStatus(ctx.app.id, p.id, next),
+          onclick: async () => {
+            const r = await act(() => ctx.adapter.setProductStatus(p.id, next),
               next === 'on' ? '已上架' : '已下架');
-            if (r.ok) paint(ctx);
+            if (r.ok) await refresh(ctx);
           },
         }, next === 'on' ? '上架' : '下架')
-        : el('button', {
-          class: 'mdash-link is-quiet',
-          type: 'button',
-          title: '演示：把这条商品置为在售',
-          onclick: () => {
-            const r = act(() => shopStore.approveProduct(ctx.app.id, p.id), '已放行，商品在售');
-            if (r.ok) paint(ctx);
-          },
-        }, '模拟通过'),
+        : p.status === 'reviewing'
+          // 审核中不可上下架；本机演示给一颗「模拟通过」，真链路只能等运营
+          ? (local
+            ? el('button', {
+              class: 'mdash-link is-quiet',
+              type: 'button',
+              title: '演示：把这条商品置为在售（真链路只能由运营审核）',
+              onclick: async () => {
+                const r = await act(() => shopStore.approveProduct(ctx.app.id, p.id), '已放行，商品在售');
+                if (r.ok) await refresh(ctx);
+              },
+            }, '模拟通过')
+            : el('span', { class: 'mdash-dim' }, '等运营审核'))
+          : el('span', { class: 'mdash-dim', title: p.reviewNote || '' }, '未通过'),
     ]),
   ]);
 }
@@ -488,33 +537,63 @@ function openProductSheet(ctx) {
     }, c.t)));
 
     const preview = el('div', { class: 'mdash-thumb is-lg' });
+    // imageKey 才是要提交的东西：URL 是现签的、会过期，存下来第二天就是死链
+    let imageKey = '';
+    let uploadedUrl = '';
+    const imgHint = el('p', { class: 'mdash-imgbox-d' }, IMAGE_NOTE);
     const paintPreview = () => {
       preview.innerHTML = '';
+      if (uploadedUrl) {
+        preview.appendChild(el('img', { src: uploadedUrl, alt: '' }));
+        return;
+      }
       preview.appendChild(productArt({ id: `preview-${catSel.value}-${nameIn.value.length}`, categoryId: catSel.value }));
     };
     paintPreview();
     catSel.addEventListener('change', paintPreview);
 
+    const fileIn = el('input', { class: 'mdash-file', type: 'file', accept: 'image/*' });
+    fileIn.addEventListener('change', async () => {
+      const file = fileIn.files && fileIn.files[0];
+      if (!file) return;
+      imgHint.textContent = '正在压缩并上传…';
+      try {
+        const dataUrl = await compressImageFile(file, 900, 0.82);
+        const up = await ctx.adapter.uploadImage(dataUrl, 'product');
+        imageKey = up.key;
+        uploadedUrl = up.url;
+        paintPreview();
+        imgHint.textContent = '已上传。审核通过后，商城会展示这张图。';
+      } catch (e) {
+        imgHint.textContent = String((e && e.message) || '上传失败，也可以不传图直接提交');
+      } finally {
+        fileIn.value = '';
+      }
+    });
+
     const err = el('p', { class: 'mdash-error', role: 'alert' });
     const submit = el('button', { class: 'mdash-btn is-gold', type: 'submit' }, '提交审核');
 
-    const form = el('form', { class: 'mdash-form', onsubmit: (e) => {
+    const form = el('form', { class: 'mdash-form', onsubmit: async (e) => {
       e.preventDefault();
       err.textContent = '';
-      const r = act(() => shopStore.createProduct(ctx.app.id, {
+      submit.disabled = true;
+      const r = await act(() => ctx.adapter.createProduct({
         name: nameIn.value,
-        price: priceIn.value,
-        stock: stockIn.value,
-        warnAt: warnIn.value,
+        price: Number(priceIn.value),
+        stock: Number(stockIn.value),
+        warnAt: Number(warnIn.value),
         categoryId: catSel.value,
+        imageKey,
       }));
+      submit.disabled = false;
       if (!r.ok) {
         err.textContent = String((r.error && r.error.message) || '提交没有成功');
         return;
       }
       close();
       ctx.productFilter = 'all';
-      paint(ctx);
+      await refresh(ctx);
       toast('已提交，等待审核', 'ok');
     } }, [
       el('h2', { class: 'mdash-sheet-title' }, '新增商品'),
@@ -528,9 +607,15 @@ function openProductSheet(ctx) {
       ]),
       el('div', { class: 'mdash-imgbox' }, [
         preview,
-        el('div', {}, [
-          el('strong', { class: 'mdash-imgbox-t' }, '商品图片（占位）'),
-          el('p', { class: 'mdash-imgbox-d' }, IMAGE_NOTE),
+        el('div', { class: 'mdash-imgbox-body' }, [
+          el('strong', { class: 'mdash-imgbox-t' }, '商品图片（可选）'),
+          el('p', { class: 'mdash-imgbox-d' },
+            '建议 1:1 方图，会自动压到 900px 以内再上传；不传就用程序化封面占位。'),
+          el('div', { class: 'mdash-upload' }, [
+            el('button', { class: 'mdash-btn', type: 'button', onclick: () => fileIn.click() }, '选择图片'),
+            fileIn,
+          ]),
+          imgHint,
         ]),
       ]),
       err,
@@ -559,7 +644,7 @@ function pageInventory(ctx) {
   if (!products.length) {
     return el('div', { class: 'mdash-stack' }, [el('p', { class: 'mdash-empty' }, '还没有商品可管库存。先去商品管理新增一个。')]);
   }
-  const low = shopStore.statsOf(ctx.state).lowStockCount;
+  const low = ctx.state.stats.lowStockCount;
 
   return el('div', { class: 'mdash-stack' }, [
     el('p', { class: 'mdash-lede' }, low
@@ -602,7 +687,7 @@ function inventoryRow(ctx, product) {
   const flag = el('span', { class: 'mdash-pill is-low' }, '库存预警');
 
   /** 保存成功后就地更新这一行（重画整表会把用户下一步要点的输入框挪走） */
-  const save = (val) => {
+  const save = async (val) => {
     const n = Math.floor(Number(val));
     if (!Number.isFinite(n) || n < 0) {
       input.value = String(stock);
@@ -610,7 +695,7 @@ function inventoryRow(ctx, product) {
       return;
     }
     if (n === stock) return;
-    const r = act(() => shopStore.updateStock(ctx.app.id, product.id, n));
+    const r = await act(() => ctx.adapter.updateStock(product.id, n));
     if (!r.ok) {
       input.value = String(stock);
       return;
@@ -638,7 +723,7 @@ function inventoryRow(ctx, product) {
   });
 
   const flagCell = el('td', {}, [
-    el('span', { class: `mdash-pill is-${product.status}` }, shopStore.PRODUCT_STATUS_LABEL[product.status] || product.status),
+    el('span', { class: `mdash-pill is-${product.status}` }, PRODUCT_STATUS_TEXT[product.status] || product.status),
     stock <= product.warnAt && product.status !== 'off' ? flag : null,
   ].filter(Boolean));
 
@@ -753,16 +838,16 @@ function openShipSheet(ctx, orderId) {
     });
     const err = el('p', { class: 'mdash-error', role: 'alert' });
 
-    modal.append(el('form', { class: 'mdash-form', onsubmit: (e) => {
+    modal.append(el('form', { class: 'mdash-form', onsubmit: async (e) => {
       e.preventDefault();
       err.textContent = '';
-      const r = act(() => shopStore.shipOrder(ctx.app.id, orderId, { carrier: carrier.value, trackingNo: no.value }));
+      const r = await act(() => ctx.adapter.shipOrder(orderId, { carrier: carrier.value, trackingNo: no.value }));
       if (!r.ok) {
         err.textContent = String((r.error && r.error.message) || '发货没有成功');
         return;
       }
       close();
-      paint(ctx);
+      await refresh(ctx);
       toast('已发货', 'ok');
     } }, [
       el('h2', { class: 'mdash-sheet-title' }, '填写运单号'),
@@ -826,16 +911,19 @@ function openOrderSheet(ctx, orderId) {
             onclick: () => { close(); openShipSheet(ctx, o.id); },
           }, '填写运单号并发货')
           : null,
-        o.status === 'shipped'
+        o.status === 'shipped' && ctx.state.source === 'local'
           ? el('button', {
             class: 'mdash-btn',
             type: 'button',
             title: '演示：真实链路里由买家确认收货触发',
-            onclick: () => {
-              const r = act(() => shopStore.finishOrder(ctx.app.id, o.id), '已标记完成');
-              if (r.ok) { close(); paint(ctx); }
+            onclick: async () => {
+              const r = await act(() => ctx.adapter.finishOrder(o.id), '已标记完成');
+              if (r.ok) { close(); await refresh(ctx); }
             },
           }, '模拟确认收货')
+          : null,
+        o.status === 'shipped' && ctx.state.source === 'server'
+          ? el('p', { class: 'mdash-hint' }, '这一单已交给快递。买家确认收货后会自动变成「已完成」。')
           : null,
       ].filter(Boolean)),
     );
@@ -866,8 +954,40 @@ function pageSettings(ctx) {
   introIn.addEventListener('input', () => { introCount.textContent = `${introIn.value.length}/120`; });
 
   const logoPreview = el('span', { class: `mdash-logo is-lg tone-${tone}` }, shop.logoText || '店');
+  if (shop.logoUrl) {
+    logoPreview.classList.add('is-photo');
+    logoPreview.style.backgroundImage = `url("${shop.logoUrl}")`;
+    logoPreview.textContent = '';
+  }
   logoIn.addEventListener('input', () => {
+    logoPreview.classList.remove('is-photo');
+    logoPreview.style.backgroundImage = '';
     logoPreview.textContent = logoIn.value.trim().slice(0, 2) || '店';
+  });
+
+  // Logo 真图上传：库里存对象键，展示用现签地址
+  let logoKey = shop.logoKey || '';
+  const logoFile = el('input', { class: 'mdash-file', type: 'file', accept: 'image/*' });
+  const logoHint = el('p', { class: 'mdash-hint' }, logoKey
+    ? '已上传自定义 Logo，保存后生效。'
+    : '没上传就用字标 + 主色占位；建议 1:1 方图。');
+  logoFile.addEventListener('change', async () => {
+    const file = logoFile.files && logoFile.files[0];
+    if (!file) return;
+    logoHint.textContent = '正在压缩并上传…';
+    try {
+      const dataUrl = await compressImageFile(file, 512, 0.86);
+      const up = await ctx.adapter.uploadImage(dataUrl, 'logo');
+      logoKey = up.key;
+      logoPreview.classList.add('is-photo');
+      logoPreview.style.backgroundImage = `url("${up.url}")`;
+      logoPreview.textContent = '';
+      logoHint.textContent = '已上传。点「保存修改」生效。';
+    } catch (e) {
+      logoHint.textContent = String((e && e.message) || '上传失败');
+    } finally {
+      logoFile.value = '';
+    }
   });
 
   const swatches = el('div', { class: 'mdash-t tones' }, LOGO_TONES.map((label, i) => el('button', {
@@ -887,23 +1007,30 @@ function pageSettings(ctx) {
   return el('div', { class: 'mdash-stack' }, [
     el('section', { class: 'mdash-block' }, [
       el('div', { class: 'mdash-block-head' }, [el('h2', {}, '店铺信息')]),
-      el('form', { class: 'mdash-form', onsubmit: (e) => {
+      el('form', { class: 'mdash-form', onsubmit: async (e) => {
         e.preventDefault();
         err.textContent = '';
-        const r = act(() => shopStore.updateShop(ctx.app.id, {
+        const r = await act(() => ctx.adapter.updateShop({
           name: nameIn.value,
           intro: introIn.value,
           logoText: logoIn.value,
           logoColor: tone,
+          logoKey,
         }), '店铺信息已保存');
         if (!r.ok) {
           err.textContent = String((r.error && r.error.message) || '保存没有成功');
           return;
         }
         // 侧边栏的店名/字标就地跟着改，不必整页重画（免得用户丢了刚滚到的位置）
-        ctx.sideName.textContent = r.value.name;
-        ctx.sideLogo.textContent = r.value.logoText;
-        ctx.sideLogo.className = `mdash-logo tone-${r.value.logoColor}`;
+        ctx.state = r.value;
+        ctx.sideName.textContent = r.value.shop.name;
+        ctx.sideLogo.className = `mdash-logo tone-${r.value.shop.logoColor}`;
+        ctx.sideLogo.textContent = r.value.shop.logoText;
+        if (r.value.shop.logoUrl) {
+          ctx.sideLogo.classList.add('is-photo');
+          ctx.sideLogo.style.backgroundImage = `url("${r.value.shop.logoUrl}")`;
+          ctx.sideLogo.textContent = '';
+        }
       } }, [
         el('div', { class: 'mdash-form-grid' }, [
           field('店铺名称', nameIn, { hint: '展示在商城商品卡上的名字' }),
@@ -915,6 +1042,11 @@ function pageSettings(ctx) {
             el('div', { class: 'mdash-form-grid' }, [field('字标（≤2 字）', logoIn)]),
             el('span', { class: 'mdash-label' }, '主色'),
             swatches,
+            el('div', { class: 'mdash-upload' }, [
+              el('button', { class: 'mdash-btn', type: 'button', onclick: () => logoFile.click() }, '上传 Logo'),
+              logoFile,
+            ]),
+            logoHint,
           ]),
         ]),
         el('p', { class: 'mdash-hint' }, `上次保存：${fmtTime(shop.updatedAt, { withYear: true })}。Logo 用字标 + 主色占位，真图上传与商品图一起等平台存储。`),
@@ -942,7 +1074,8 @@ function pageSettings(ctx) {
       ]),
     ]),
 
-    el('section', { class: 'mdash-block is-danger' }, [
+    // 连了平台库就没有「演示数据」这回事：这里的商品与订单是真的，不该给重置按钮
+    ctx.state.source === 'local' ? el('section', { class: 'mdash-block is-danger' }, [
       el('div', { class: 'mdash-block-head' }, [el('h2', {}, '演示数据')]),
       el('p', { class: 'mdash-hint' }, '工作台的商品与订单只存在这台浏览器里。重置会把它们恢复成初始示例（店铺名也会重新派生），不影响入驻申请。'),
       el('div', { class: 'mdash-sheet-actions' }, [
@@ -952,7 +1085,7 @@ function pageSettings(ctx) {
           onclick: () => openResetSheet(ctx),
         }, '重置演示数据'),
       ]),
-    ]),
+    ]) : null,
   ]);
 }
 
@@ -970,10 +1103,10 @@ function openResetSheet(ctx) {
         el('button', {
           class: 'mdash-btn is-danger',
           type: 'button',
-          onclick: () => {
-            const r = act(() => shopStore.resetShop(ctx.app), '演示数据已重置');
+          onclick: async () => {
+            const r = await act(() => shopStore.resetShop(ctx.app), '演示数据已重置');
             close();
-            if (r.ok) paint(ctx);
+            if (r.ok) await refresh(ctx);
           },
         }, '确认重置'),
       ]),

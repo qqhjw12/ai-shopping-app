@@ -385,7 +385,10 @@ try {
   await page.locator('.adm-key-form button[type=submit]').click();
   await page.waitForSelector('.adm-card', { timeout: 15000 });
 
-  check('运营台三个标签（售后 / 入驻 / 模板）', (await page.locator('.adm-tab').count()) === 3);
+  const tabLabels = (await page.locator('.adm-tab').allInnerTexts()).map((t) => t.trim());
+  check('运营台四个标签（售后 / 入驻 / 商品 / 模板）', (await page.locator('.adm-tab').count()) === 4,
+    tabLabels.join(' / '));
+  check('商品审核标签可点进审核台', tabLabels.some((t) => t.includes('商品')), tabLabels.join(' / '));
   check('头部有导出按钮', (await page.locator('[data-role="export"]').count()) === 1);
 
   const dl = page.waitForEvent('download', { timeout: 20000 });

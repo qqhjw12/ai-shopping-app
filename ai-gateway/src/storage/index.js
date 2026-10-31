@@ -15,13 +15,17 @@ import * as s3 from './s3Client.js';
 const LOCAL_DIR = resolvePath(process.cwd(), 'data/uploads');
 const LEGACY_PREFIX = '/api/uploads/';
 /**
- * 对象键命名空间：reviews 是买家秀，evidence 是售后凭证。
- * 两者必须分开——孤儿清理按「评价引用了哪些键」来判定，凭证图不在那个集合里，
- * 共用前缀会被当成没人引用的孤儿直接删掉（凭证提交后过半小时图片就没了）。
+ * 对象键命名空间。
+ *
+ *   reviews  买家秀          evidence 售后凭证
+ *   products 商家商品图      shops    店铺 Logo
+ *
+ * 四个必须分开：孤儿清理按「这个命名空间里有哪些键被引用」逐个比对。
+ * 共用前缀的后果是商家商品图会被评价的引用集判成孤儿，上线第二天全店商品没图。
  */
-export const KEY_NAMESPACES = ['reviews', 'evidence'];
+export const KEY_NAMESPACES = ['reviews', 'evidence', 'products', 'shops'];
 // 对象键格式：<ns>/2026/10/<uuid>.jpg（按年月分目录，便于后续生命周期策略）
-const KEY_RE = /^(?:reviews|evidence)\/\d{4}\/\d{2}\/[A-Za-z0-9-]{1,64}\.(?:jpg|jpeg|png|webp|gif)$/;
+const KEY_RE = /^(?:reviews|evidence|products|shops)\/\d{4}\/\d{2}\/[A-Za-z0-9-]{1,64}\.(?:jpg|jpeg|png|webp|gif)$/;
 
 export const isObjectKey = (value) => typeof value === 'string' && KEY_RE.test(value);
 export const isLegacyUpload = (value) => typeof value === 'string' && value.startsWith(LEGACY_PREFIX);
@@ -132,8 +136,8 @@ export async function sweepOrphans(referencedKeys, { logger } = {}) {
   const referenced = new Set([...(Array.isArray(referencedKeys) ? referencedKeys : referencedKeys.keys?.() || [])]);
   let removed = 0;
   if (config.storage.driver === 's3') {
-    // 两个命名空间都要扫：只扫 reviews 的话，凭证图永远扫不到，
-    // 用户删掉工单后就变成没人付钱的死对象（账单上是真金白银）。
+    // 每个命名空间都要扫：只扫 reviews 的话，凭证图与商家商品图永远扫不到，
+    // 用户删掉工单、商家换掉商品图之后就变成没人付钱的死对象（账单上是真金白银）。
     for (const ns of KEY_NAMESPACES) {
       let keys = [];
       try {

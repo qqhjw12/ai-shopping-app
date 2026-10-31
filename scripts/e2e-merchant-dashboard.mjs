@@ -169,8 +169,8 @@ try {
   await go(dashHash(A, 'products'));
   check('商品 5 行', (await page.locator('.mdash-table tbody tr[data-product]').count()) === 5,
     String(await page.locator('.mdash-table tbody tr[data-product]').count()));
-  check('筛选计数 全部5/在售3/下架1/审核1',
-    (await chipTexts()).join('|') === '全部 5|在售 3|已下架 1|审核中 1', (await chipTexts()).join('|'));
+  check('筛选计数 全部5/在售3/下架1/审核1/未通过0',
+    (await chipTexts()).join('|') === '全部 5|在售 3|已下架 1|审核中 1|未通过 0', (await chipTexts()).join('|'));
 
   const reviewingRow = page.locator('tr[data-product="MP0005"]');
   check('审核中商品标「审核中」', (await reviewingRow.locator('.mdash-pill').innerText()).includes('审核中'));
