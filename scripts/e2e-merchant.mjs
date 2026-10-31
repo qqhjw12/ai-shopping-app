@@ -102,8 +102,14 @@ try {
   await page.waitForTimeout(800);
   const applyTitle = (await page.locator('.mz-apply-title').innerText().catch(() => '')).trim();
   check('吸底 CTA 进入申请页', applyTitle === '入驻申请', applyTitle);
-  check('申请页如实标注表单未开放', (await page.locator('.mz-pending').innerText()).includes('表单下一步开放'));
-  check('申请页列出准备材料', (await page.locator('.mz-mats li').count()) === 4);
+  check('申请页有四步进度（表单已接入）', (await page.locator('.mzf-prog').count()) === 4, String(await page.locator('.mzf-prog').count()));
+  check('默认停在第 1 步，第 2 步未展开', (await page.locator('.mzf-panel[hidden]').count()) === 3);
+  // 空表单点下一步必须被拦住：真表单的第一条承诺是「不让空资料进审核队列」
+  await page.locator('.mzf-nav button.mz-btn--gold:visible').click();
+  await page.waitForTimeout(500);
+  const alertVisible = await page.locator('.mzf-alert').isVisible().catch(() => false);
+  check('空表单点下一步被拦下并给出错误', alertVisible && (await page.locator('.mzf-panel[hidden]').count()) === 3);
+  check('错误挂到具体字段（主体类型标红）', (await page.locator('.mzf-field.has-error').count()) >= 1);
   check('申请页无吸底条（不自己指向自己）', (await page.locator('.mz-bar').count()) === 0);
 
   /* 4) 移动端 */

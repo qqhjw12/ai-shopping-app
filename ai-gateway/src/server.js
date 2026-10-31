@@ -33,6 +33,7 @@ import * as settingsService from './services/settingsService.js';
 import * as couponCatalogService from './services/couponCatalogService.js';
 import * as aftersaleService from './services/aftersaleService.js';
 import * as ledgerService from './services/ledgerService.js';
+import * as merchantService from './services/merchantService.js';
 import * as reviewRepo from './repositories/reviewRepo.js';
 import * as storage from './storage/index.js';
 import * as authService from './auth/service.js';
@@ -100,8 +101,10 @@ function send(res, status, body) {
   res.end(payload);
 }
 
-function sendError(res, status, message, reqId) {
-  send(res, status, { error: message, reqId });
+function sendError(res, status, message, reqId, extra) {
+  // extra 用于字段级错误（入驻申请表单需要知道「哪个格子错了」，否则回一句
+  // 「参数有误」等于让商家从头再找一遍）。其余调用方不传，结构保持不变。
+  send(res, status, { error: message, reqId, ...(extra || {}) });
 }
 
 /**
@@ -347,6 +350,13 @@ const uploadIpWindow = createFixedWindow({ limit: config.upload.ratePerMin * 3, 
 const uploadUserWindow = createFixedWindow({ limit: config.upload.ratePerMin, windowMs: 60_000 });
 const uploadDailyQuota = createFixedWindow({ limit: config.upload.dailyQuota, windowMs: 24 * 3600 * 1000 });
 const uploadGate = createConcurrencyGate({ max: config.upload.maxConcurrent });
+
+// 入驻申请提交限流：这是唯一一个「匿名也能写、写进去就是一条运营待办」的端点，
+// 不设闸门等于给刷单机器人开了个免费的表。按 IP 与用户各一层，窗口按小时算。
+// 数值不往死里压：一个办公室/园区共用出口 IP 时，几家商户同时提交是正常现象，
+// 真正的异常是「一分钟几十条」——那种量级靠下面的每用户窗口和内容校验一起拦。
+const merchantApplyIpWindow = createFixedWindow({ limit: 30, windowMs: 3600 * 1000 });
+const merchantApplyUserWindow = createFixedWindow({ limit: 6, windowMs: 3600 * 1000 });
 
 // ===== 认证 Cookie（刷新令牌只走 HttpOnly Cookie，JS 读不到，也不进 localStorage）=====
 function refreshCookie(value, { maxAgeSec = 0, clear = false } = {}) {
@@ -1182,6 +1192,63 @@ async function route(req, res, url) {
     });
   }
 
+  // ===== 商家入驻申请 =====
+  // 写：匿名可提交（商家注册前就要能交资料），所以限流按 IP + 用户各一层。
+  // 读：单条要「编号 + 查询凭证」双要素；列表要 X-Admin-Key（审核工作台用）。
+  if (url.pathname === '/api/merchant/applications') {
+    if (req.method === 'POST') {
+      const ipHit = merchantApplyIpWindow.hit(req.ip || 'unknown');
+      if (!ipHit.allowed) {
+        res.setHeader('Retry-After', String(ipHit.retryAfterSec));
+        return sendError(res, 429, '提交过于频繁，请稍后再试', req.reqId);
+      }
+      const parsed = await readJson(req);
+      if (!parsed) return sendError(res, 400, 'invalid json', req.reqId);
+      const userId = userIdOf(req, parsed.userId);
+      // 每用户窗口只在「有真实身份」时生效：未登录时 userId 都是 'anonymous'，
+      // 全站匿名商家会挤进同一个桶——第 7 家就被 429 挡住，等于给自然流量关了门。
+      // 匿名提交由上面的 IP 窗口兜底。
+      if (req.authUserId) {
+        const userHit = merchantApplyUserWindow.hit(req.authUserId);
+        if (!userHit.allowed) {
+          res.setHeader('Retry-After', String(userHit.retryAfterSec));
+          return sendError(res, 429, '提交过于频繁，请稍后再试', req.reqId);
+        }
+      }
+      // 幂等键优先取请求头（与订单同一套习惯），其次取 body
+      const submitKey = req.headers['x-idempotency-key'] || parsed.submitKey;
+      try {
+        const r = merchantService.submit(parsed, { userId, submitKey });
+        // 日志只记编号与幂等命中，不记主体名称/手机号/银行账号
+        log.info('merchant.application_submitted', {
+          reqId: req.reqId,
+          id: r.application.id,
+          existed: r.existed,
+          userId,
+        });
+        return send(res, r.existed ? 200 : 201, {
+          application: r.application,
+          queryKey: r.queryKey,
+          existed: r.existed,
+        });
+      } catch (e) {
+        return sendError(res, e.status || 400, e.message, req.reqId, e.fields ? { fields: e.fields } : undefined);
+      }
+    }
+    if (req.method === 'GET') {
+      if (!requireAdmin(req, res)) return;
+      return guarded(() => merchantService.listForAdmin(Object.fromEntries(url.searchParams)));
+    }
+  }
+
+  const merchantAppMatch = url.pathname.match(/^\/api\/merchant\/applications\/([^/]+)$/);
+  if (merchantAppMatch && req.method === 'GET') {
+    const id = decodeURIComponent(merchantAppMatch[1]);
+    const app = merchantService.getByCredential(id, url.searchParams.get('key'));
+    if (!app) return sendError(res, 404, '申请不存在，或查询凭证已失效', req.reqId);
+    return send(res, 200, { application: app });
+  }
+
   // 导购推荐（AI 抽屉）：检索 + 可选 LLM 导购语。不落会话，永远带商品卡。
   // 前端拿到失败 / 超时会回落本地规则，所以这里 5xx 也可以放心抛。
   // 图片搜索（色彩特征）：前端只传主色签名，原图不上传。检索失败 / 无近色时前端回落本地模拟。
@@ -1479,6 +1546,9 @@ async function route(req, res, url) {
         'GET|POST /api/addresses?userId= (地址簿：POST 带 id 即更新，返回最新清单)',
         'POST /api/addresses/:id/default?userId= (设为默认，幂等)',
         'DELETE /api/addresses/:id?userId= (删除；删默认则由剩余第一条接任)',
+        'POST /api/merchant/applications {entityKind, company, creditCode, contact, phone, brand, brandSource, categories, skuRange, priceRange, bankAccount, bankNo, returnPolicy, shipWithin, submitKey} (入驻申请；幂等；银行账号只存前4后4)',
+        'GET /api/merchant/applications/:id?key= (凭编号 + 查询凭证自查状态，双要素缺一为 404)',
+        'GET /api/merchant/applications?status=&page=&size= (运营审核列表 + 状态计数，需 X-Admin-Key)',
         'POST /api/ai/recommend {query, limit?} (导购推荐：检索+可选LLM导购语，不落会话、永远带卡)',
         'POST /api/ai/image-search {colors:[{h,s,l,weight}]} (色彩特征最近邻检索，不上传原图)',
         'POST /api/ai/chat {message, userId?, conversationId?}',

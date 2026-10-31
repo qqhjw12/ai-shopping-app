@@ -556,6 +556,72 @@ const MIGRATIONS = [
         ON order_logistics_events(order_id, code, happened_at);
     `,
   },
+  {
+    version: 17,
+    name: 'merchant-applications',
+    sql: `
+      -- 商家入驻申请：商家在 /#/merchant/apply 分四步填完，落到这张表。
+      --
+      -- 有意的取舍（三条，都是「少存一点反而更对」）：
+      --
+      -- 1) 银行账号只存打码串（前 4 + 后 4），不存完整账号。
+      --    收款账号是强 PII，存明文等于给自己造一个泄露面：表被导出、备份被拷走、
+      --    日志里随手 SELECT 一次都会流出。真要做打款，应该由持牌支付通道做代付、
+      --    账号托管在对方，或者单独一张加密表 + 独立密钥 + 审计访问。
+      --    审核阶段看「开户名 + 后四位」足以判断申请是不是同一家，完整账号等签约时再收。
+      --
+      -- 2) 草稿不入库。表单草稿存在浏览器 localStorage，服务端只接收「已提交」的申请。
+      --    否则运营列表里会漂着一堆填了一半的废单，还得额外区分「真申请」和「手滑点开」。
+      --
+      -- 3) submit_key 幂等：提交按钮连点、网络在「服务端已写入、响应没回来」时断掉后重试，
+      --    都不该变成两条申请（否则同一家会被审核两遍，商家也收到两个编号）。
+      --    唯一索引落在 (user_id, submit_key) 上——不同人偶然撞 key 不该互相顶掉，
+      --    和 orders 的幂等键是同一套规则。
+      CREATE TABLE IF NOT EXISTS merchant_applications (
+        id                  TEXT PRIMARY KEY,               -- MA + YYYYMMDD + 4 位当日序号
+        user_id             TEXT NOT NULL DEFAULT 'anonymous',
+
+        -- 第一步：主体资质
+        entity_kind         TEXT NOT NULL,                  -- brand / factory / studio / food / other
+        company             TEXT NOT NULL,
+        credit_code         TEXT NOT NULL,                  -- 统一社会信用代码（18 位）
+        contact             TEXT NOT NULL,                  -- 联系人
+        phone               TEXT NOT NULL,
+        email               TEXT NOT NULL DEFAULT '',
+
+        -- 第二步：品牌与商品
+        brand               TEXT NOT NULL,
+        brand_source        TEXT NOT NULL,                  -- owned / exclusive / authorized
+        categories          TEXT NOT NULL DEFAULT '[]',     -- JSON 数组：一级类目 id
+        sku_range           TEXT NOT NULL DEFAULT '',       -- lt50 / 50-200 / 200-1000 / gt1000
+        price_range         TEXT NOT NULL DEFAULT '',       -- lt100 / 100-500 / 500-2000 / gt2000
+        dropship            INTEGER NOT NULL DEFAULT 0,     -- 是否支持一件代发
+
+        -- 第三步：结算与售后
+        bank_account        TEXT NOT NULL,                  -- 开户名（不是账号）
+        bank_branch         TEXT NOT NULL DEFAULT '',       -- 开户行
+        bank_no_masked      TEXT NOT NULL DEFAULT '',       -- 仅前 4 + 后 4，见上方取舍 1
+        return_policy       TEXT NOT NULL DEFAULT '7days',  -- 7days / 15days
+        ship_within         TEXT NOT NULL DEFAULT '48h',    -- 24h / 48h / 72h
+        note                TEXT NOT NULL DEFAULT '',
+
+        -- 流程与凭证
+        status              TEXT NOT NULL DEFAULT 'reviewing',  -- reviewing / approved / rejected
+        submit_key          TEXT NOT NULL,
+        query_key_hash      TEXT NOT NULL,                  -- 查询凭证只存 sha256，明文只在提交响应里出现一次
+        review_note         TEXT NOT NULL DEFAULT '',
+        reviewed_at         TEXT,
+        created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_ma_submit
+        ON merchant_applications(user_id, submit_key);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_ma_query
+        ON merchant_applications(query_key_hash);
+      CREATE INDEX IF NOT EXISTS idx_ma_status
+        ON merchant_applications(status, created_at DESC);
+    `,
+  },
 ];
 
 /** 执行未应用的迁移，返回当前版本 */

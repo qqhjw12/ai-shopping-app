@@ -7727,3 +7727,442 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   .mz-apply-card { padding: 24px 20px; }
   .mz-cta-row .mz-btn { flex: 1 1 auto; }
 }
+
+/* ============================================================
+   入驻申请表单（#/merchant/apply）
+   ------------------------------------------------------------
+   表单沿用招商页的排版语言：衬线衬标题、发丝线分栏、金只出现在
+   「当前步 / 选中态 / 主按钮」三处。输入框自身保持中性——表单里
+   太多金色会让人看不清哪个是被选中的。
+   ============================================================ */
+
+/* ---------------- 进度 ---------------- */
+.mzf-progress {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 26px 0 30px;
+  padding: 0;
+  list-style: none;
+}
+.mzf-progress::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  top: 13px;
+  height: 1px;
+  background: var(--line-strong);
+}
+.mzf-prog {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.mzf-prog-dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--canvas);
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.mzf-prog-t {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mzf-prog.is-current .mzf-prog-dot {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 600;
+}
+.mzf-prog.is-current .mzf-prog-t { color: var(--ink); font-weight: 500; }
+.mzf-prog.is-done .mzf-prog-dot { border-color: rgba(200, 169, 110, 0.6); color: var(--gold-deep); }
+.mzf-prog.is-done .mzf-prog-t { color: var(--body); }
+
+/* ---------------- 草稿提示 ---------------- */
+.mzf-draft {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 11px 14px;
+  border: 1px solid rgba(200, 169, 110, 0.38);
+  border-radius: var(--r-btn);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  font-size: 12px;
+}
+.mzf-draft[hidden] { display: none; }
+.mzf-draft-clear {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ---------------- 表单骨架 ---------------- */
+.mzf-form { display: block; }
+.mzf-panel { display: grid; gap: 22px; }
+.mzf-panel[hidden] { display: none; }
+
+.mzf-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mzf-label {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.mzf-hint { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.mzf-err { display: none; color: #a4483c; font-size: 11px; line-height: 1.6; }
+.mzf-field.has-error .mzf-err,
+.mzf-choice-group.has-error + .mzf-err { display: block; }
+.mzf-field.has-error > input {
+  border-color: rgba(164, 72, 60, 0.52);
+  background: rgba(164, 72, 60, 0.04);
+}
+.mzf-field.has-error .mzf-seg,
+.mzf-field.has-error .mzf-chips,
+.mzf-field.has-error .mzf-choice-group {
+  border-radius: var(--r-btn);
+  box-shadow: 0 0 0 1px rgba(164, 72, 60, 0.42);
+}
+
+/* ---------------- 单选卡（主体类型） ---------------- */
+.mzf-choice-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.mzf-choice { position: relative; cursor: pointer; }
+.mzf-choice input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.mzf-choice-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  padding: 14px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: rgba(255, 255, 255, 0.5);
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+.mzf-choice-box strong { color: var(--ink); font-size: 13px; font-weight: 500; }
+.mzf-choice-box em { color: var(--muted); font-size: 11px; font-style: normal; line-height: 1.55; }
+.mzf-choice input:checked + .mzf-choice-box {
+  border-color: var(--gold);
+  background: var(--gold-weak);
+  box-shadow: inset 0 0 0 1px rgba(200, 169, 110, 0.5);
+}
+.mzf-choice input:focus-visible + .mzf-choice-box { box-shadow: 0 0 0 3px rgba(200, 169, 110, 0.28); }
+
+/* ---------------- 分段选择 ---------------- */
+.mzf-seg { display: flex; flex-wrap: wrap; gap: 8px; }
+.mzf-seg-item { position: relative; cursor: pointer; }
+.mzf-seg-item input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.mzf-seg-item > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.52);
+  color: var(--body);
+  font-size: 12px;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+.mzf-seg-item input:checked + span {
+  border-color: var(--gold);
+  background: var(--gold-weak);
+  color: var(--ink);
+  font-weight: 500;
+}
+.mzf-seg-item input:focus-visible + span { box-shadow: 0 0 0 3px rgba(200, 169, 110, 0.28); }
+
+/* ---------------- 类目 chip ---------------- */
+.mzf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.mzf-chip { position: relative; cursor: pointer; }
+.mzf-chip input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.mzf-chip > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: rgba(255, 255, 255, 0.52);
+  color: var(--body);
+  font-size: 12px;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+.mzf-chip input:checked + span {
+  border-color: var(--gold);
+  background: var(--gold-weak);
+  color: var(--ink);
+  font-weight: 500;
+}
+.mzf-chip input:focus-visible + span { box-shadow: 0 0 0 3px rgba(200, 169, 110, 0.28); }
+
+/* ---------------- 开关 ---------------- */
+.mzf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.mzf-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.mzf-toggle-track {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: rgba(26, 26, 26, 0.12);
+  transition: background 0.2s ease;
+}
+.mzf-toggle-track::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(26, 26, 26, 0.18);
+  transition: transform 0.2s var(--ease);
+}
+.mzf-toggle input:checked + .mzf-toggle-track { background: var(--gold); }
+.mzf-toggle input:checked + .mzf-toggle-track::after { transform: translateX(18px); }
+.mzf-toggle-text { color: var(--body); font-size: 12px; }
+
+/* ---------------- 底部导航 ---------------- */
+.mzf-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.mzf-nav-right { display: flex; gap: 10px; margin-left: auto; }
+.mzf-nav .mz-btn[hidden] { display: none; }
+.mzf-submit { min-width: 168px; }
+
+/* ---------------- 错误提示 ---------------- */
+.mzf-alert {
+  margin-bottom: 22px;
+  padding: 15px 17px;
+  border: 1px solid rgba(164, 72, 60, 0.34);
+  border-left: 2px solid #a4483c;
+  border-radius: var(--r-btn);
+  background: rgba(164, 72, 60, 0.055);
+}
+.mzf-alert[hidden] { display: none; }
+.mzf-alert strong { display: block; color: #8d3b31; font-size: 12.5px; font-weight: 600; }
+.mzf-alert ul { margin: 8px 0 0; padding-left: 18px; }
+.mzf-alert li { color: #8d3b31; font-size: 11.5px; line-height: 1.75; }
+.mzf-alert-note { margin: 8px 0 0; color: var(--body); font-size: 11.5px; line-height: 1.7; }
+
+/* ---------------- 摘要（确认页 / 状态页共用） ---------------- */
+.mzf-summary { margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.mzf-sum-row {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: baseline;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mzf-summary.static .mzf-sum-row { grid-template-columns: 116px minmax(0, 1fr); }
+.mzf-sum-row dt { color: var(--muted); font-size: 11px; letter-spacing: 0.06em; }
+.mzf-sum-row dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.mzf-sum-edit {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold-deep);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ---------------- 承诺勾选 ---------------- */
+.mzf-agree { display: grid; gap: 12px; margin-top: 24px; }
+.mzf-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+}
+.mzf-check input {
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  flex: none;
+  accent-color: var(--gold-deep);
+  cursor: pointer;
+}
+.mzf-check span { color: var(--body); font-size: 12px; line-height: 1.7; }
+
+/* ---------------- 状态页 ---------------- */
+.mzf-result { display: flex; flex-direction: column; gap: 0; }
+.mzf-result-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.mzf-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: var(--r-pill);
+  background: var(--gold-weak);
+  color: var(--gold-deep);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.mzf-status.is-approved { background: rgba(74, 122, 88, 0.12); color: #3f6b4d; }
+.mzf-status.is-rejected { background: rgba(164, 72, 60, 0.1); color: #8d3b31; }
+.mzf-status.is-unknown { background: rgba(26, 26, 26, 0.07); color: var(--muted); }
+.mzf-idrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mzf-idlabel { color: var(--muted); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+.mzf-id {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.mzf-copy {
+  padding: 5px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+.mzf-copy:hover { border-color: var(--ink); color: var(--ink); }
+.mzf-result h2 {
+  margin: 22px 0 10px;
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.mzf-result-lede { margin: 0 0 24px; color: var(--body); font-size: 13px; line-height: 1.8; }
+.mzf-result-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; align-items: center; }
+.mzf-foot { margin: 18px 0 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.mzf-loading p { margin: 0; color: var(--muted); font-size: 12.5px; }
+
+.mzf-timeline { margin: 0 0 26px; padding: 0; list-style: none; }
+.mzf-tl {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 0 0 20px 0;
+}
+.mzf-tl::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 26px;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+}
+.mzf-tl:last-child { padding-bottom: 0; }
+.mzf-tl:last-child::before { display: none; }
+.mzf-tl-dot {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--canvas);
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 11px;
+}
+.mzf-tl.is-done .mzf-tl-dot { border-color: rgba(200, 169, 110, 0.72); color: var(--gold-deep); }
+.mzf-tl strong { display: block; color: var(--ink); font-size: 12.5px; font-weight: 500; }
+.mzf-tl p { margin: 4px 0 0; color: var(--body); font-size: 11.5px; line-height: 1.7; }
+
+/* ---------------- 响应式 ---------------- */
+@media (max-width: 720px) {
+  .mzf-progress { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 20px 0 24px; }
+  .mzf-prog { flex-direction: column; align-items: flex-start; gap: 7px; }
+  .mzf-prog-t { font-size: 10.5px; letter-spacing: 0; }
+  .mzf-prog-dot { width: 24px; height: 24px; font-size: 10.5px; }
+  .mzf-progress::before { left: 12px; right: 12px; top: 11px; }
+  .mzf-choice-group { grid-template-columns: 1fr; }
+  .mzf-sum-row { grid-template-columns: 1fr auto; gap: 6px 12px; }
+  .mzf-summary.static .mzf-sum-row { grid-template-columns: 1fr auto; }
+  .mzf-sum-row dt { grid-column: 1 / -1; }
+  .mzf-nav { flex-wrap: wrap; }
+  .mzf-nav-right { width: 100%; margin-left: 0; }
+  .mzf-nav-right .mz-btn { flex: 1 1 auto; }
+  .mzf-submit { width: 100%; }
+}
+
+/* 触屏尺寸：44px 是拇指能稳稳点中的下限。
+   输入框默认 41px（11px 内边距 + 14px 字号），在手机上偏窄，单独抬到 44。 */
+@media (max-width: 720px) {
+  .mzf-form input { min-height: 44px; padding: 12px 13px; }
+  .mzf-seg-item > span,
+  .mzf-chip > span { min-height: 44px; padding: 0 16px; }
+  .mzf-choice-box { min-height: 44px; }
+  .mzf-choice { min-height: 44px; }
+  .mzf-copy { min-height: 44px; padding: 0 14px; }
+}

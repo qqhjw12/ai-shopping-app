@@ -2110,6 +2110,9 @@ if (failed === 0) {
 // 招商页的两条隐形约定值得锁死：
 //   1) 页内锚点绝不能写 href="#xxx"（hash 是 SPA 路由，会被当成路由 404）——只能 scrollIntoView；
 //   2) 平台数据必须真取 /api/stats 或本地现算，不允许硬编码「好看的数字」。
+// 申请表单另有两条：
+//   3) 网关不可达时必须说「未提交」，不能做假成功页（商家会以为资料已交给平台）；
+//   4) 提交不做 5xx 自动重放，幂等键只在「结果未知」时复用——4xx 后复用会把改动吞掉。
 if (failed === 0) {
   console.log('\n商家入驻断言（入口 / 锚点 / 热区 / 数据来源）');
   try {
@@ -2129,7 +2132,16 @@ if (failed === 0) {
       ['页内锚点用 scrollIntoView（不写 hash 锚）', mSrc.includes('scrollIntoView') && !mSrc.includes("href: '#mz-flow'") && !mSrc.includes("href: '#join-flow'")],
       ['平台数据真取 /api/stats + 本地现算兜底', mSrc.includes('/api/stats') && mSrc.includes('getProducts()')],
       ['优势区四卡 / 流程五步 / 商家类型 ≥6', mSrc.includes('零成本开店') && (mSrc.match(/t: '/g) || []).length >= 15],
-      ['申请页如实标注表单未开放（无假表单）', mSrc.includes('表单下一步开放') && !mSrc.includes('type: \'submit\'')],
+      ['申请页是真表单（四步 + 提交按钮 + 真端点）', mSrc.includes('APPLY_STEPS') && mSrc.includes("type: 'submit'") && mSrc.includes('/api/merchant/applications')],
+      ['四步标题齐全', ['主体资质', '品牌商品', '结算售后', '确认提交'].every((t) => mSrc.includes(t))],
+      ['客户端校验含信用代码与手机号', mSrc.includes('[0-9A-HJ-NPQRTUWXY]{18}') && mSrc.includes('^1[3-9]\\d{9}$')],
+      ['提交不做 5xx 自动重试（幂等键只在结果未知时复用）', mSrc.includes('retries: 0') && mSrc.includes('state.pendingKey = null')],
+      ['草稿存本机（localStorage）与恢复提示', mSrc.includes('maison_merchant_draft_v1') && mSrc.includes('已恢复')],
+      ['卡号只在页面打码回显', mSrc.includes('maskCard') && mSrc.includes('****')],
+      // 断言「诚实降级分支存在」而不是「文中没出现成功二字」——注释里写着「绝不做假成功页」，
+      // 按关键词反查会误伤自己的注释（这类断言写完要立刻跑一遍，别等回归时才炸）。
+      ['无网关时如实说「未提交」而非假成功', mSrc.includes('申请没有提交') && mSrc.includes('不会丢')],
+      ['状态页凭 id + key 双要素查回', mSrc.includes('/api/merchant/applications/${encodeURIComponent(id)}?key=')],
       ['吸底 CTA 存在且指向申请页', mSrc.includes("class: 'mz-bar'") && mSrc.includes("href: '#/merchant/apply'")],
     ];
     const bad = cases.filter(([, ok]) => !ok).map(([label]) => label);

@@ -154,9 +154,9 @@ function dispatch({ path, query }) {
   }
   // 运营侧：不进登录守卫（运营不是买家），门禁在页面内部用管理密钥
   else if (path === '/admin/aftersales') renderAdminAftersales(view, query);
-  // 商家侧：招商不需要登录（让商家先进门），申请表单下一步接
+  // 商家侧：招商不需要登录（让商家先进门）；申请页带 ?id&key 时是回看已提交的申请
   else if (path === '/merchant/join') renderMerchantJoin(view);
-  else if (path === '/merchant/apply') renderMerchantApply(view);
+  else if (path === '/merchant/apply') renderMerchantApply(view, query);
   else if (path === '/orders') renderOrders(view);
   else if (path === '/favorites') renderFavorites(view);
   else renderNotFound(view);
