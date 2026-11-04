@@ -108,8 +108,8 @@ try {
   check('meta 行标明店铺来源', ((await card.locator('.card-meta').innerText()) || '').includes('山物手作'));
   check('下架商品不在首页', (await page.locator('.pcard', { hasText: '亚麻桌旗' }).count()) === 0);
   check('种子商品不进消费者列表', (await page.locator('.pcard', { hasText: '手作粗陶马克杯' }).count()) === 0);
-  check('内置演示商品照常（主流程没被挤掉）', (await page.locator('.pcard', { hasText: '极光 Pro 5G 智能手机' }).count()) >= 1);
-  check('普通卡片没有「商家」标签', (await cardOf('极光 Pro 5G 智能手机').locator('.badge-merchant').count()) === 0);
+  check('内置演示数据填充扫描结果流（主流程没被挤掉）', (await page.locator('.scan-item .pcard').count()) >= 5);
+  check('普通卡片没有「商家」标签', (await page.locator('.scan-item .pcard:not(:has(.badge-merchant))').count()) >= 1);
   await page.screenshot({ path: `${ROOT}/.shots/link-1-home.png` });
 
   /* ---------- 2. 商品列表（分类筛选）---------- */

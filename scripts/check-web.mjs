@@ -2319,20 +2319,50 @@ if (failed === 0) {
     console.log(`  ${badLink.length === 0 ? 'ok  ' : 'FAIL'} 商家消费者联动（演示闭环）${badLink.length ? ` → 缺失: ${badLink.join('、')}` : ''}`);
     if (badLink.length) failed++;
 
-    // 第十步：首页参考 Amazon 布局改版。锁五条：
-    //   类目速览卡（2×2 马赛克 + data-count 防空洞）、今日好物横滑轨道（折扣×销量打分 +
-    //   每品牌限两件的多样性）、翻页按钮真的 scrollBy、数据不足整块隐藏（:empty 不占位）、
-    //   卡片价格行有销量社会证明。
-    const cssHomeSrc = cssSrc;
+    // 第十二步：首页信息架构重构为「全息任务面板」。锁九条：
+    //   首屏是任务简报（扫描状态 + 两条 CTA + 扫描环）、三枚读数胶囊（数字现算不写死）、
+    //   六张编号模块卡（3×2，hover 只改描边）、扫描结果流（首条跨两列 + MATCH/PRICE INDEX）、
+    //   AI 任务条带（1px 进度线，一次性）、入场级联（5 块 ×40ms ≤400ms 只跑一次）、
+    //   reduced-motion 全停、移动端读数带横滚不换行、单列时 is-key 收回 span。
     const homeCases = [
-      ['类目速览卡 + 2×2 马赛克 + 空洞防护（data-count 换列数）', viewsSrc.includes('function homeQuickTiles') && viewsSrc.includes("class: 'qtile-mosaic', 'data-count'") && cssHomeSrc.includes('.qtile-mosaic[data-count="3"]')],
-      ['今日好物轨道：折扣×销量打分', viewsSrc.includes('function homeDealRail') && viewsSrc.includes('off * 1000 + Math.log1p(sales) * 12')],
-      ['轨道多样性：每品牌最多两件', viewsSrc.includes('brandCount.get(brand)') && viewsSrc.includes('if (seen >= 2) continue')],
-      ['翻页按钮真实滚动 + 数据不足整块隐藏', viewsSrc.includes("track.scrollBy({ left: dir * Math.max(260, track.clientWidth * 0.82)") && cssHomeSrc.includes('.home-discovery:empty { display: none; }')],
-      ['卡片价格行有销量（已售 N），有数据才出现', uiSrc2.includes("class: 'card-sales'") && uiSrc2.includes('`已售 ${fmtSales(p.sales)}`')],
+      ['首屏任务简报：扫描状态 + 标题 + 副文案 + 两条 CTA',
+        viewsSrc.includes('function homeHero') && viewsSrc.includes('AI SCAN ACTIVE / 扫描中')
+        && viewsSrc.includes("class: 'hp-cta'") && viewsSrc.includes('一次精准扫描')],
+      ['极简扫描环（三圈细线 + 一条 60° 弧线，无 3D/粒子）',
+        viewsSrc.includes('function scanRing') && viewsSrc.includes('hp-ring-arc')
+        && viewsSrc.includes('<circle cx="160" cy="160" r="150"')],
+      ['三枚读数胶囊且数字现算（scanStats 不写死）',
+        viewsSrc.includes('function homeReadouts') && viewsSrc.includes('function scanStats')
+        && viewsSrc.includes("readoutCapsule('已匹配'")],
+      ['六张编号模块卡（3×2，指向导购/分类/甄选/洞察/货源/订单）',
+        viewsSrc.includes('const HOME_MODULES') && viewsSrc.includes("n: '06'")
+        && viewsSrc.includes("href: '#/merchant/sourcing'") && viewsSrc.includes("href: '#/account?tab=orders'")],
+      ['模块卡 hover 只过渡描边（150ms，无位移无阴影）',
+        cssSrc.includes('.hp-mod:hover { border-color: var(--color-cyan-line); }')
+        && /\.hp-mod \{[^}]*transition: border-color 150ms var\(--ease\);/.test(cssSrc)],
+      ['扫描结果流：等宽标题 + 查看全部细线链接 + 首条跨两列',
+        viewsSrc.includes('SCAN RESULTS / 扫描结果') && viewsSrc.includes("class: 'hp-thin-link'")
+        && viewsSrc.includes("class: `scan-item${i === 0 ? ' is-key' : ''}`")
+        && cssSrc.includes('.scan-item.is-key { grid-column: span 2; }')],
+      ['商品卡带 MATCH / PRICE INDEX 读数（确定性哈希，不随刷新变）',
+        viewsSrc.includes('function scanReadRow') && viewsSrc.includes('MATCH ${matchScore(p)}%')
+        && viewsSrc.includes('PRICE INDEX ${idx < 0') && viewsSrc.includes('function stableHash')],
+      ['AI 任务条带：1px 进度线 + 一次性 600ms（无循环）',
+        viewsSrc.includes('function homeTaskStrip') && viewsSrc.includes('AI TASK RUNNING / 任务进行中')
+        && /\.hp-task-bar \{[^}]*height: 1px;/.test(cssSrc) && cssSrc.includes('animation: hp-fill 600ms var(--ease) 200ms both;')],
+      ['入场级联：5 块 × 40ms + 240ms ≤ 400ms，仅首次加载',
+        cssSrc.includes('animation: hp-up 240ms var(--ease) both;')
+        && cssSrc.includes('animation-delay: calc(var(--i, 0) * 40ms);')
+        && viewsSrc.includes('let homeIntroPlayed = false') && viewsSrc.includes('const intro = !homeIntroPlayed')],
+      ['移动端：读数带横滚不换行、单列时 is-key 收回 span',
+        cssSrc.includes('.hp-readbar {\n    overflow-x: auto;') && cssSrc.includes('.scan-item.is-key { grid-column: auto; }')],
+      ['reduced-motion：呼吸/扫掠/进度/级联全停',
+        /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.hp-dot \{ animation: none/.test(cssSrc)
+        && cssSrc.includes('.hp-ring-arc { animation: none; }')
+        && cssSrc.includes('.home-panel.is-enter .hp-results {\n    animation: none;')],
     ];
     const badHome = homeCases.filter(([, ok]) => !ok).map(([label]) => label);
-    console.log(`  ${badHome.length === 0 ? 'ok  ' : 'FAIL'} 首页发现区（类目速览 + 今日好物）${badHome.length ? ` → 缺失: ${badHome.join('、')}` : ''}`);
+    console.log(`  ${badHome.length === 0 ? 'ok  ' : 'FAIL'} 首页全息任务面板（简报/读数/模块/结果/任务带）${badHome.length ? ` → 缺失: ${badHome.join('、')}` : ''}`);
     if (badHome.length) failed++;
 
     // 第十一步：首页顶部秒杀（Deep Space Command 局部深空层）。锁七条：
@@ -2347,7 +2377,7 @@ if (failed === 0) {
     const fsCases = [
       ['数据层：场次归一化 + 阶段推导 + 进度累加', fsStoreSrc.includes('export function ensureSale') && fsStoreSrc.includes('export function phaseOf') && fsStoreSrc.includes('export function markSold')],
       ['数据层：运营口令只存哈希（不存明文）', fsStoreSrc.includes('hashKey') && fsStoreSrc.includes("localStorage.setItem(OPS_KEY_SLOT, hashKey(v))")],
-      ['首页秒杀区挂在 Hero 之前，商品池到位后填充', viewsSrc.includes('renderFlashSale') && viewsSrc.includes("class: 'fs-slot'") && viewsSrc.indexOf('fs-slot') < viewsSrc.indexOf("class: 'hero'")],
+      ['首页秒杀区挂在扫描结果之后（首屏留给任务简报），商品池到位后填充', viewsSrc.includes('renderFlashSale') && viewsSrc.includes("class: 'fs-slot'") && viewsSrc.indexOf('results.node') < viewsSrc.indexOf("class: 'fs-slot'")],
       ['倒计时每秒走 + 脱离文档自动停表（不烧电）', fsSrc.includes('setInterval') && fsSrc.includes('section.isConnected') && fsSrc.includes('stopFlashSale')],
       ['进度条用 scaleX 表达（动效只碰 transform/opacity）', fsSrc.includes('--p:${pct / 100}') && cssSrc.includes('transform: scaleX(var(--p, 0))')],
       ['秒杀成交：本地加购（秒杀价不被服务端覆盖）+ 进度实时累加', fsSrc.includes('localOnly: true') && fsSrc.includes('markSold(item.productId, 1)') && cartSrc.includes('opts.localOnly')],

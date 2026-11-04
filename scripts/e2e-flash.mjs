@@ -68,14 +68,19 @@ await home.goto(`${base}#/`, { waitUntil: 'load' });
 await home.waitForSelector('.fs-sale', { timeout: 20000 });
 await home.waitForTimeout(500);
 
-// 1) 位置：秒杀区在 Hero 之前（页首第一块是「有时间窗」的信息）
+// 1) 位置：首页重构为任务面板后，秒杀区在「任务简报 → 读数 → 模块 → 任务条带
+//    → 扫描结果」之后——首屏属于系统状态，秒杀是时间窗内的活动位。
+//    面板嵌套比旧版深一层，用 compareDocumentPosition 比先后，不再依赖子元素层级。
 const orderOk = await home.evaluate(() => {
-  const kids = [...document.getElementById('view').children].filter((n) => n.offsetHeight > 0);
-  const fs = kids.findIndex((n) => n.classList.contains('fs-sale') || n.querySelector?.('.fs-sale'));
-  const hero = kids.findIndex((n) => n.classList && n.classList.contains('hero'));
-  return fs >= 0 && hero >= 0 && fs < hero;
+  const panel = document.querySelector('.home-panel');
+  const hero = panel?.querySelector('.hp-hero');
+  const results = panel?.querySelector('.hp-results');
+  const fs = panel?.querySelector('.fs-sale');
+  if (!hero || !results || !fs) return false;
+  const after = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  return after(hero, results) && after(results, fs);
 });
-check('秒杀区位于首页顶部（Hero 之前）', orderOk);
+check('秒杀区在扫描结果之后（首屏留给任务简报）', orderOk);
 
 // 2) 倒计时在走：隔 1.2s 两次读数不同（textContent 不带排版换行）
 const readClock = () => home.evaluate(() => document.querySelector('.fs-digits').textContent);
@@ -186,8 +191,15 @@ check('时间窗走完后前台显示「本场结束」且不可再抢', endedOk
 /* ---------------- 不破坏消费者主流程 ---------------- */
 await home.goto(`${base}#/`, { waitUntil: 'load' });
 await home.waitForSelector('.fs-sale', { timeout: 20000 });
-check('首页 Hero 仍在秒杀区之后', await home.locator('.hero').count() === 1);
-check('首页发现区（类目速览 / 今日好物）照旧', await home.locator('.qtile-grid').count() === 1 && await home.locator('.rail-section').count() === 1);
+check('首页任务简报照旧（Hero 在最前，读数/模块/结果齐备）',
+  await home.evaluate(() => {
+    const panel = document.querySelector('.home-panel');
+    const kids = panel ? [...panel.children] : [];
+    return kids[0]?.classList.contains('hp-hero')
+      && (panel.querySelector('.hp-readbar')?.textContent || '').includes('已匹配')
+      && panel.querySelectorAll('.hp-mod').length === 6
+      && panel.querySelectorAll('.scan-item').length >= 5;
+  }));
 check('商品详情页可达', await (async () => {
   // 直接从秒杀卡取一件真实存在的商品深链过去：比点卡片里的第一个 <a> 稳
   // （第一眼看到的 a 可能是收藏按钮或图占位，不是详情链接）

@@ -213,248 +213,271 @@ function pickEditorial(products, count = 8) {
   return picked.slice(0, count);
 }
 
-function bentoClass(index) {
-  if (index === 0) return 'pcard--hero';
-  if (index === 7) return 'pcard--wide';
-  return 'pcard--small';
-}
-
-function editorialTile() {
-  return el('a', { class: 'editorial-tile', href: '#/products' }, [
-    el('span', { class: 'eyebrow' }, 'THE FULL EDIT'),
-    el('h3', {}, ['仍在寻找？', el('br'), '让 AI 听见你的生活。']),
-    el('p', {}, '从万千物件中，留下真正属于你的那一件。'),
-    el('span', { class: 'tile-arrow', 'aria-hidden': 'true' }, '↗'),
-    el('span', { class: 'tile-mark', 'aria-hidden': 'true' }, 'M'),
-  ]);
-}
-
-function curatorNote() {
-  return el('aside', { class: 'bento-note' }, [
-    el('span', { class: 'eyebrow' }, 'A NOTE FROM THE EDITOR'),
-    el('p', { class: 'bento-note-quote' }, ['“真正的奢侈，', el('br'), '是每天都在用的那一件。”']),
-    el('span', { class: 'bento-note-credit' }, 'MAISON AI · CURATED EDIT'),
-  ]);
-}
-
 /* ============================================================
-   首页发现区（参考 Amazon 首页的两条核心语法）
+   首页：全息任务面板
    ------------------------------------------------------------
-   ① 类目速览 = Amazon 的「Shop by category」：一屏之内先回答
-      「这里卖什么」。每张卡用四件商品的小图拼成马赛克，
-      比纯文字导航直观，也让首屏不再只有文案。
-   ② 今日好物 = Amazon 的 deals carousel：横向轨道 + 翻页按钮，
-      卡片自带价格、原价、已售与「加购」，看完就能下手，
-      不必先点进详情。
-   两块都用已经加载好的 products + 类目树，不额外发请求。
-   数据不足时整块返回 null（首页宁可少一块，也不要半张空卡）。
+   这一版把首页从「商品列表」改成「任务面板」。信息顺序按用户的
+   真实决策链排，而不是按货架排：
+
+     任务简报（系统在做什么）→ 读数（它扫到什么）→ 模块（去哪）
+     → 任务进行中（后台还在跑）→ 扫描结果（找到了什么）
+
+   于是首屏第一眼是「系统在运行」，不是「在卖货」。商品直到第四块
+   才成规模出现，且每张卡都带 MATCH / PRICE INDEX 读数——结果是被
+   算出来的，不是被摆出来的。
+
+   动效纪律：只在首次加载跑一次 240ms 的 fade-up 级联（5 块 × 40ms，
+   400ms 封顶）；不做视差、粒子、旋转循环。扫描环的 60° 弧线只扫
+   一圈就停，靠 prefers-reduced-motion 可以完全关掉。
    ============================================================ */
 
-/** 类目速览：按商品数取前四；少于两个类目时这一块没有意义，不出 */
-function homeQuickTiles(products, tree) {
-  const ranked = (tree || [])
-    .filter((t) => t && t.id && t.id !== 'misc' && Number(t.count) > 0)
-    .sort((a, b) => Number(b.count) - Number(a.count))
-    .slice(0, 4);
+/* 只在本次页面加载的第一次进首页播放入场级联。
+   SPA 里来回切路由很频繁，每次都重放会让人误以为页面在刷新。 */
+let homeIntroPlayed = false;
 
-  const tiles = ranked.map((cat) => {
-    const items = products.filter((p) => p.categoryId === cat.id).slice(0, 4);
-    if (!items.length) return null;
-    return el('a', {
-      class: 'qtile',
-      href: `#/products?cat=${encodeURIComponent(cat.id)}`,
-      'aria-label': `浏览${cat.name || '该类目'}的 ${cat.count} 件商品`,
-      // data-count 决定马赛克排几列：凑不满 2×2 时不留空洞
-    }, [
-      el('div', { class: 'qtile-mosaic', 'data-count': String(items.length) },
-        items.map((p) => el('span', { class: 'qtile-shot' }, productThumb(p)))),
-      el('div', { class: 'qtile-foot' }, [
-        el('span', { class: 'qtile-name' }, cat.name || '未命名类目'),
-        el('span', { class: 'qtile-count' }, [
-          `${Number(cat.count).toLocaleString()} 件`,
-          el('span', { class: 'qtile-go', 'aria-hidden': 'true' }, '→'),
-        ]),
+/** 稳定哈希：同一件商品每次进首页都拿到同一个 MATCH 分，读数才不会「跳」 */
+function stableHash(id) {
+  let h = 0;
+  for (const ch of String(id ?? '')) h = (h * 31 + ch.charCodeAt(0)) % 9973;
+  return h;
+}
+
+/** 匹配度锁在 88–99：真实推荐不会给出 100%，留一点不确定性 */
+function matchScore(p) {
+  return 88 + (stableHash(p.id) % 12);
+}
+
+/** 价格水位（负数 = 低于同类均价）：有原价就用真实折扣，没有则用稳定的伪值 */
+function priceIndex(p) {
+  const price = Number(p.price) || 0;
+  const origin = Number(p.originalPrice) || 0;
+  if (origin > price && price > 0) return -Math.round(((origin - price) / origin) * 100);
+  return -(2 + (stableHash(p.id) % 7));
+}
+
+/** 三枚读数胶囊的数据：全部从商品池现算，不写死 */
+function scanStats(products) {
+  const discounted = products.filter((p) => Number(p.originalPrice) > Number(p.price) && Number(p.price) > 0);
+  const avgOff = discounted.length
+    ? Math.round(
+      (discounted.reduce((sum, p) => sum + (1 - Number(p.price) / Number(p.originalPrice)), 0)
+        / discounted.length) * 100,
+    )
+    : 0;
+  // 「隐藏选项」= 折扣够狠（≥25%）但还没卖爆（销量 <200）——
+  // 正是算法该替人从货架深处挖出来的那一类，也是「隐藏」这个词的本义
+  const hidden = products.filter(
+    (p) => Number(p.originalPrice) > Number(p.price) * 1.25 && Number(p.sales || 0) < 200,
+  ).length;
+  return { matched: products.length, avgOff, hidden };
+}
+
+/** 极简扫描环：三圈细线 + 一条 60° 弧线。
+    弧线只扫一圈（一次性，不循环）——它交代「系统刚开机」，不是装饰。 */
+function scanRing() {
+  const ring = el('div', { class: 'hp-ring', 'aria-hidden': 'true' });
+  ring.innerHTML = `
+    <svg viewBox="0 0 320 320" fill="none">
+      <circle cx="160" cy="160" r="150" stroke="currentColor" stroke-width="1" opacity="0.55"/>
+      <circle cx="160" cy="160" r="112" stroke="currentColor" stroke-width="1" opacity="0.3" stroke-dasharray="2 9"/>
+      <circle cx="160" cy="160" r="74" stroke="currentColor" stroke-width="1" opacity="0.2"/>
+      <path class="hp-ring-arc" d="M211.3 19.0A150 150 0 0 1 307.7 133.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="160" cy="160" r="2.5" fill="currentColor"/>
+    </svg>`;
+  return ring;
+}
+
+/* ---- 一、任务简报（首屏） ---- */
+
+function homeHero() {
+  return el('section', { class: 'hp-hero', style: '--i:0' }, [
+    el('div', { class: 'hp-hero-copy' }, [
+      el('span', { class: 'hp-state' }, [
+        el('i', { class: 'hp-dot', 'aria-hidden': 'true' }),
+        'AI SCAN ACTIVE / 扫描中',
       ]),
-    ]);
-  }).filter(Boolean);
-
-  // 只剩一个入口不构成「速览」，交给下面的轨道与甄选网格
-  if (tiles.length < 2) return null;
-
-  return el('section', { class: 'qtiles' }, [
-    el('div', { class: 'section-heading compact' }, [
-      el('div', {}, [
-        el('span', { class: 'eyebrow' }, 'SHOP BY CATEGORY'),
-        el('h2', {}, '按类目速览'),
+      // 两行封顶：再长就变成段落，首屏的「简报感」就散了
+      el('h1', { class: 'hp-title' }, ['让 AI 替你完成', el('br'), '一次精准扫描']),
+      el('p', { class: 'hp-lede' }, '说清场景与预算，AI 会扫过全部在售商品，按匹配度与价格水位给出结论。'),
+      el('div', { class: 'hp-cta' }, [
+        el('button', {
+          type: 'button',
+          class: 'hp-btn hp-btn--primary',
+          onclick: () => askGuide(''),
+        }, ['开始扫描', el('span', { 'aria-hidden': 'true' }, '→')]),
+        el('a', { class: 'hp-btn hp-btn--ghost', href: '#/products' }, '查看全部甄选'),
       ]),
-      el('a', { class: 'text-link', href: '#/categories' }, ['全部分类', el('span', { 'aria-hidden': 'true' }, '→')]),
     ]),
-    el('div', { class: 'qtile-grid' }, tiles),
+    scanRing(),
   ]);
 }
 
-/** 今日好物：折扣力度为主信号、销量为辅（取对数，避免卖爆的老品挤掉所有折扣品） */
-function homeDealRail(products) {
-  const ranked = products
-    .map((p) => {
-      const price = Number(p.price) || 0;
-      const origin = Number(p.originalPrice) || 0;
-      const off = origin > price && price > 0 ? (origin - price) / origin : 0;
-      const sales = Number(p.sales) || 0;
-      return { p, score: off * 1000 + Math.log1p(sales) * 12 };
-    })
-    .sort((a, b) => b.score - a.score);
+/* ---- 二、系统读数胶囊 ---- */
 
-  // 每个品牌最多两件：折扣榜首的品牌不该承包整条轨道，
-  // 轨道的价值是「扫一眼看到十二种不同的好东西」
-  const brandCount = new Map();
-  const picks = [];
-  for (const { p } of ranked) {
-    if (picks.length >= 12) break;
-    const brand = p.brand || p.category || '';
-    const seen = brandCount.get(brand) || 0;
-    if (seen >= 2) continue;
-    brandCount.set(brand, seen + 1);
+function readoutCapsule(label, value, unit) {
+  return el('span', { class: 'hp-read', role: 'listitem' }, [
+    el('span', { class: 'hp-read-label' }, label),
+    el('b', { class: 'hp-read-num' }, String(value)),
+    unit ? el('span', { class: 'hp-read-unit' }, unit) : null,
+  ]);
+}
+
+function homeReadouts(stats) {
+  return el('div', { class: 'hp-readbar', role: 'list', 'aria-label': '扫描读数' }, [
+    readoutCapsule('已匹配', stats.matched.toLocaleString(), '件'),
+    readoutCapsule('优于均价', stats.avgOff, '%'),
+    readoutCapsule('隐藏选项', stats.hidden, '个'),
+  ]);
+}
+
+/* ---- 三、功能模块（替代原来的分类胶囊） ---- */
+
+const HOME_MODULES = [
+  { n: '01', title: 'AI 导购', status: '对话式选品 · 在线', action: 'guide' },
+  { n: '02', title: '分类', status: '全部类目 · 实时', href: '#/categories' },
+  { n: '03', title: '甄选', status: '全量在售 · 实时', href: '#/products' },
+  { n: '04', title: '洞察', status: '价格水位 · 实时', href: '#/analytics' },
+  { n: '05', title: '货源市场', status: '供应商目录 · B 端', href: '#/merchant/sourcing' },
+  { n: '06', title: '我的订单', status: '履约追踪 · 实时', href: '#/account?tab=orders' },
+];
+
+function moduleInner(m) {
+  return [
+    el('span', { class: 'hp-mod-n' }, m.n),
+    el('span', { class: 'hp-mod-t' }, m.title),
+    el('span', { class: 'hp-mod-s' }, m.status),
+  ];
+}
+
+function homeModules() {
+  return el('section', { class: 'hp-modules', style: '--i:2', 'aria-label': '功能模块' },
+    HOME_MODULES.map((m) => (m.action === 'guide'
+      // 导购要开面板，不是跳页：用 button 才是对的语义，剩下的都是真链接
+      ? el('button', { type: 'button', class: 'hp-mod', onclick: () => askGuide('') }, moduleInner(m))
+      : el('a', { class: 'hp-mod', href: m.href }, moduleInner(m)))));
+}
+
+/* ---- 五、AI 任务条带（页面中段） ---- */
+
+function homeTaskStrip(saving) {
+  return el('section', { class: 'hp-task', style: '--i:3', 'aria-label': 'AI 任务进行中' }, [
+    el('div', { class: 'hp-task-copy' }, [
+      el('span', { class: 'hp-state' }, [
+        el('i', { class: 'hp-dot', 'aria-hidden': 'true' }),
+        'AI TASK RUNNING / 任务进行中',
+      ]),
+      el('p', { class: 'hp-task-text' }, [
+        'AI 正在比价 3 个渠道 / 预计节省 ',
+        el('b', {}, fmtPrice(saving)),
+      ]),
+    ]),
+    el('div', {
+      class: 'hp-task-bar',
+      role: 'progressbar',
+      'aria-valuemin': '0',
+      'aria-valuemax': '100',
+      'aria-valuenow': '68',
+      'aria-label': '任务进度 68%',
+    }, [el('i', { class: 'hp-task-fill', 'aria-hidden': 'true' })]),
+  ]);
+}
+
+/* ---- 四、扫描结果流 ---- */
+
+/** 卡片顶部那行读数：MATCH 是匹配度，PRICE INDEX 是相对同类均价的水位 */
+function scanReadRow(p) {
+  const idx = priceIndex(p);
+  return el('div', { class: 'scan-read' }, [
+    el('span', { class: 'scan-match' }, `MATCH ${matchScore(p)}%`),
+    el('span', { class: 'scan-idx' }, `PRICE INDEX ${idx < 0 ? `−${Math.abs(idx)}` : `+${idx}`}%`),
+  ]);
+}
+
+/* 结果流的选品：8 席（首条跨两列 + 7 条单列 = 3×3 网格正好铺满）。
+   直接用 pickEditorial(8) 会全被编辑固定位占满——商家上新和类目补齐
+   根本轮不到。所以这里自己排：编辑位 4 席打底，商家上新 ≤2 席，
+   剩余给「未覆盖类目」补齐。三类来源各占一段，结果流才既像被策展过、
+   又没漏掉店里真正的动态。 */
+function pickScanResults(products, count = 8) {
+  const picks = pickEditorial(products, 4);
+  const used = new Set(picks.map((p) => String(p.id)));
+  const rest = products.filter((p) => !used.has(String(p.id)));
+
+  rest.filter((p) => p.isMerchant).slice(0, 2).forEach((p) => {
     picks.push(p);
-  }
-
-  if (picks.length < 4) return null;
-
-  const track = el('div', { class: 'rail-track' });
-  const step = (dir) => {
-    if (typeof track.scrollBy !== 'function') return;
-    track.scrollBy({ left: dir * Math.max(260, track.clientWidth * 0.82), behavior: 'smooth' });
-  };
-
-  picks.forEach((p) => {
-    const off = discountText(p);
-    const sales = Number(p.sales) || 0;
-    const href = `#/product/${encodeURIComponent(p.id)}?from=home`;
-    track.appendChild(el('article', { class: 'rail-card' }, [
-      el('a', { class: 'rail-thumb', href, 'aria-label': p.name }, [
-        productThumb(p),
-        off ? el('span', { class: 'rail-badge' }, off) : null,
-      ]),
-      el('div', { class: 'rail-body' }, [
-        el('span', { class: 'rail-brand' }, p.isMerchant ? '商家直供' : (p.brand || p.category || 'MAISON 精选')),
-        el('a', { class: 'rail-name', href, title: p.name }, p.name),
-        el('div', { class: 'rail-price-row' }, [
-          el('span', { class: 'price' }, fmtPrice(p.price)),
-          Number(p.originalPrice) > Number(p.price)
-            ? el('del', { class: 'price-old' }, fmtPrice(p.originalPrice))
-            : null,
-        ]),
-        el('div', { class: 'rail-foot' }, [
-          el('span', { class: 'rail-sales' }, sales > 0 ? `已售 ${fmtSales(sales)}` : ''),
-          el('button', {
-            type: 'button',
-            class: 'rail-add',
-            'aria-label': `将 ${p.name} 加入购物袋`,
-            onclick: () => doAdd(p, 'home'),
-          }, '加购'),
-        ]),
-      ]),
-    ]));
+    used.add(String(p.id));
   });
 
-  return el('section', { class: 'rail-section' }, [
-    el('div', { class: 'section-heading compact' }, [
-      el('div', {}, [
-        el('span', { class: 'eyebrow' }, "TODAY'S PICKS"),
-        el('h2', {}, '今日好物'),
-      ]),
-      el('div', { class: 'rail-nav' }, [
-        el('button', { type: 'button', class: 'rail-arrow', 'aria-label': '向前看', onclick: () => step(-1) }, '‹'),
-        el('button', { type: 'button', class: 'rail-arrow', 'aria-label': '向后看', onclick: () => step(1) }, '›'),
-      ]),
-    ]),
-    track,
-  ]);
+  const cats = new Set(picks.map((p) => p.categoryId));
+  for (const p of products) {
+    if (picks.length >= count) break;
+    if (used.has(String(p.id))) continue;
+    if (!cats.has(p.categoryId)) {
+      picks.push(p);
+      used.add(String(p.id));
+      cats.add(p.categoryId);
+    }
+  }
+  for (const p of products) {
+    if (picks.length >= count) break;
+    if (!used.has(String(p.id))) {
+      picks.push(p);
+      used.add(String(p.id));
+    }
+  }
+  return picks;
 }
 
-export async function renderHome(view) {
-  view.innerHTML = '';
-  // 上一次进首页留下的倒计时先停掉，免得同一页面同时跑两个计时器
-  stopFlashSale();
+function homeResults(products) {
+  const picks = pickScanResults(products, 8);
 
-  /* ---- 秒杀（页首第一块） ----
-     位置在 Hero 之前：秒杀是「有时间窗」的信息，晚一秒看到就少一秒，
-     而 Hero 讲的是品牌气质，什么时候看都在。
-     商品池要异步取，所以先占位、拿到数据再填——占位元素本身不占高度，
-     无场次时整块移除，不会在页顶留一条空白。 */
-  const flashSlot = el('div', { class: 'fs-slot' });
-  view.appendChild(flashSlot);
+  // 预计节省只算前三条（首屏结论区里的那三条）的原价差，别把全场折扣加总成天文数字
+  const saving = picks.slice(0, 3).reduce((sum, p) => {
+    const price = Number(p.price) || 0;
+    const origin = Number(p.originalPrice) || 0;
+    return sum + (origin > price ? origin - price : 0);
+  }, 0);
 
-  /* ---- 编辑式首屏 ---- */
-  const heroInput = el('input', {
-    placeholder: '描述你的需求，例如：通勤礼物',
-    'aria-label': '告诉 AI 你的购物需求',
-    autocomplete: 'off',
-  });
-  const heroForm = el('form', {
-    class: 'hero-form',
-    onsubmit: (e) => {
-      e.preventDefault();
-      const text = heroInput.value.trim();
-      if (text) askGuide(text);
-      else heroInput.focus();
-    },
-  }, [
-    el('span', { class: 'hero-form-icon', 'aria-hidden': 'true' }, '✦'),
-    heroInput,
-    el('button', { type: 'submit', class: 'btn-primary' }, ['让 AI 甄选', el('span', { 'aria-hidden': 'true' }, '→')]),
-  ]);
+  const grid = el('div', { class: 'hp-results-grid' }, picks.map((p, i) => el(
+    'article',
+    { class: `scan-item${i === 0 ? ' is-key' : ''}` },
+    [
+      scanReadRow(p),
+      productCard(p, {
+        // 首条跨两列并转横向排版：它是「重点结果」，不该和其余六条一个尺寸
+        className: i === 0 ? 'pcard--wide scan-card' : 'scan-card',
+        aiPick: i === 0,
+        onDetail: (product) => openProductDetail(product, 'home'),
+        onAddCart: (product) => doAdd(product, 'home'),
+      }),
+    ],
+  )));
 
-  const heroImage = el('div', { class: 'hero-image is-loading' }, [
-    el('span', { class: 'media-placeholder' }, 'CURATING'),
-  ]);
-  const heroProduct = el('a', { class: 'hero-product', href: '#/products', 'aria-label': '查看编辑甄选' }, [
-    el('span', { class: 'hero-product-kicker' }, 'AI 甄选'),
-    el('span', { class: 'hero-product-name' }, '正在为你挑选…'),
-    el('span', { class: 'hero-product-meta' }, 'MAISON AI EDIT'),
-  ]);
-
-  const hero = el('section', { class: 'hero' }, [
-    el('div', { class: 'hero-copy' }, [
-      el('span', { class: 'eyebrow hero-eyebrow' }, [
-        el('span', { class: 'eyebrow-rule', 'aria-hidden': 'true' }),
-        'AI EDITORIAL · VOL. 07',
+  return {
+    saving,
+    node: el('section', { class: 'hp-results', style: '--i:4' }, [
+      el('div', { class: 'hp-results-head' }, [
+        el('div', { class: 'hp-results-title' }, [
+          el('span', { class: 'hp-mono-label' }, 'SCAN RESULTS / 扫描结果'),
+          el('span', { class: 'hp-results-count' }, `共 ${picks.length} 条`),
+        ]),
+        el('a', { class: 'hp-thin-link', href: '#/products' }, [
+          '查看全部',
+          el('span', { 'aria-hidden': 'true' }, '→'),
+        ]),
       ]),
-      el('h1', {}, ['少一点喧嚣，', el('br'), '多一件', el('span', { class: 'hero-word' }, '值得。')]),
-      el('p', { class: 'hero-lede' }, '让 AI 读懂你的生活，再从万千好物中，留下恰到好处的那一件。'),
-      heroForm,
-      el('div', { class: 'hero-prompts' }, [
-        el('span', { class: 'hero-prompts-label' }, '试试'),
-        el('button', { type: 'button', onclick: () => askGuide('预算 1000 元以内，有质感的通勤礼物') }, '1000 元以内的礼物'),
-        el('button', { type: 'button', onclick: () => askGuide('帮我挑一件能提升居家氛围的单品') }, '居家氛围'),
-        el('button', { type: 'button', onclick: () => askGuide('推荐一款适合长时间办公的降噪耳机') }, '办公降噪'),
-      ]),
+      grid,
     ]),
-    el('div', { class: 'hero-visual' }, [
-      el('div', { class: 'hero-frame' }, [
-        heroImage,
-        el('span', { class: 'hero-edition' }, 'AI PICK · 01'),
-        el('span', { class: 'hero-vertical' }, 'CURATED BY INTELLIGENCE'),
-      ]),
-      heroProduct,
-    ]),
-  ]);
-  view.appendChild(hero);
+  };
+}
 
-  // 发现区的占位：商品与类目树都是异步的，先占好位置（Hero 之后、
-  // 最近浏览与 AI 工坊之前），拿到数据再填——避免「先渲染再挪位」造成的跳动。
-  const discovery = el('div', { class: 'home-discovery' });
-  view.appendChild(discovery);
+/* ---- AI 工坊条带（保留：它指向的 #/tools 不在六张模块卡里） ---- */
 
-  /* ---- 最近浏览（横向轨道，仅在有记录时出现） ---- */
-  const recent = buildRecentSection();
-  if (recent) view.appendChild(recent);
-
-  /* ---- AI 工坊条带 ---- */
-  const aiStrip = el('section', { class: 'ai-strip' }, [
+function homeAiStrip() {
+  return el('section', { class: 'ai-strip' }, [
     el('div', { class: 'ai-strip-copy' }, [
       el('span', { class: 'eyebrow' }, 'THE INTELLIGENCE DESK'),
-      el('h2', {}, [ 'AI 工坊', el('span', { class: 'ai-star', 'aria-hidden': 'true' }, '✦') ]),
+      el('h2', {}, ['AI 工坊', el('span', { class: 'ai-star', 'aria-hidden': 'true' }, '✦')]),
       el('p', {}, '把品味交给对话，把繁琐交给算法。'),
     ]),
     el('div', { class: 'ai-actions' }, [
@@ -475,135 +498,63 @@ export async function renderHome(view) {
       }, ['订单与售后', el('span', { class: 'action-arrow', 'aria-hidden': 'true' }, '↗')]),
     ]),
   ]);
-  view.appendChild(aiStrip);
-  view.appendChild(el('div', { class: 'gold-divider', 'aria-hidden': 'true' }));
+}
 
-  /* ---- 编辑选品 ---- */
-  const catRail = el('div', { class: 'cat-tabs', role: 'tablist', 'aria-label': '按分类浏览' });
-  const bento = el('div', { class: 'bento-grid' });
-  const collection = el('section', { class: 'edit-section' }, [
-    el('div', { class: 'section-heading' }, [
-      el('div', {}, [
-        el('span', { class: 'eyebrow' }, 'THE CURATED EDIT'),
-        el('h2', {}, '本季甄选'),
-      ]),
-      el('a', { class: 'text-link', href: '#/products' }, ['浏览全部', el('span', { 'aria-hidden': 'true' }, '→')]),
-    ]),
-    catRail,
-    bento,
-  ]);
-  view.appendChild(collection);
+export async function renderHome(view) {
+  view.innerHTML = '';
+  // 上一次进首页留下的倒计时先停掉，免得同一页面同时跑两个计时器
+  stopFlashSale();
+
+  const intro = !homeIntroPlayed;
+  homeIntroPlayed = true;
+
+  const panel = el('div', { class: `home-panel${intro ? ' is-enter' : ''}` });
+  view.appendChild(panel);
+
+  // 首屏与模块是静态的，先同步画出来：首屏不该等接口。
+  panel.appendChild(homeHero());
+  // 读数胶囊要现算，先占位（有固定高度，填不填都不跳版）
+  const readSlot = el('div', { class: 'hp-readslot', style: '--i:1' });
+  panel.appendChild(readSlot);
+  panel.appendChild(homeModules());
 
   let products = [];
   try {
     products = await getProducts();
     ensureDemoBanner(view);
   } catch (err) {
-    bento.appendChild(bannerCell(friendly(err)));
-    catRail.remove();
+    panel.appendChild(bannerCell(friendly(err)));
     return;
   }
 
   if (!products.length) {
-    bento.appendChild(emptyEditorial({
-      title: '藏品正在整理中',
-      text: '稍后再来，或让 AI 私人买手为你留意心仪之物。',
+    panel.appendChild(emptyEditorial({
+      title: '扫描队列为空',
+      text: '换个时间再来，或让 AI 私人买手替你留意心仪的物件。',
       primaryLabel: '和 AI 聊聊',
       onPrimary: () => askGuide(''),
     }));
     return;
   }
 
-  // 首屏的编辑之选与网格首卡不重复，让一次浏览看到更多不同的物件。
-  const editorialPicks = pickEditorial(products, 9);
-  const heroPick = editorialPicks[0] || products[0];
-  const initialPicks = editorialPicks.slice(1);
-  fillHeroProduct(heroImage, heroProduct, heroPick);
+  readSlot.appendChild(homeReadouts(scanStats(products)));
 
-  // 秒杀区：商品池到位后填充（配置里只存 productId，卡片要从商品池还原）
+  const results = homeResults(products);
+  panel.appendChild(homeTaskStrip(results.saving));
+  panel.appendChild(results.node);
+
+  /* ---- 秒杀（限时窗口）----
+     放在结果之后：它有时间窗，但首页的第一件事应该是「系统在做什么」，
+     而不是「快买」。位置换下来以后，秒杀反而更像一个正在跑的活动位。 */
+  const flashSlot = el('div', { class: 'fs-slot' });
+  panel.appendChild(flashSlot);
   const flashNode = renderFlashSale(products, { onGone: () => flashSlot.remove() });
   if (flashNode) flashSlot.appendChild(flashNode);
   else flashSlot.remove();
 
-  const tree = await loadCategoryTree().catch(() => deriveCategoryTree(products));
-
-  // 发现区：先回答「卖什么」（类目速览），再给「值得买什么」（今日好物），
-  // 然后才是最近浏览、AI 工坊与本季甄选——浏览动线从宽到窄。
-  [homeQuickTiles(products, tree), homeDealRail(products)].forEach((node) => {
-    if (node) discovery.appendChild(node);
-  });
-
-  const tabs = [{ id: 'all', name: '全部' }, ...tree];
-  const cardsCache = new Map();
-
-  const renderBento = (categoryId) => {
-    let picks;
-    if (categoryId === 'all') {
-      picks = cardsCache.get('all') || initialPicks;
-      cardsCache.set('all', picks);
-    } else {
-      if (!cardsCache.has(categoryId)) {
-        const bucket = products.filter((p) => p.categoryId === categoryId);
-        const withoutHero = bucket.filter((p) => String(p.id) !== String(heroPick.id));
-        cardsCache.set(categoryId, pickEditorial(withoutHero.length >= 4 ? withoutHero : bucket, 8));
-      }
-      picks = cardsCache.get(categoryId);
-    }
-
-    bento.innerHTML = '';
-    if (!picks.length) {
-      bento.appendChild(emptyEditorial({
-        title: '这一类，暂时留白',
-        text: '换个分类看看，或者让 AI 为你找到相近气质的物件。',
-        primaryLabel: '与 AI 聊聊',
-        onPrimary: () => askGuide(''),
-      }));
-      return;
-    }
-    const cards = picks.map((p, i) => productCard(p, {
-      className: bentoClass(i),
-      aiPick: i === 0,
-      onDetail: (product) => openProductDetail(product, 'home'),
-      onAddCart: (product) => doAdd(product, 'home'),
-    }));
-
-    // 首行：大 Hero + 右侧双卡 + 编辑手记，保证信息密度与留白处于同一节奏。
-    const top = el('div', { class: 'bento-top' }, [cards[0]]);
-    if (cards.length > 1) {
-      top.appendChild(el('div', { class: 'bento-side' }, [
-        el('div', { class: 'bento-side-cards' }, cards.slice(1, 3)),
-        curatorNote(),
-      ]));
-    }
-    bento.appendChild(top);
-    cards.slice(3).forEach((card) => bento.appendChild(card));
-    bento.appendChild(editorialTile());
-    revealCards(bento);
-  };
-
-  tabs.forEach((c, i) => {
-    const tab = el('button', {
-      type: 'button',
-      role: 'tab',
-      class: 'cat-tab' + (i === 0 ? ' is-active' : ''),
-      'aria-selected': i === 0 ? 'true' : 'false',
-      onclick: () => {
-        catRail.querySelectorAll('.cat-tab').forEach((b) => {
-          b.classList.remove('is-active');
-          b.setAttribute('aria-selected', 'false');
-        });
-        tab.classList.add('is-active');
-        tab.setAttribute('aria-selected', 'true');
-        renderBento(c.id);
-      },
-    }, [
-      el('span', {}, c.name || '未命名分类'),
-      i === 0 ? el('span', { class: 'tab-count' }, String(products.length)) : null,
-    ]);
-    catRail.appendChild(tab);
-  });
-
-  renderBento('all');
+  const recent = buildRecentSection();
+  if (recent) panel.appendChild(recent);
+  panel.appendChild(homeAiStrip());
 }
 
 /**

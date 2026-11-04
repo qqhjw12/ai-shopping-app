@@ -11537,3 +11537,456 @@ time {
     opacity: 1;
   }
 }
+
+/* ============================================================
+   首页 · 全息任务面板（.hp-*）
+   ------------------------------------------------------------
+   这一版首页的视觉重心从「商品图」挪到「系统正在运行」：
+   等宽读数、编号、细线、状态点承担叙事，商品图退到第四块之后。
+
+   三条纪律写在样式里，不靠记性：
+     ① 卡片只有描边会变（hover → cyan-line，150ms），不位移不发光；
+     ② 青色只用在「信号」上（状态点 / 读数数字 / 主按钮 / MATCH / 进度），
+        绝不做大面积填充；
+     ③ 动效只有一次 fade-up 级联 + 一次扫描环扫掠，没有任何循环。
+   ============================================================ */
+
+.home-panel { display: block; }
+
+/* ---- 一、任务简报 ---- */
+
+.hp-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 48px;
+  padding: 34px 0 34px;
+}
+
+.hp-hero-copy { position: relative; z-index: 1; min-width: 0; }
+
+/* 状态行：6px 呼吸点 + 等宽小字。呼吸只动 opacity——
+   缩放会让 6px 的点在小数像素上发虚，还会连带触发布局外扩。 */
+.hp-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-cyan);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.hp-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-cyan);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+  animation: hp-breath 2.4s ease-in-out infinite;
+}
+@keyframes hp-breath {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.hp-title {
+  margin: 16px 0 0;
+  color: var(--color-text-primary);
+  font-family: var(--sans);
+  font-size: clamp(42px, 4.2vw, 56px);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+.hp-lede {
+  max-width: 34em;
+  margin: 16px 0 0;
+  color: var(--color-text-muted);
+  font-size: 15.5px;
+  line-height: 1.65;
+}
+
+.hp-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.hp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 12px;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 180ms var(--ease), background 180ms var(--ease), border-color 180ms var(--ease);
+}
+
+.hp-btn--primary {
+  border: 1px solid transparent;
+  background: var(--color-cyan);
+  color: var(--color-void);
+  font-weight: 600;
+}
+.hp-btn--primary:hover { transform: translateY(-1px); background: #4bdcf2; }
+.hp-btn--primary:active { transform: translateY(0); }
+
+.hp-btn--ghost {
+  border: 1px solid var(--color-cyan-line);
+  background: transparent;
+  color: var(--color-cyan);
+}
+.hp-btn--ghost:hover { border-color: var(--color-cyan); background: var(--color-cyan-dim); }
+
+/* 扫描环：2–3 圈细线 + 一条 60° 弧线，整体压到 26% 不透明度。
+   它只做背景景深，不参与任何信息表达——所以 aria-hidden 且不发光。 */
+.hp-ring {
+  justify-self: end;
+  width: clamp(220px, 24vw, 320px);
+  aspect-ratio: 1;
+  color: var(--color-cyan);
+  opacity: 0.26;
+  pointer-events: none;
+}
+.hp-ring > svg { display: block; width: 100%; height: 100%; }
+
+/* 弧线只扫一圈（一次性 1.4s，不循环）：交代「刚开机」，之后保持静止 */
+.hp-ring-arc {
+  transform-box: view-box;
+  transform-origin: 160px 160px;
+  animation: hp-sweep 1.4s var(--ease) both;
+}
+@keyframes hp-sweep {
+  from { transform: rotate(-70deg); }
+  to { transform: rotate(290deg); }
+}
+
+/* ---- 二、系统读数胶囊 ---- */
+
+.hp-readslot { min-height: 42px; }
+
+.hp-readbar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding-bottom: 34px;
+}
+
+.hp-read {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  flex: none;
+  padding: 8px 14px;
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: 10px;
+  background: var(--color-surface-1);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.hp-read-num {
+  color: var(--color-cyan);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.hp-read-unit { color: var(--color-text-muted); }
+
+/* ---- 三、功能模块卡 ---- */
+
+.hp-modules {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding-bottom: 34px;
+}
+
+.hp-mod {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  width: 100%;
+  padding: 20px;
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: 16px;
+  background: var(--color-surface-1);
+  font-family: var(--sans);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  appearance: none;
+  /* 只过渡描边：位移和阴影会让 6 张卡在鼠标划过时集体「抖」一下 */
+  transition: border-color 150ms var(--ease);
+}
+.hp-mod:hover { border-color: var(--color-cyan-line); }
+
+.hp-mod-n {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.hp-mod-t {
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.hp-mod-s {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ---- 五、AI 任务条带 ---- */
+
+.hp-task {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 34px;
+  padding: 18px 22px;
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: 12px;
+  background: var(--color-surface-1);
+}
+
+.hp-task-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+.hp-task-text {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+.hp-task-text b {
+  color: var(--color-cyan);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 1px 细线进度条：已完成段青，未完成段发丝线。
+   一次性 600ms 走进来，之后静止——无限循环会变成另一块「在动的东西」。 */
+.hp-task-bar {
+  position: relative;
+  flex: none;
+  width: 160px;
+  height: 1px;
+  background: var(--color-hairline-dark);
+}
+
+.hp-task-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  background: var(--color-cyan);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: hp-fill 600ms var(--ease) 200ms both;
+}
+@keyframes hp-fill {
+  to { transform: scaleX(0.68); }
+}
+
+/* ---- 四、扫描结果流 ---- */
+
+.hp-results { padding-bottom: 44px; }
+
+.hp-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--color-hairline-dark);
+}
+
+.hp-results-title { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+
+.hp-mono-label {
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.hp-results-count { color: var(--color-text-muted); font-family: var(--font-mono); font-size: 10.5px; }
+
+.hp-thin-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 150ms var(--ease);
+}
+.hp-thin-link:hover { color: var(--color-cyan); }
+
+.hp-results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* 卡片外壳由 .scan-item 提供，内层 .pcard 的描边/底色/圆角全部让位——
+   否则会出现「卡片里套一张卡片」的双层边框。 */
+.scan-item {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: 16px;
+  background: var(--color-surface-1);
+  transition: border-color 150ms var(--ease);
+}
+.scan-item:hover { border-color: var(--color-cyan-line); }
+
+/* 首条结果是重点：跨两列 + 横向排版（图左文右），和其余六条拉开层级 */
+.scan-item.is-key { grid-column: span 2; }
+
+.scan-item > .pcard {
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: none;
+}
+.scan-item > .pcard:hover { transform: none; box-shadow: none; }
+.scan-item > .pcard .thumb { aspect-ratio: 4 / 3; }
+.scan-item > .pcard--wide .thumb { aspect-ratio: auto; height: 100%; }
+
+/* 卡片顶部读数行：MATCH 用信号青（结论），PRICE INDEX 用 muted（参考项） */
+.scan-read {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-hairline-dark);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.scan-match { color: var(--color-cyan); }
+.scan-idx { color: var(--color-text-muted); }
+
+/* ---- 六、入场级联：只在首次加载跑一次 ----
+   5 块 × 40ms + 240ms = 400ms 封顶。之后进出路由不再重放。 */
+.home-panel.is-enter .hp-hero,
+.home-panel.is-enter .hp-readslot,
+.home-panel.is-enter .hp-modules,
+.home-panel.is-enter .hp-task,
+.home-panel.is-enter .hp-results {
+  animation: hp-up 240ms var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+@keyframes hp-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---- 平板 / 移动 ---- */
+
+@media (max-width: 1024px) {
+  .hp-hero { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 28px 0 26px; }
+  /* 单栏时扫描环退到背景层：它不承担信息，不该占掉首屏的竖向空间 */
+  .hp-ring {
+    position: absolute;
+    right: -40px;
+    top: 6px;
+    width: 210px;
+    opacity: 0.18;
+  }
+  .hp-hero { position: relative; overflow: hidden; }
+  .hp-readbar { padding-bottom: 26px; }
+  .hp-modules { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-bottom: 26px; }
+  .hp-results-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hp-thin-link { font-size: 11.5px; }
+}
+
+@media (max-width: 620px) {
+  .hp-hero { padding: 22px 0 20px; }
+  .hp-title { font-size: clamp(30px, 7.6vw, 34px); letter-spacing: -0.01em; }
+  .hp-lede { font-size: 14px; margin-top: 13px; }
+  .hp-cta { margin-top: 20px; gap: 8px; }
+  .hp-btn { flex: 1 1 auto; min-height: 48px; padding: 0 16px; font-size: 12.5px; }
+  .hp-ring { right: -56px; top: 0; width: 168px; opacity: 0.15; }
+
+  /* 读数胶囊：横向滚动不换行，靠左右负边距贴到容器边缘，
+     滚动区才不会被 padding 截断（否则最后一个胶囊永远差一截）。 */
+  .hp-readbar {
+    overflow-x: auto;
+    margin-inline: -16px;
+    padding-inline: 16px;
+    padding-bottom: 22px;
+    scrollbar-width: none;
+  }
+  .hp-readbar::-webkit-scrollbar { display: none; }
+  .hp-read { padding: 7px 12px; font-size: 11.5px; }
+
+  .hp-modules { gap: 10px; padding-bottom: 22px; }
+  .hp-mod { padding: 16px; gap: 5px; }
+  .hp-mod-t { font-size: 15px; }
+  .hp-mod-s { font-size: 11px; }
+
+  .hp-task { flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px; margin-bottom: 26px; }
+  .hp-task-text { font-size: 13px; }
+  .hp-task-bar { width: 100%; }
+
+  .hp-results { padding-bottom: 34px; }
+  .hp-results-head { align-items: baseline; }
+  .hp-mono-label { font-size: 10px; letter-spacing: 0.1em; }
+
+  /* 单列时 is-key 的 span 2 会硬撑出第二列 → 必须收回自动 */
+  .hp-results-grid { grid-template-columns: minmax(0, 1fr); }
+  .scan-item.is-key { grid-column: auto; }
+  .scan-item > .pcard--wide { display: flex; flex-direction: column; }
+  .scan-item > .pcard--wide .thumb { aspect-ratio: 4 / 3; height: auto; }
+  .scan-read { font-size: 10px; padding: 7px 11px; }
+}
+
+/* ---- 减少动效：全部停掉，读数照常 ---- */
+@media (prefers-reduced-motion: reduce) {
+  .hp-dot { animation: none; opacity: 1; }
+  .hp-ring-arc { animation: none; }
+  .hp-task-fill { animation: none; transform: scaleX(0.68); }
+  .home-panel.is-enter .hp-hero,
+  .home-panel.is-enter .hp-readslot,
+  .home-panel.is-enter .hp-modules,
+  .home-panel.is-enter .hp-task,
+  .home-panel.is-enter .hp-results {
+    animation: none;
+  }
+  .hp-btn,
+  .hp-mod,
+  .scan-item,
+  .hp-thin-link {
+    transition: none;
+  }
+  .hp-btn--primary:hover { transform: none; }
+}
