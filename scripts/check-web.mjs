@@ -2475,6 +2475,66 @@ if (failed === 0) {
     console.log(`  ${badHud.length === 0 ? 'ok  ' : 'FAIL'} 全局 HUD 框架层（状态栏/角标/分隔线）${badHud.length ? ` → 缺失: ${badHud.join('、')}` : ''}`);
     if (badHud.length) failed++;
 
+    /* ---- AI 助手升级（触发器 / 面板 / 反馈）----
+     * 触发器 48px 圆形（几何细线符号 + 外圈细环）、面板 380–420px 上浮 + 一次性扫线、
+     * 状态行 + 44px 关闭热区、扫描过程系统消息（750ms 三行 + 指示器只转一轮）、
+     * MATCH 商品卡带数量步进器与加购、数字等宽、移动端底部抽屉让位吸底栏、
+     * reduced-motion 降级、背景滚动锁。 */
+    const aiSrc = readFileSync(dir('assistant.js'), 'utf8');
+    const aiCases = [
+      ['触发器：48px 圆形 + surface-1 底 + cyan-line 边 + :active 缩放',
+        /\.ai-fab \{[^}]*width: 48px;[^}]*height: 48px/.test(cssSrc)
+        && /\.ai-fab \{[^}]*border: 1px solid var\(--color-cyan-line\)/.test(cssSrc)
+        && /\.ai-fab \{[^}]*background: var\(--color-surface-1\)/.test(cssSrc)
+        && cssSrc.includes('.ai-fab:active { transform: scale(0.96); }')
+        && htmlSrc.includes('ai-fab-glyph')],
+      ['外圈 1px 青色细环，打开面板时透明度提高',
+        /\.ai-fab::after \{[^}]*border: 1px solid var\(--color-cyan\)/.test(cssSrc)
+        && cssSrc.includes('.ai-widget.is-open .ai-fab::after { opacity: 0.85; }')],
+      ['面板：380–420px + surface-1 + border-glow + 16px 圆角 + 160ms 上浮',
+        /\.ai-panel \{[^}]*width: 400px;/.test(cssSrc)
+        && /\.ai-panel \{[^}]*border: 1px solid var\(--color-border-glow\)/.test(cssSrc)
+        && /\.ai-panel \{[^}]*border-radius: 16px;/.test(cssSrc)
+        && cssSrc.includes('animation: ai-panel-in 0.16s var(--ease) both;')
+        && cssSrc.includes('transform: translateY(8px) scale(0.98);')],
+      ['一次性扫线：300ms 从左到右，不循环', cssSrc.includes('animation: ai-sweep-run 0.3s ease-out 0.05s both;') && htmlSrc.includes('ai-sweep')],
+      ['顶部状态行：6px 青点 + AI ASSISTANT / 在线（等宽 11px）+ 44px 关闭热区',
+        htmlSrc.includes('ai-status-text') && htmlSrc.includes('AI ASSISTANT / <b>在线</b>')
+        && /\.ai-status-dot \{[^}]*width: 6px;[^}]*height: 6px/.test(cssSrc)
+        && /\.ai-close \{[^}]*width: 44px;[^}]*height: 44px/.test(cssSrc)],
+      ['扫描过程系统消息：750ms 三行读数 + 指示器只转一轮后隐藏',
+        aiSrc.includes('function scanFeedback') && aiSrc.includes('扫描 ${catalogSize().toLocaleString(\'en-US\')} 件商品')
+        && aiSrc.includes("'交叉比价中'") && aiSrc.includes("'过滤 3 个维度'")
+        && cssSrc.includes('animation: ai-spin-once 0.75s linear 1 both;')
+        && cssSrc.includes('.ai-sys-spin.is-done { display: none; }')],
+      ['MATCH 商品卡：顶部等宽 AI MATCH + 数量步进器 + 加购按钮',
+        aiSrc.includes('AI MATCH ${aiMatch(p)}%') && aiSrc.includes("class: 'mc-add'")
+        && aiSrc.includes("class: 'mc-stepper'") && aiSrc.includes('addToCart(p, qty)')
+        && cssSrc.includes('.mc-match {')],
+      ['AI 消息 surface-2 底左对齐、用户消息右对齐；数字等宽',
+        /\.ai-msg\.bot \{[^}]*background: var\(--color-surface-2\)/.test(cssSrc)
+        && /\.ai-msg\.user \{[^}]*align-self: flex-end/.test(cssSrc)
+        && aiSrc.includes('function monoNumbers') && cssSrc.includes('.mono-num {')],
+      ['输入框：void 底 + hairline 边 + focus 变青 + 青色光标 + 48px 高',
+        /\.ai-input-row input \{[^}]*height: 48px;/.test(cssSrc)
+        && /\.ai-input-row input \{[^}]*background: var\(--color-void\)/.test(cssSrc)
+        && /\.ai-input-row input \{[^}]*caret-color: var\(--color-cyan\)/.test(cssSrc)
+        && cssSrc.includes('.ai-input-row input:focus { border-color: var(--color-cyan); outline: none; }')],
+      ['移动端：全宽底部抽屉 80vh + 顶部圆角 + 吸底栏让位',
+        /\.ai-panel \{\n    position: fixed;\n    left: 0;\n    right: 0;\n    bottom: 0;/.test(cssSrc)
+        && cssSrc.includes('max-height: 80vh;') && cssSrc.includes('border-radius: 16px 16px 0 0;')
+        && cssSrc.includes('body:has(.pdp-page) .ai-panel { bottom: calc(78px + env(safe-area-inset-bottom)); }')
+        && cssSrc.includes('.ai-fab { width: 44px; height: 44px; }')],
+      ['降级与纪律：背景滚动锁 + Esc 关闭 + reduced-motion 只做 opacity',
+        aiSrc.includes("document.body.classList.add('no-scroll')")
+        && aiSrc.includes("e.key === 'Escape'")
+        && cssSrc.includes('.ai-panel { animation-name: ai-fade; animation-duration: 0.16s; }')
+        && cssSrc.includes('.ai-sweep { display: none; }')],
+    ];
+    const badAi = aiCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badAi.length === 0 ? 'ok  ' : 'FAIL'} AI 助手升级（触发器/面板/扫描反馈/MATCH 卡）${badAi.length ? ` → 缺失: ${badAi.join('、')}` : ''}`);
+    if (badAi.length) failed++;
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);

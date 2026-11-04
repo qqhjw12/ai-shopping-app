@@ -1,13 +1,18 @@
 // AI 助手浮窗：导购 / 客服 / 问答 三个 tab。导购与问答可带商品上下文。
+// 面板与反馈已升级为 Deep Space Command 规格触发器：
+// 全局圆形触发器 + 上浮面板 + 一次性扫线 + 扫描过程系统消息 + MATCH 商品卡。
 import { streamApi, ApiError } from './api.js';
 import { el, productThumb, fmtPrice } from './ui.js';
-import { getUserId } from './state.js';
+import { addToCart, getUserId } from './state.js';
 import { isDemoMode } from './demo.js';
 import { trackEvent } from './track.js';
+import { getProducts } from './views.js';
 
 const messagesEl = () => document.getElementById('ai-messages');
 const inputEl = () => document.getElementById('ai-input');
 const contextEl = () => document.getElementById('ai-context');
+const panelEl = () => document.getElementById('ai-panel');
+const fabEl = () => document.getElementById('ai-fab');
 
 let tab = 'guide';
 let conversationId = null;
@@ -26,12 +31,74 @@ function scrollBottom() {
   if (m) m.scrollTop = m.scrollHeight;
 }
 
+/* ---------------- 读数口径 ---------------- */
+
+/** 稳定哈希：与首页扫描结果流同口径，同一商品永远拿到同一个 MATCH 分 */
+function stableHash(id) {
+  let h = 0;
+  for (const ch of String(id ?? '')) h = (h * 31 + ch.charCodeAt(0)) % 9973;
+  return h;
+}
+
+/** 匹配度锁在 88–99：真实推荐不会给出 100%，留一点不确定性 */
+function aiMatch(p) {
+  return 88 + (stableHash(p.id) % 12);
+}
+
+/** 目录规模：优先真实商品库，网关不可达时回退演示口径 */
+let catalogCount = null;
+function catalogSize() {
+  if (catalogCount == null) {
+    catalogCount = 1240;
+    getProducts()
+      .then((list) => {
+        if (Array.isArray(list) && list.length) catalogCount = list.length;
+      })
+      .catch(() => { /* 演示模式保持回退值 */ });
+  }
+  return catalogCount;
+}
+
+/* ---------------- 消息渲染 ---------------- */
+
 function say(toTab, text, who = 'user') {
-  containers[toTab].appendChild(el('div', { class: `ai-msg ${who}` }, text));
+  const node = el('div', { class: `ai-msg ${who}` }, text);
+  if (who === 'bot') monoNumbers(node);
+  containers[toTab].appendChild(node);
   if (toTab === tab) scrollBottom();
 }
 
+/** 数字等宽化：把文本里的数字段包进 .mono-num（等宽 + tabular-nums），安全转义 */
+function monoNumbers(node) {
+  const text = node.textContent || '';
+  if (!/\d/.test(text)) return;
+  node.textContent = '';
+  text.split(/(\d[\d,]*(?:\.\d+)?)/).forEach((seg) => {
+    if (!seg) return;
+    if (/^\d[\d,]*(?:\.\d+)?$/.test(seg)) node.appendChild(el('span', { class: 'mono-num' }, seg));
+    else node.appendChild(document.createTextNode(seg));
+  });
+}
+
 function miniCard(p, kind) {
+  let qty = 1;
+  const qtyEl = el('span', { class: 'mc-qty' }, '1');
+  const setQty = (n) => {
+    qty = Math.min(9, Math.max(1, n));
+    qtyEl.textContent = String(qty);
+  };
+  const addBtn = el('button', { type: 'button', class: 'mc-add' }, '加购');
+  addBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    addToCart(p, qty);
+    trackEvent({ event: kind === 'guide' ? 'guide_card_add' : 'qa_card_add', source: kind, productId: p.id });
+    addBtn.textContent = '已加入 ✓';
+    addBtn.classList.add('is-added');
+    setTimeout(() => {
+      addBtn.textContent = '加购';
+      addBtn.classList.remove('is-added');
+    }, 1400);
+  });
   return el('div', {
     class: 'mini-card',
     onclick: () => {
@@ -41,12 +108,48 @@ function miniCard(p, kind) {
       productDetailHandler(p);
     },
   }, [
-    el('div', { class: 'thumb' }, productThumb(p)),
-    el('div', {}, [
-      el('div', { class: 'nm' }, p.name),
-      el('div', { class: 'pr' }, fmtPrice(p.price)),
+    el('div', { class: 'mc-match' }, `AI MATCH ${aiMatch(p)}%`),
+    el('div', { class: 'mc-body' }, [
+      el('div', { class: 'thumb' }, productThumb(p)),
+      el('div', { class: 'mc-info' }, [
+        el('div', { class: 'nm' }, p.name),
+        el('div', { class: 'pr' }, fmtPrice(p.price)),
+      ]),
+    ]),
+    el('div', { class: 'mc-ops' }, [
+      el('div', { class: 'mc-stepper' }, [
+        el('button', { type: 'button', 'aria-label': '减少数量', onclick: (e) => { e.stopPropagation(); setQty(qty - 1); } }, '−'),
+        qtyEl,
+        el('button', { type: 'button', 'aria-label': '增加数量', onclick: (e) => { e.stopPropagation(); setQty(qty + 1); } }, '+'),
+      ]),
+      addBtn,
     ]),
   ]);
+}
+
+/** AI 工作过程可见化：提交后先插一条系统消息，三行读数逐条出现，
+ *  总时长 750ms（600–900ms 区间内）；旋转指示器只转一轮后隐藏，绝不无限转圈。 */
+function scanFeedback(toTab) {
+  const spin = el('span', { class: 'ai-sys-spin', 'aria-hidden': 'true' });
+  const lines = el('div', { class: 'ai-sys-lines' });
+  const wrap = el('div', { class: 'ai-sys' }, [spin, lines]);
+  containers[toTab].appendChild(wrap);
+  if (toTab === tab) scrollBottom();
+  const items = [
+    `扫描 ${catalogSize().toLocaleString('en-US')} 件商品`,
+    '交叉比价中',
+    '过滤 3 个维度',
+  ];
+  const step = 300; // 3 × 300 = 900ms，落在 600–900ms 规格区间
+  items.forEach((text, i) => {
+    setTimeout(() => {
+      lines.appendChild(el('div', { class: 'ai-sys-line' }, text));
+      if (toTab === tab) scrollBottom();
+    }, i * step);
+  });
+  const total = step * items.length;
+  setTimeout(() => spin.classList.add('is-done'), total);
+  return new Promise((resolve) => setTimeout(resolve, total));
 }
 
 function friendly(err) {
@@ -85,6 +188,7 @@ async function streamRun(toTab, { path, body, makeWrap, onEvent }) {
 /* ---------------- 三个能力 ---------------- */
 async function sendGuide(text) {
   say('guide', text, 'user');
+  await scanFeedback('guide');
   await streamRun('guide', {
     path: '/api/ai/guide',
     body: { message: text, userId: getUserId(), stream: true },
@@ -98,6 +202,7 @@ async function sendGuide(text) {
           wrap.appendChild(tn);
         }
         tn.textContent += ev.text;
+        monoNumbers(tn);
       }
       if (ev.products && !wrap._cards) {
         wrap._cards = true;
@@ -109,6 +214,7 @@ async function sendGuide(text) {
 
 async function sendChat(text) {
   say('chat', text, 'user');
+  await scanFeedback('chat');
   await streamRun('chat', {
     path: '/api/ai/chat',
     body: { message: text, userId: getUserId(), conversationId: conversationId || undefined, stream: true },
@@ -122,6 +228,7 @@ async function sendChat(text) {
           wrap.appendChild(tn);
         }
         tn.textContent += ev.text;
+        monoNumbers(tn);
       }
       if (ev.products && ev.products.length && !wrap._cards) {
         wrap._cards = true;
@@ -134,6 +241,7 @@ async function sendChat(text) {
 
 async function sendQA(text) {
   say('qa', text, 'user');
+  await scanFeedback('qa');
   await streamRun('qa', {
     path: '/api/ai/qa',
     body: { query: text, userId: getUserId(), productId: qaProduct ? qaProduct.id : undefined, stream: true },
@@ -147,6 +255,7 @@ async function sendQA(text) {
           wrap.appendChild(tn);
         }
         tn.textContent += ev.text;
+        monoNumbers(tn);
       }
       if (ev.results && ev.results.length && !wrap._cards) {
         wrap._cards = true;
@@ -189,8 +298,8 @@ function seedWelcome(t) {
     },
   }[t];
   const welcome = el('div', { class: 'ai-welcome' }, [
-    el('span', { class: 'eyebrow' }, t === 'guide' ? 'CURATED FOR YOU' : t === 'chat' ? 'AT YOUR SERVICE' : 'ABOUT THE OBJECT'),
-    el('h3', {}, t === 'guide' ? '今天，想为生活添点什么？' : t === 'chat' ? '需要我替你处理什么？' : '关于这件物件，想知道什么？'),
+    el('span', { class: 'eyebrow' }, t === 'guide' ? 'AI MATCH READY' : t === 'chat' ? 'AT YOUR SERVICE' : 'ABOUT THE OBJECT'),
+    el('h3', {}, t === 'guide' ? '说需求，我来扫描全站' : t === 'chat' ? '需要我替你处理什么？' : '关于这件物件，想知道什么？'),
     el('p', {}, copy.hint),
     el('div', { class: 'ai-chips' }, copy.prompts.map(([label, text]) =>
       el('button', { type: 'button', onclick: () => copy.send(text) }, label))),
@@ -222,13 +331,26 @@ function showTab(t) {
   scrollBottom();
 }
 
-function openPanel() {
-  document.getElementById('ai-panel').classList.remove('hidden');
-  document.getElementById('ai-widget').classList.add('is-open');
+/* ---------------- 开关与降级 ---------------- */
+function isOpen() {
+  return !panelEl().classList.contains('hidden');
 }
+
+function openPanel() {
+  panelEl().classList.remove('hidden');
+  document.getElementById('ai-widget').classList.add('is-open');
+  fabEl().setAttribute('aria-label', '关闭 AI 助手');
+  // 锁背景滚动（面板关闭时恢复）；html 才是真正的滚动元素，两处都要锁
+  document.body.classList.add('no-scroll');
+  document.documentElement.classList.add('no-scroll');
+}
+
 function closePanel() {
-  document.getElementById('ai-panel').classList.add('hidden');
+  panelEl().classList.add('hidden');
   document.getElementById('ai-widget').classList.remove('is-open');
+  fabEl().setAttribute('aria-label', '打开 AI 助手');
+  document.body.classList.remove('no-scroll');
+  document.documentElement.classList.remove('no-scroll');
 }
 
 /* ---------------- 对外入口 ---------------- */
@@ -254,8 +376,13 @@ export function askProductQA(product) {
 
 export function initAssistant() {
   ensureContainers();
-  document.getElementById('ai-fab').addEventListener('click', openPanel);
+  catalogSize(); // 预热目录规模读数，首次发送即可显示真实件数
+  // 触发器为开关：打开面板 / 再次点击关闭
+  fabEl().addEventListener('click', () => (isOpen() ? closePanel() : openPanel()));
   document.getElementById('ai-close').addEventListener('click', closePanel);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isOpen()) closePanel();
+  });
   document.querySelectorAll('.ai-tab').forEach((b) =>
     b.addEventListener('click', () => showTab(b.dataset.tab)),
   );

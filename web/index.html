@@ -165,18 +165,19 @@
     <!-- 商品详情 / 通用弹窗挂载点 -->
     <div id="modal-root"></div>
 
-    <!-- AI 助手浮窗（导购 / 客服 / 问答） -->
+    <!-- AI 助手浮窗（全局触发器 + 面板：导购 / 客服 / 问答） -->
     <div id="ai-widget" class="ai-widget">
-      <button id="ai-fab" class="ai-fab" aria-label="打开 AI 私人买手">
-        <span class="ai-fab-star" aria-hidden="true">✦</span>
-        <span class="ai-fab-text">AI 买手</span>
+      <button id="ai-fab" class="ai-fab" aria-label="打开 AI 助手">
+        <svg class="ai-fab-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3.5 L13.9 10.1 L20.5 12 L13.9 13.9 L12 20.5 L10.1 13.9 L3.5 12 L10.1 10.1 Z"></path>
+          <circle cx="12" cy="12" r="1.6" stroke-width="1"></circle>
+        </svg>
       </button>
       <div id="ai-panel" class="ai-panel hidden">
-        <div class="ai-header">
-          <div class="ai-heading">
-            <span class="eyebrow">PRIVATE CONCIERGE</span>
-            <strong>AI 私人买手</strong>
-          </div>
+        <span class="ai-sweep" aria-hidden="true"></span>
+        <div class="ai-status">
+          <span class="ai-status-dot" aria-hidden="true"></span>
+          <span class="ai-status-text">AI ASSISTANT / <b>在线</b></span>
           <button id="ai-close" class="ai-close" aria-label="关闭">×</button>
         </div>
         <div class="ai-tabs" role="tablist" aria-label="助手模式">
