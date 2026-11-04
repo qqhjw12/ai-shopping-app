@@ -89,7 +89,7 @@ try {
   await page.locator('#search-input').focus();
   await page.waitForTimeout(260);
   const glow = await page.locator('.search').evaluate((n) => getComputedStyle(n).boxShadow);
-  check('聚焦时外圈有柔和金色光晕', /200,\s*169,\s*110/.test(glow), glow.slice(0, 64));
+  check('聚焦时外圈有柔和信号色光晕（深空令牌后金→青）', /34,\s*211,\s*238/.test(glow), glow.slice(0, 64));
 
   /* 2) 搜索出结果 + URL 带 q */
   const totalAll = await countNum();

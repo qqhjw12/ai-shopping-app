@@ -1,4 +1,48 @@
-# 首页顶部秒杀（Deep Space Command 深空指挥舱）— 交付总览
+# 全站深空令牌（Deep Space Command 底色层）— 交付总览
+
+> 本轮只做三件事：**令牌、底色、基础质感**。不改任何页面结构、不改组件布局、不加业务功能。
+
+## 本轮做了什么
+
+1. **全局令牌**（`web/styles.css` `:root`）：落地全套 `--color-*`（void #07090C /
+   surface-1 #0F141C / surface-2 #141B25 / border-glow / cyan #22D3EE / cyan-dim /
+   cyan-line / text-primary #E8EDF2 / text-muted #8B95A3 / hairline-dark）与 `--font-mono`；
+   圆角沿用 16/12/999；阴影降级为深色两档（card 0 1px 2px + 0 8px 24px、float 0 16px 48px）。
+   旧令牌（--canvas/--surface/--ink/--body/--muted/--gold*/--line*/--glass*）**别名**到新令牌，
+   1800+ 处引用零改写。
+2. **底色与文字**：body = #07090C + 两处极弱青色辉光；卡片/面板 = surface-1；
+   主文字 #E8EDF2、辅助 #8B95A3；无大面积纯黑/纯白。
+3. **网格底纹**：`html::before` 负层级固定层，1px 线 / 32px 周期 / rgba(139,149,163,0.06)
+   / opacity .5 / pointer-events:none——天然在内容之下，不与 sticky 顶栏、抽屉、弹窗打架。
+4. **信号焦点环**：`:root :focus-visible` = outline 1px cyan + offset 2px + cyan-dim 光晕；
+   只随键盘遍历出现，绝不用整块青色填充替代；秒杀区青底主按钮单独换浅色环。
+5. **读数等宽层**：价格/金额/数量/库存/百分比/单号统一 `--font-mono` + `tabular-nums`；
+   属性选择器兜底（排除 `account`——它含 count）；单号/状态/时间小字加 0.02em 字距。
+6. **信号色纪律**：金色系整体退役（--gold → --color-cyan）；普通价格归主文字色，
+   信号青只留给关键价格（详情主价 / 结算应付 / 袋内合计）；状态色（红/绿/蓝）提亮到暗底可读；
+   图表渠道色（views.js SOURCE_META）迁为「AI 渠道青 + 其余灰阶」。
+7. **11k 行硬编码浅色迁移**：按声明属性上下文映射（background→深面板 / border→发丝线 /
+   shadow→黑影或弱白高光 / text→提亮），共改写 409 个规则块、约 560 处颜色；
+   秒杀深空层（已是暗色自洽）整段豁免。
+
+## 验收自检（对应任务要求逐项）
+
+- ✅ 全站底色 #07090C 系、卡片 #0F141C 系（shot-dark.mjs 探针实测 computed style）
+- ✅ Tab 键遍历有青色信号环（实测 brand 链接 outline rgb(34,211,238) + 光晕）
+- ✅ 价格/数字等宽（ui-monospace + tabular-nums），列表数字列对齐
+- ✅ 背景有极淡网格且不抢内容（opacity 0.5 × alpha 0.06 ≈ 3% 灰青）
+- ✅ 现有布局和功能零回归（check-web 全绿 + 全量 e2e 回归 22 套）
+- ✅ 控制台无 JS 错误（pageerror 监听为空；404 为演示模式无网关的预期资源）
+- ✅ 移动端无横向滚动（390px 实测 scrollWidth−innerWidth = 0）
+
+## 已知限制 / 说明
+
+- 商品插画（art.js）保留浅底：它是「内容」不是「chrome」，像电商照片白底，不影响界面质感。
+- 等宽只动字体与字距，不强制 11–12px 字号——避免挤压既有密集布局。
+- 嵌套面板当前统一 surface-1；surface-2 留给组件层步骤按「嵌套升级」逐处使用。
+
+---
+# （上一轮）首页顶部秒杀（Deep Space Command 深空指挥舱）
 
 ## 本轮做了什么
 

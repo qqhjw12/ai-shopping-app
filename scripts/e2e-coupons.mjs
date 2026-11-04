@@ -82,8 +82,8 @@ try {
   check('未登录按钮为「登录后领取」', guestBtn.includes('登录后领取'), guestBtn);
   check('券卡含门槛 / 有效期 / 适用范围',
     /满 ¥\d+ 可用/.test(heroText) && /有效期：领取后 \d+ 天/.test(heroText) && /适用范围：/.test(heroText));
-  check('票券面额用衬线大数字',
-    await page.locator('.cp-ticket-num').first().evaluate((n) => /Playfair|serif/i.test(getComputedStyle(n).fontFamily)));
+  check('票券面额用等宽大数字（深空令牌后衬线→mono 读数）',
+    await page.locator('.cp-ticket-num').first().evaluate((n) => /ui-monospace|Menlo|Consolas|mono/i.test(getComputedStyle(n).fontFamily)));
 
   /* 2) 未登录点领取 → 登录页（redirect 回券中心） */
   await page.locator('.cp-claim').first().click();

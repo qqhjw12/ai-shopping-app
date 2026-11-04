@@ -166,10 +166,10 @@ try {
   // 这笔订单金额较高，所有券都达门槛；这里只保证「若有不可用券，必须写明原因」
   const offCount = await page.locator('.co2-cp.is-off').count();
   check('不可用券写明原因', offCount === 0 || /还差 ¥|已过期|已使用/.test(cpText), `不可用 ${offCount} 张`);
-  check('券卡用金色细边框标示选中',
+  check('券卡用信号色细边框标示选中（深空令牌后金→青）',
     await page.locator('.co2-cp.is-on').evaluate((n) => {
       const c = getComputedStyle(n).borderColor;
-      return /200,\s*169,\s*110/.test(c);
+      return /34,\s*211,\s*238/.test(c);
     }));
 
   /* 9) 备注 + 提交 */

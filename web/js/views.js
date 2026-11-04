@@ -1229,17 +1229,19 @@ export function openProductDetail(p, source) {
 }
 
 // 来源渠道元信息：文案 + 主题色（详情页色条、分享归因、埋点均复用）
+/* 深空令牌下的图表色：AI 渠道用信号青两档，其余是灰阶斜坡。
+   旧的暖沙色是为浅底设计的，在 #07090C 上会读成「金色」，违反单一信号色纪律。 */
 export const SOURCE_META = {
-  home:  { label: '首页精选',     color: '#8C7C64' },
-  list:  { label: '商品列表',     color: '#737973' },
-  search:{ label: '智能搜索',     color: '#A3875B' },
-  guide: { label: 'AI 导购推荐',  color: '#91776A' },
-  rec:   { label: '相关推荐',     color: '#787F76' },
-  qa:    { label: 'AI 问答推荐',  color: '#867A68' },
-  fav:   { label: '收藏夹',       color: '#987D78' },
-  recent:{ label: '最近浏览',     color: '#8A8578' },
-  detail:{ label: '商品详情',     color: '#6D7474' },
-  analytics: { label: '分析看板', color: '#5F6663' },
+  home:  { label: '首页精选',     color: '#8B95A3' },
+  list:  { label: '商品列表',     color: '#77828F' },
+  search:{ label: '智能搜索',     color: '#6E7987' },
+  guide: { label: 'AI 导购推荐',  color: '#22D3EE' },
+  rec:   { label: '相关推荐',     color: '#67717E' },
+  qa:    { label: 'AI 问答推荐',  color: '#1DB4CB' },
+  fav:   { label: '收藏夹',       color: '#9AA4B1' },
+  recent:{ label: '最近浏览',     color: '#8A94A1' },
+  detail:{ label: '商品详情',     color: '#757F8C' },
+  analytics: { label: '分析看板', color: '#616B78' },
 };
 export const SOURCE_LABELS = Object.fromEntries(
   Object.entries(SOURCE_META).map(([k, v]) => [k, v.label]),

@@ -2133,7 +2133,7 @@ if (failed === 0) {
       ['顶栏与页脚都有商家入驻入口', htmlSrc.includes('href="#/merchant/join" data-nav="merchant"') && htmlSrc.includes('<a href="#/merchant/join">商家入驻</a>')],
       ['app.js 注册了招商页与申请页路由', appSrc.includes("path === '/merchant/join'") && appSrc.includes("path === '/merchant/apply'")],
       ['招商页挂 has-merchant-bar（抬 AI 浮窗）', appSrc.includes("body.classList.toggle('has-merchant-bar'")],
-      ['移动端导航胶囊 44px 热区', cssSrc.includes('.nav a.nav-merchant') && /@media \(max-width: 820px\)[\s\S]*height: 44px;\s*\n\s*padding: 0 14px;\s*\n\s*border: 1px solid rgba\(200, 169, 110, 0\.42\)/.test(cssSrc)],
+      ['移动端导航胶囊 44px 热区', cssSrc.includes('.nav a.nav-merchant') && /@media \(max-width: 820px\)[\s\S]*height: 44px;\s*\n\s*padding: 0 14px;\s*\n\s*border: 1px solid rgba\(34, 211, 238, 0\.315\)/.test(cssSrc)],
       ['页内锚点用 scrollIntoView（不写 hash 锚）', mSrc.includes('scrollIntoView') && !mSrc.includes("href: '#mz-flow'") && !mSrc.includes("href: '#join-flow'")],
       ['平台数据真取 /api/stats + 本地现算兜底', mSrc.includes('/api/stats') && mSrc.includes('getProducts()')],
       ['优势区四卡 / 流程五步 / 商家类型 ≥6', mSrc.includes('零成本开店') && (mSrc.match(/t: '/g) || []).length >= 15],
@@ -2358,6 +2358,41 @@ if (failed === 0) {
     const badFs = fsCases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${badFs.length === 0 ? 'ok  ' : 'FAIL'} 首页秒杀（深空指挥舱）${badFs.length ? ` → 缺失: ${badFs.join('、')}` : ''}`);
     if (badFs.length) failed++;
+
+    /* ---- 深空令牌（全局科幻底色层）---- */
+    const dsCases = [
+      ['全套新令牌已入 :root（void/surface/cyan/text/hairline/mono）',
+        cssSrc.includes('--color-void: #07090c') && cssSrc.includes('--color-surface-1: #0f141c')
+        && cssSrc.includes('--color-cyan: #22d3ee') && cssSrc.includes('--color-text-primary: #e8edf2')
+        && cssSrc.includes('--color-hairline-dark: rgba(139, 149, 163, 0.12)') && cssSrc.includes('--font-mono:')],
+      ['旧令牌别名到新令牌（canvas/surface/ink/gold/line）',
+        cssSrc.includes('--canvas: var(--color-void)') && cssSrc.includes('--surface: var(--color-surface-1)')
+        && cssSrc.includes('--ink: var(--color-text-primary)') && cssSrc.includes('--gold: var(--color-cyan)')
+        && cssSrc.includes('--line: var(--color-hairline-dark)')],
+      ['body 深空底（#07090C + 青色微辉光，无暖金残留）',
+        /body \{[^}]*background-color: var\(--canvas\)/.test(cssSrc) && !cssSrc.includes('rgba(250, 249, 246, 0.92)')],
+      ['全局 32px 网格底纹（html::before 负层级，pointer-events none）',
+        cssSrc.includes('html::before') && cssSrc.includes('repeating-linear-gradient(to right, rgba(139, 149, 163, 0.06) 0 1px, transparent 1px 32px)')
+        && /html::before \{[^}]*z-index: -1;[^}]*pointer-events: none/.test(cssSrc)],
+      ['青色信号焦点环（:root :focus-visible，outline + cyan-dim 光晕）',
+        cssSrc.includes(':root :focus-visible') && cssSrc.includes('outline: 1px solid var(--color-cyan) !important')
+        && cssSrc.includes('box-shadow: 0 0 0 3px var(--color-cyan-dim) !important')],
+      ['读数等宽层（价格/金额/计数/单号 → --font-mono + tabular-nums）',
+        cssSrc.includes('font-family: var(--font-mono) !important') && cssSrc.includes('font-variant-numeric: tabular-nums')
+        && cssSrc.includes('[class*="count"]:not([class*="account"])')],
+      ['信号青只留给关键价格（普通价格归主文字色）',
+        cssSrc.includes('.detail-price .price') && cssSrc.includes('color: var(--color-cyan) !important')
+        && cssSrc.includes('.price:not(.price-old):not(.fs-price)')],
+      ['阴影深色适配', cssSrc.includes('--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35)')
+        && cssSrc.includes('--shadow-float: 0 16px 48px rgba(0, 0, 0, 0.5)')],
+      ['金色系退役（styles.css 不再有暖金字面量）',
+        !cssSrc.includes('#c8a96e') && !cssSrc.includes('rgba(200, 169, 110') && !cssSrc.includes('#d2b47b')],
+      ['图表渠道色迁到深空色板（views.js SOURCE_META）',
+        viewsSrc && viewsSrc.includes("guide: { label: 'AI 导购推荐',  color: '#22D3EE' }")],
+    ];
+    const badDs = dsCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badDs.length === 0 ? 'ok  ' : 'FAIL'} 深空令牌（全局科幻底色层）${badDs.length ? ` → 缺失: ${badDs.join('、')}` : ''}`);
+    if (badDs.length) failed++;
 
   } catch (e) {
     failed++;
