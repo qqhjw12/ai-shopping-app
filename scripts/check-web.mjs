@@ -2335,6 +2335,30 @@ if (failed === 0) {
     console.log(`  ${badHome.length === 0 ? 'ok  ' : 'FAIL'} 首页发现区（类目速览 + 今日好物）${badHome.length ? ` → 缺失: ${badHome.join('、')}` : ''}`);
     if (badHome.length) failed++;
 
+    // 第十一步：首页顶部秒杀（Deep Space Command 局部深空层）。锁七条：
+    //   数据层可配置（场次/商品/进度/口令）、首页 Hero 之前挂秒杀区、
+    //   倒计时每秒走、进度用 scaleX 表达（动效只碰 transform/opacity）、
+    //   成交走本地加购（秒杀价不被服务端价覆盖）并实时累加进度、
+    //   运营台有秒杀控制台入口、深空令牌只作用于 .fs-* 作用域且支持 reduced-motion。
+    const fsSrc = readFileSync(dir('flashSale.js'), 'utf8');
+    const fsStoreSrc = readFileSync(dir('store/flashSaleStore.js'), 'utf8');
+    const fsAdminSrc = readFileSync(dir('adminFlashSale.js'), 'utf8');
+    const cartSrc = readFileSync(dir('state.js'), 'utf8');
+    const fsCases = [
+      ['数据层：场次归一化 + 阶段推导 + 进度累加', fsStoreSrc.includes('export function ensureSale') && fsStoreSrc.includes('export function phaseOf') && fsStoreSrc.includes('export function markSold')],
+      ['数据层：运营口令只存哈希（不存明文）', fsStoreSrc.includes('hashKey') && fsStoreSrc.includes("localStorage.setItem(OPS_KEY_SLOT, hashKey(v))")],
+      ['首页秒杀区挂在 Hero 之前，商品池到位后填充', viewsSrc.includes('renderFlashSale') && viewsSrc.includes("class: 'fs-slot'") && viewsSrc.indexOf('fs-slot') < viewsSrc.indexOf("class: 'hero'")],
+      ['倒计时每秒走 + 脱离文档自动停表（不烧电）', fsSrc.includes('setInterval') && fsSrc.includes('section.isConnected') && fsSrc.includes('stopFlashSale')],
+      ['进度条用 scaleX 表达（动效只碰 transform/opacity）', fsSrc.includes('--p:${pct / 100}') && cssSrc.includes('transform: scaleX(var(--p, 0))')],
+      ['秒杀成交：本地加购（秒杀价不被服务端覆盖）+ 进度实时累加', fsSrc.includes('localOnly: true') && fsSrc.includes('markSold(item.productId, 1)') && cartSrc.includes('opts.localOnly')],
+      ['运营台：秒杀控制台路由 + 标签入口 + 保存即开抢', appSrc.includes("path === '/admin/flash'") && adminSharedSrc.includes("'秒杀控制台'") && fsAdminSrc.includes('saveSale')],
+      ['深空令牌局部生效（#22D3EE 单一霓虹 + 近黑青绿底）', cssSrc.includes('--ds-signal: #22d3ee') && cssSrc.includes('--ds-void: #04090a') && cssSrc.includes('.fs-sale,\n.fs-ops')],
+      ['支持 prefers-reduced-motion（动画全停，读数照常）', cssSrc.includes('@media (prefers-reduced-motion: reduce)') && cssSrc.includes('.fs-sale { animation: none; }')],
+    ];
+    const badFs = fsCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badFs.length === 0 ? 'ok  ' : 'FAIL'} 首页秒杀（深空指挥舱）${badFs.length ? ` → 缺失: ${badFs.join('、')}` : ''}`);
+    if (badFs.length) failed++;
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);

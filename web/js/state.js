@@ -70,7 +70,18 @@ export function cartTotal() {
   return getCart().reduce((s, i) => s + i.price * i.qty, 0);
 }
 
-export function addToCart(product, qty = 1, skuId = null) {
+/**
+ * 加入购物袋。
+ *
+ * @param {object} product 商品快照（价格以它为准写入本地条目）
+ * @param {number} qty 数量
+ * @param {string|null} skuId 规格；不传则用商品自带 skuId
+ * @param {{ localOnly?: boolean }} opts
+ *   localOnly —— 只写本地镜像，不推服务端。秒杀用得上：秒杀价只存在于本机的
+ *   场次配置里，服务端并不知道这个价，推上去只会被服务端价覆盖回原价，
+ *   等于秒杀白做。其余场景一律保持默认（推送 + 服务端回填）。
+ */
+export function addToCart(product, qty = 1, skuId = null, opts = {}) {
   const cart = readLocal();
   const key = keyOf(product.id, skuId || product.skuId);
   const found = cart.find((i) => (i.__key || i.id) === key);
@@ -98,7 +109,7 @@ export function addToCart(product, qty = 1, skuId = null) {
     });
   }
   writeLocal(cart);
-  pushAdd(product.id, skuId || null, qty);
+  if (!opts.localOnly) pushAdd(product.id, skuId || null, qty);
   return cart;
 }
 

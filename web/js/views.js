@@ -15,6 +15,7 @@ import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
 import { setDemoMode, isDemoMode } from './demo.js';
 import { listMerchantMallProducts } from './store/merchantShopStore.js';
+import { renderFlashSale, stopFlashSale } from './flashSale.js';
 import { trackEvent, fetchProductStats } from './track.js';
 import {
   SORTS, PRICE_BANDS, bandById, bandLabel,
@@ -373,6 +374,16 @@ function homeDealRail(products) {
 
 export async function renderHome(view) {
   view.innerHTML = '';
+  // 上一次进首页留下的倒计时先停掉，免得同一页面同时跑两个计时器
+  stopFlashSale();
+
+  /* ---- 秒杀（页首第一块） ----
+     位置在 Hero 之前：秒杀是「有时间窗」的信息，晚一秒看到就少一秒，
+     而 Hero 讲的是品牌气质，什么时候看都在。
+     商品池要异步取，所以先占位、拿到数据再填——占位元素本身不占高度，
+     无场次时整块移除，不会在页顶留一条空白。 */
+  const flashSlot = el('div', { class: 'fs-slot' });
+  view.appendChild(flashSlot);
 
   /* ---- 编辑式首屏 ---- */
   const heroInput = el('input', {
@@ -508,6 +519,11 @@ export async function renderHome(view) {
   const heroPick = editorialPicks[0] || products[0];
   const initialPicks = editorialPicks.slice(1);
   fillHeroProduct(heroImage, heroProduct, heroPick);
+
+  // 秒杀区：商品池到位后填充（配置里只存 productId，卡片要从商品池还原）
+  const flashNode = renderFlashSale(products, { onGone: () => flashSlot.remove() });
+  if (flashNode) flashSlot.appendChild(flashNode);
+  else flashSlot.remove();
 
   const tree = await loadCategoryTree().catch(() => deriveCategoryTree(products));
 

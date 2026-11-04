@@ -79,6 +79,7 @@ export function adminTabs(active) {
     { code: 'aftersales', label: '售后审核', href: '#/admin/aftersales?status=reviewing' },
     { code: 'merchants', label: '商家入驻审核', href: '#/admin/merchants?status=reviewing' },
     { code: 'products', label: '商品审核', href: '#/admin/products?reviewStatus=pending' },
+    { code: 'flash', label: '秒杀控制台', href: '#/admin/flash' },
     { code: 'templates', label: '通知模板', href: '#/admin/notice-templates' },
   ];
   return el('nav', { class: 'adm-tabs', 'aria-label': '运营台切换' },
