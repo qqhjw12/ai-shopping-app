@@ -82,6 +82,9 @@
   --r-pill: 999px;
   --page: 1240px;
   --gutter: 28px;
+  /* 状态栏高度：顶栏的 sticky top 与各侧栏的 sticky 偏移都从它推导，
+     改这一个值，整条 chrome 的让位关系一起走。 */
+  --sysbar-h: 30px;
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
   --serif: "Playfair Display", "Noto Serif SC", "Noto Serif SC Variable", "Songti SC", "STSong", "SimSun", serif;
   --sans: "Inter", "Noto Sans SC", "Noto Sans SC Variable", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -165,10 +168,184 @@ img, svg { max-width: 100%; }
   outline-color: var(--color-text-primary) !important;
 }
 
+/* ======================= 全局 HUD 框架层 =======================
+   状态栏 / 四角角标 / 界面层分隔线，三件都是「取景框」而不是功能：
+   它们只描述这台机器在运行，不承载任何可点击的东西。所以整层
+   pointer-events: none，读屏也整层 aria-hidden。
+
+   层级安排（全站 z-index 地图，改动前先看这张表）：
+     45 以下   页面内容
+     50        顶栏 .topbar
+     55        状态栏 .sysbar（高于顶栏：它贴在视口最顶）
+     60        四角角标 .hud-frame（要压过 chrome 才看得见）
+     72–75     吸底 CTA / AI 浮窗
+     80–90     遮罩 / 抽屉
+     120+      吐司 / 弹层
+   ============================================================ */
+
+.sysbar {
+  position: sticky;
+  top: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: var(--sysbar-h);
+  /* 左右内距 ≥ 34px：左上的 L 形角标探到 16+14=30px，
+     不把内容让开就会被 1px 细线穿过第一个字。 */
+  padding-inline: max(34px, calc((100vw - var(--page)) / 2 + var(--gutter)));
+  border-bottom: 1px solid var(--color-hairline-dark);
+  background: rgba(7, 9, 12, 0.82);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.sysbar-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+}
+
+/* 呼吸只动 opacity，不动 scale：缩放会让 6px 的点在小数像素上发虚、
+   还会连带触发布局外扩。 */
+.sysbar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-cyan);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.55);
+  animation: sysbar-breath 2s ease-in-out infinite;
+}
+
+@keyframes sysbar-breath {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.sysbar-online { letter-spacing: 0.06em; }
+
+/* 中间读数：一条永远不换行的横带。超宽裁切而不是换行——
+   换行会把 30px 的条撑成两行，整条 chrome 高度就崩了。 */
+.sysbar-feed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 93%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0, #000 93%, transparent 100%);
+}
+.sysbar-feed::-webkit-scrollbar { display: none; }
+
+.sysbar-item { flex: none; }
+/* 读数里的数字才是信号，标签字保持 mute */
+.sysbar-item b {
+  color: var(--color-cyan);
+  font-weight: 500;
+}
+.sysbar-sep { flex: none; color: rgba(139, 149, 163, 0.42); }
+
+.sysbar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  margin-left: auto;
+}
+
+/* 信号强度：4 格 2×10px 细线，亮格用信号青、灭格用发丝线。
+   align-items:flex-end 让四格底边对齐，才不会因为行高不同上下飘。 */
+.sysbar-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 10px;
+}
+.sysbar-bars i {
+  display: block;
+  width: 2px;
+  height: 100%;
+  background: var(--color-hairline-dark);
+}
+.sysbar-bars i.is-on {
+  background: var(--color-cyan);
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.45);
+}
+
+.sysbar-clock { letter-spacing: 0.06em; }
+
+/* ---- 四角角标 ---- */
+
+.hud-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* 16px 边距 + 14px 臂长的 L 形：用两条 border 画，比四段 div 省一半节点 */
+.hud-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+}
+.hud-tl {
+  left: 16px;
+  top: 16px;
+  border-left: 1px solid var(--color-border-glow);
+  border-top: 1px solid var(--color-border-glow);
+}
+.hud-tr {
+  right: 16px;
+  top: 16px;
+  border-right: 1px solid var(--color-border-glow);
+  border-top: 1px solid var(--color-border-glow);
+}
+.hud-bl {
+  left: 16px;
+  bottom: 16px;
+  border-left: 1px solid var(--color-border-glow);
+  border-bottom: 1px solid var(--color-border-glow);
+}
+.hud-br {
+  right: 16px;
+  bottom: 16px;
+  border-right: 1px solid var(--color-border-glow);
+  border-bottom: 1px solid var(--color-border-glow);
+}
+
+/* ---- 界面层分隔线 ----
+   chrome（导航）与内容之间的那道 1px。做成 topbar 的伪元素而不是
+   独立 div：absolute 定位在流程外，不占 1px 高度，也就不会让
+   已经对齐的页面整体下移；而且随顶栏吸顶常驻，滚到哪儿都在。 */
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  opacity: 0.35;
+  background: linear-gradient(90deg, transparent, var(--color-cyan-line) 28%, var(--color-cyan) 50%, var(--color-cyan-line) 72%, transparent);
+  pointer-events: none;
+}
+
 /* ============================ 顶栏 ============================ */
 .topbar {
   position: sticky;
-  top: 0;
+  top: var(--sysbar-h);
   z-index: 50;
   display: flex;
   align-items: center;
@@ -1574,8 +1751,10 @@ textarea { resize: vertical; }
 }
 .shop-filter {
   position: sticky;
-  top: 106px;
-  max-height: calc(100vh - 132px);
+  /* 吸顶偏移 = 状态栏 + 原来的 106px（原值按 80px 顶栏调过）。
+     漏加这一项，筛选面板会被加高的 chrome 压掉 30px。 */
+  top: calc(var(--sysbar-h) + 106px);
+  max-height: calc(100vh - 132px - var(--sysbar-h));
   overflow: auto;
   padding: 18px;
   border: 1px solid var(--glass-line);
@@ -2990,7 +3169,25 @@ textarea { resize: vertical; }
 }
 
 @media (max-width: 820px) {
-  :root { --gutter: 20px; }
+  :root { --gutter: 20px; --sysbar-h: 26px; }
+
+  /* 手机上读数带必定超出宽度，与其裁一半不如整条收起：
+     只留「系统在线」和信号条，信息密度刚好。
+     内距 26px 与下移后的 10px 角标（12+10）保持 4px 净空。 */
+  .sysbar { gap: 10px; padding-inline: 26px; font-size: 10.5px; }
+  .sysbar-feed { display: none; }
+  .sysbar-end { margin-left: auto; }
+  .sysbar-online { letter-spacing: 0.04em; }
+
+  /* 吸底 bar / 标签栏占据视口底部，底部两角必定打架 → 手机只留上半框 */
+  .hud-bl,
+  .hud-br { display: none; }
+  .hud-corner { width: 10px; height: 10px; }
+  .hud-tl,
+  .hud-tr { top: 12px; }
+  .hud-tl { left: 12px; }
+  .hud-tr { right: 12px; }
+
   .topbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -4634,7 +4831,7 @@ select.acct-input { appearance: none; -webkit-appearance: none; cursor: pointer;
   gap: 22px;
 }
 .co2-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.co2-side { position: sticky; top: 92px; min-width: 0; }
+.co2-side { position: sticky; top: calc(var(--sysbar-h) + 92px); min-width: 0; }
 
 .co2-card {
   padding: 20px 22px;
@@ -5025,7 +5222,7 @@ select.acct-input { appearance: none; -webkit-appearance: none; cursor: pointer;
 .bag-del:hover { color: #e8918a; }
 .bag-sum {
   position: sticky;
-  top: 92px;
+  top: calc(var(--sysbar-h) + 92px);
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--r-card);
@@ -8885,7 +9082,7 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
 
 .mdash-side {
   position: sticky;
-  top: 92px;
+  top: calc(var(--sysbar-h) + 92px);
   display: grid;
   gap: 18px;
   padding: 16px 14px;
@@ -11330,4 +11527,13 @@ time {
 .cart-total .money,
 .cart-item .cnt {
   color: var(--color-text-primary);
+}
+
+/* ---- HUD 框架层：减少动态 ----
+   只停呼吸，不改读数：数字与文字照常更新，那是数据不是动效。 */
+@media (prefers-reduced-motion: reduce) {
+  .sysbar-dot {
+    animation: none;
+    opacity: 1;
+  }
 }

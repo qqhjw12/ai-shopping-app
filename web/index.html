@@ -12,6 +12,33 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <!-- 系统状态栏：全站最顶一条 HUD 读数带。sticky 在顶栏之上，
+         顶栏的 sticky top 由 --sysbar-h 让位（见 styles.css）。
+         整条 aria-hidden：这是装饰性的系统读数，对读屏是噪音不是信息。 -->
+    <div class="sysbar" aria-hidden="true">
+      <span class="sysbar-state">
+        <i class="sysbar-dot"></i>
+        <span class="sysbar-online">SYSTEM ONLINE / 系统在线</span>
+      </span>
+
+      <div class="sysbar-feed">
+        <span class="sysbar-item">延迟 <b>24ms</b></span>
+        <span class="sysbar-sep">·</span>
+        <span class="sysbar-item">AI 模型就绪</span>
+        <span class="sysbar-sep">·</span>
+        <span class="sysbar-item">今日扫描 <b>1,240</b> 件</span>
+        <span class="sysbar-sep">·</span>
+        <span class="sysbar-item"><b>3</b> 个价格异动</span>
+      </div>
+
+      <div class="sysbar-end">
+        <span class="sysbar-bars">
+          <i class="is-on"></i><i class="is-on"></i><i class="is-on"></i><i></i>
+        </span>
+        <time id="sysbar-clock" class="sysbar-clock">--:--:--</time>
+      </div>
+    </div>
+
     <!-- 顶栏：品牌 + 智能搜索 + 导航 + 购物袋 -->
     <header class="topbar">
       <a class="brand" href="#/" aria-label="MAISON AI 首页">
@@ -168,6 +195,16 @@
           </button>
         </form>
       </div>
+    </div>
+
+    <!-- 四角 HUD 角标：固定层，pointer-events 全关，纯取景框。
+         z-index 压在顶栏/状态栏之上（否则会被吸顶的 chrome 盖住），
+         但低于抽屉与弹层——弹层打开时角标应该让位。 -->
+    <div class="hud-frame" aria-hidden="true">
+      <i class="hud-corner hud-tl"></i>
+      <i class="hud-corner hud-tr"></i>
+      <i class="hud-corner hud-bl"></i>
+      <i class="hud-corner hud-br"></i>
     </div>
 
     <script type="module" src="./js/app.js"></script>

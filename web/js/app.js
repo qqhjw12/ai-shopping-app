@@ -21,6 +21,7 @@ import { renderMerchantJoin, renderMerchantApply } from './merchant.js';
 import { renderMerchantDashboard } from './merchantDashboard.js';
 import { renderSourcing } from './sourcing.js';
 import { initAssistant, setProductDetailHandler } from './assistant.js';
+import { initHud } from './hud.js';
 import { askGuide, openImageSearch } from './aiShop.js';
 import { favoriteCount, onFavoritesChange } from './store/favoriteStore.js';
 import { createRouter, navigate, parseHash } from './router.js';
@@ -206,6 +207,7 @@ export function renderNotFound(v) {
 }
 
 /* ---------------- 启动 ---------------- */
+initHud();
 initAssistant();
 // 运营配置（运费/配送/券规则）先拉一次：不阻塞首屏（缓存里已有上次的值），
 // 拉到新值会通知订阅者（结算页据此重绘运费），其余页面下一次渲染自然用新值。

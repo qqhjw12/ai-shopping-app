@@ -2394,6 +2394,57 @@ if (failed === 0) {
     console.log(`  ${badDs.length === 0 ? 'ok  ' : 'FAIL'} 深空令牌（全局科幻底色层）${badDs.length ? ` → 缺失: ${badDs.join('、')}` : ''}`);
     if (badDs.length) failed++;
 
+    /* ---- 全局 HUD 框架层（状态栏 / 四角角标 / 界面层分隔线）----
+     * 结构在 index.html，样式在 styles.css，脚本只有 hud.js 一个时钟。
+     * 断言口径：sticky 层级关系（状态栏 55 > 顶栏 50 > 内容，角标 60 压过
+     * chrome 但低于弹层）、整层 pointer-events: none、呼吸只动 opacity、
+     * 顶栏与侧栏的吸顶偏移都从 --sysbar-h 推导（漏改就会被加高的 chrome 压住）。 */
+    const hudCases = [
+      ['状态栏结构齐备（状态点 / 读数带 / 信号条 / 时钟）',
+        htmlSrc.includes('class="sysbar"') && htmlSrc.includes('sysbar-dot')
+        && htmlSrc.includes('sysbar-feed') && htmlSrc.includes('sysbar-bars') && htmlSrc.includes('id="sysbar-clock"')],
+      ['状态栏 sticky 置顶（30px 档，玻璃底 + hairline 下边）',
+        cssSrc.includes('--sysbar-h: 30px') && /\.sysbar \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: 55/.test(cssSrc)
+        && /\.sysbar \{[^}]*background: rgba\(7, 9, 12, 0\.82\)/.test(cssSrc)
+        && /\.sysbar \{[^}]*border-bottom: 1px solid var\(--color-hairline-dark\)/.test(cssSrc)],
+      ['顶栏让位（sticky top 用 --sysbar-h 推导，不吃掉状态栏）',
+        /\.topbar \{[^}]*top: var\(--sysbar-h\)/.test(cssSrc)],
+      ['读数带不换行只裁切（overflow-x auto + 隐藏滚动条 + 淡出遮罩）',
+        /\.sysbar-feed \{[^}]*overflow-x: auto/.test(cssSrc) && /\.sysbar-feed \{[^}]*scrollbar-width: none/.test(cssSrc)
+        && /\.sysbar-feed \{[^}]*mask-image: linear-gradient/.test(cssSrc)],
+      ['呼吸动画只动 opacity（2s ease-in-out，无 scale/transform）',
+        (() => {
+          const m = cssSrc.match(/@keyframes sysbar-breath \{([\s\S]*?)\n\}/);
+          return Boolean(m) && m[1].includes('opacity: 0.4') && m[1].includes('opacity: 1')
+            && !/transform|scale/.test(m[1]) && cssSrc.includes('animation: sysbar-breath 2s ease-in-out infinite');
+        })()],
+      ['信号条 4 格 2×10px（亮格青 / 灭格发丝线）',
+        /\.sysbar-bars i \{[^}]*width: 2px/.test(cssSrc) && /\.sysbar-bars i \{[^}]*height: 100%/.test(cssSrc)
+        && cssSrc.includes('.sysbar-bars i.is-on')],
+      ['四角角标：固定层 pointer-events 全关 + L 形 1px/14px/16px',
+        /\.hud-frame \{[^}]*position: fixed;[^}]*z-index: 60;[^}]*pointer-events: none/.test(cssSrc)
+        && /\.hud-corner \{[^}]*width: 14px;[^}]*height: 14px/.test(cssSrc)
+        && cssSrc.includes('border-left: 1px solid var(--color-border-glow)')],
+      ['移动端降级（26px 状态栏、读数带收起、底部两角隐藏）',
+        cssSrc.includes('--gutter: 20px; --sysbar-h: 26px') && /\.sysbar-feed \{ display: none; \}/.test(cssSrc)
+        && /\.hud-bl,\n  \.hud-br \{ display: none; \}/.test(cssSrc)],
+      ['界面层分隔线（导航下的青色渐变 1px，透明度 ≤ 0.35，不占布局）',
+        /\.topbar::after \{[^}]*height: 1px;[^}]*opacity: 0\.35/.test(cssSrc)
+        && /\.topbar::after \{[^}]*linear-gradient\(90deg, transparent, var\(--color-cyan-line\)/.test(cssSrc)],
+      ['吸顶偏移联动（筛栏/结算侧/袋合计/工作台侧栏全部 + --sysbar-h）',
+        cssSrc.includes('top: calc(var(--sysbar-h) + 106px)') && cssSrc.includes('top: calc(var(--sysbar-h) + 92px)')
+        && (cssSrc.match(/var\(--sysbar-h\) \+ 92px/g) || []).length >= 3],
+      ['时钟脚本：每秒走字、页面隐藏停表（hud.js + app.js 启动）',
+        readFileSync(dir('hud.js'), 'utf8').includes('setInterval(paint, 1000)')
+        && readFileSync(dir('hud.js'), 'utf8').includes("document.addEventListener('visibilitychange'")
+        && readFileSync(dir('app.js'), 'utf8').includes('initHud()')],
+      ['减少动效：呼吸停、读数照常',
+        /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.sysbar-dot \{[^}]*animation: none/.test(cssSrc)],
+    ];
+    const badHud = hudCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badHud.length === 0 ? 'ok  ' : 'FAIL'} 全局 HUD 框架层（状态栏/角标/分隔线）${badHud.length ? ` → 缺失: ${badHud.join('、')}` : ''}`);
+    if (badHud.length) failed++;
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);
