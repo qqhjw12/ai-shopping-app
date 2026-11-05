@@ -5,11 +5,12 @@ import { getUserId, addToCart } from './state.js';
 import { navigate } from './router.js';
 import { openProductDetail, getProductById } from './views.js';
 import { askGuide } from './aiShop.js';
+import { wishlistPanel } from './wishlist.js';
 import { trackEvent } from './track.js';
 import { isDemoMode } from './demo.js';
 import { listFavorites, addFavorite, isFavorite, flushFavorites } from './store/favoriteStore.js';
 import {
-  listOrders, mergeOrders, normalizeRemote, statusText, updateOrderStatus,
+  groupBuyOf, groupStatusText, listOrders, mergeOrders, normalizeRemote, statusText, updateOrderStatus,
 } from './store/orderStore.js';
 
 /* ---------------- 我的订单 ---------------- */
@@ -87,9 +88,13 @@ function orderCard(o, view) {
   };
   const total = (o.amounts && o.amounts.payAmount) != null ? o.amounts.payAmount : o.payAmount;
   const discount = (o.amounts && o.amounts.couponDiscount) || o.discountAmount || 0;
+  // 拼团单：团状态与订单履约状态是两条独立的线，并排显示而不是互相覆盖
+  const gb = groupBuyOf(o);
   return el('div', { class: 'order' }, [
     el('div', { class: 'order-head' }, [
       el('span', { class: 'order-id' }, `订单号 ${id}`),
+      gb ? el('span', { class: 'order-gb-tag' }, '拼团') : null,
+      gb ? el('span', { class: `order-gb-status gbs-${gb.status}` }, groupStatusText(gb.status)) : null,
       el('span', { class: `status s-${o.status}` }, statusText(o.status)),
       el('span', { class: 'cnt' }, String(o.createdAt || '').slice(0, 16).replace('T', ' ')),
     ]),
@@ -114,6 +119,7 @@ function orderCard(o, view) {
       ]),
       el('div', { class: 'btns' }, [
         o.status === 'pending' ? el('button', { class: 'buy', onclick: pay }, '去支付') : null,
+        gb ? el('a', { class: 'ghost', href: `#/group-buy/${encodeURIComponent(gb.groupId)}` }, '查看团') : null,
         el('button', { class: 'ghost', onclick: again }, '再次购买'),
         o.status === 'shipped' || o.status === 'paid'
           ? el('button', { class: 'ghost', onclick: () => toast('AI 客服正在为你查询物流 💬', 'ok') }, '查物流')
@@ -202,6 +208,16 @@ export async function renderFavorites(view) {
     el('span', { class: 'fav-tip' }, '点心形图标即可取消收藏'),
   ]));
 
+  // 公开心愿单面板：ids 跟随收藏增删同步，公开页不会残留已取关的商品
+  let currentIds = items.map((p) => String(p.id));
+  const panelHost = el('div', { class: 'wl-panel-host' });
+  const paintPanel = () => {
+    panelHost.innerHTML = '';
+    panelHost.appendChild(wishlistPanel(currentIds));
+  };
+  wrap.appendChild(panelHost);
+  paintPanel();
+
   const grid = el('div', { class: 'grid' });
   wrap.appendChild(grid);
 
@@ -218,6 +234,8 @@ export async function renderFavorites(view) {
       onFavorite: (active) => {
         if (active) return;
         card.remove();
+        currentIds = currentIds.filter((x) => x !== String(p.id));
+        paintPanel();
         const left = grid.querySelectorAll('.pcard').length;
         if (!left) {
           wrap.innerHTML = '';

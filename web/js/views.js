@@ -19,6 +19,7 @@ import { listMerchantMallProducts } from './store/merchantShopStore.js';
 import { renderFlashSale, stopFlashSale } from './flashSale.js';
 import { renderHomeFortune } from './fortune.js';
 import { compareToggle } from './compare.js';
+import { groupBuyButton } from './groupBuy.js';
 import { outfitPanel } from './outfit.js';
 import { trackEvent, fetchProductStats } from './track.js';
 import { createGalleryModes } from './pdpImmersive.js';
@@ -1762,6 +1763,8 @@ function buildDetailPage(p, from, presetRelated = []) {
     el('div', { class: 'pdp-secondary-actions' }, [
       // 对比开关放次要操作区：桌面与移动端都可见（主操作区在移动端是隐藏的）
       compareToggle(p, { className: 'ghost pdp-compare', label: '加入对比' }),
+      // 拼团：放在次要操作区而不是主按钮旁边——逛的人先看清商品，想凑人时再开团
+      groupBuyButton(p, 'ghost'),
       el('button', { type: 'button', class: 'ghost', onclick: () => askProductQA(p) }, '问我这件商品'),
       el('button', { type: 'button', class: 'ghost', onclick: () => askGuide(`介绍一下「${p.name}」，适合什么人群和场景？`) }, 'AI 导购推荐'),
       el('button', { type: 'button', class: 'ghost', onclick: () => copyShareLink(p, from) }, '复制分享'),

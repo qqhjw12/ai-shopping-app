@@ -10,6 +10,8 @@ import { renderAccount } from './accountCenter.js';
 import { renderPoints } from './points.js';
 import { renderBlindbox } from './blindbox.js';
 import { renderCompare, mountCompareDock, compareToggle } from './compare.js';
+import { renderGroupBuyDetail, renderGroupBuyList } from './groupBuy.js';
+import { renderWishlist } from './wishlist.js';
 import { renderOrderDetail } from './orderDetail.js';
 import { renderCoupons } from './coupons.js';
 import { renderLogin } from './login.js';
@@ -123,11 +125,11 @@ onUserChange((user) => {
 function setActiveNav(path) {
   const key = path === '/' ? 'home'
     : path.startsWith('/categories') ? 'categories'
-    : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') || path.startsWith('/blindbox') || path.startsWith('/compare') ? 'products'
+    : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') || path.startsWith('/blindbox') || path.startsWith('/compare') || path.startsWith('/group-buy') ? 'products'
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
     : path.startsWith('/merchant') ? 'merchant'
-    : path.startsWith('/account') || path.startsWith('/coupons') || path.startsWith('/points') || path.startsWith('/checkout') || path.startsWith('/orders') || path.startsWith('/favorites') || path.startsWith('/login') ? 'account'
+    : path.startsWith('/account') || path.startsWith('/coupons') || path.startsWith('/points') || path.startsWith('/checkout') || path.startsWith('/orders') || path.startsWith('/favorites') || path.startsWith('/wishlist') || path.startsWith('/login') ? 'account'
     : '';
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.nav === key));
 }
@@ -144,8 +146,10 @@ function dispatch({ path, query }) {
   document.body.classList.toggle('has-merchant-bar', path === '/merchant/join');
   // 工作台在移动端有底部标签栏：让 AI 浮窗抬上去，别和导航叠在一起
   document.body.classList.toggle('has-dash-bar', path === '/merchant/dashboard');
-  // 详情页移动端有吸底操作栏：对比悬浮条要抬到它上面，且给页面补足底部留白
-  document.body.classList.toggle('has-pdp-bar', path.startsWith('/product/'));
+  // 详情页 / 拼团详情 / 心愿单公开页在移动端都有吸底操作条：
+  // 对比悬浮条要抬到它上面，且给页面补足底部留白（同一套标记，避免第三条规则）
+  document.body.classList.toggle('has-pdp-bar',
+    path.startsWith('/product/') || path.startsWith('/group-buy/') || path.startsWith('/wishlist/'));
   window.scrollTo(0, 0);
   syncSearchInput(path === '/search' ? query.q : '');
   if (path === '/' || path === '') renderHome(view);
@@ -189,6 +193,16 @@ function dispatch({ path, query }) {
     } else {
       renderMerchantDashboard(view, query);
     }
+  }
+  // 拼团：大厅与团详情都不设登录墙（团数据按本机身份分桶，匿名也能开团），
+  // 只有「去结算」之后才会被 /checkout 的守卫拦下并带回登录。
+  else if (path === '/group-buy') renderGroupBuyList(view);
+  else if (path.startsWith('/group-buy/')) {
+    renderGroupBuyDetail(view, decodeURIComponent(path.slice('/group-buy/'.length)), query);
+  }
+  // 心愿单公开页：**免登录**。强制登录才能看别人的心愿，等于把这个场景判死。
+  else if (path.startsWith('/wishlist/')) {
+    renderWishlist(view, decodeURIComponent(path.slice('/wishlist/'.length)));
   }
   else if (path === '/orders') renderOrders(view);
   else if (path === '/favorites') renderFavorites(view);

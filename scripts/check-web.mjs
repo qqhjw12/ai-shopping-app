@@ -3630,7 +3630,10 @@ console.log('\n商品对比与 AI 搭配断言（维度定义 / 最优判定 / �
     const cmpSrc = src('compare.js');
     const wiring = appSrc.includes("path === '/compare') renderCompare(view)")
       && appSrc.includes('mountCompareDock()') && appSrc.includes('setCompareSlot(')
-      && appSrc.includes("path.startsWith('/compare') ? 'products'")
+      // 导航归属：/compare 落在 products 桶里。这里不逐字匹配整条表达式——
+      // 后续步骤往同一个桶里加路由（如 /group-buy）会把表达式改长，
+      // 逐字匹配会误报成「对比接线断了」，而真正要验的是「它仍归 products」。
+      && /path\.startsWith\('\/compare'\)[\s\S]{0,140}?'products'/.test(appSrc)
       && appSrc.includes("classList.toggle('has-pdp-bar'")
       && uiSrc.includes('compareSlot ? compareSlot(p) : null')
       && viewsSrc.includes('compareToggle(p') && viewsSrc.includes('outfitPanel(p)')
@@ -3686,6 +3689,298 @@ console.log('\n商品对比与 AI 搭配断言（维度定义 / 最优判定 / �
   } catch (e) {
     failed++;
     console.log(`  FAIL 商品对比与 AI 搭配: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
+
+/* ============================================================
+   拼团 + 心愿单助力（社交购买层）
+   规则在 groupBuyConfig / groupBuyStore / wishlistConfig / wishlistStore，
+   这里实跑纯函数与持久化，并检查订单白名单、接线与样式纪律。
+   ============================================================ */
+console.log('\n拼团与心愿单助力断言（档位折扣 / 团号与三态 / 草稿与订单标记 / 公开与助力 / 奖励不写死 / 接线 / 动效纪律）');
+{
+  try {
+    const gbCfg = await import(pathToFileURL(join(WEB_DIR, 'store/groupBuyConfig.js')).href);
+    const gb = await import(pathToFileURL(join(WEB_DIR, 'store/groupBuyStore.js')).href);
+    const wlCfg = await import(pathToFileURL(join(WEB_DIR, 'store/wishlistConfig.js')).href);
+    const wl = await import(pathToFileURL(join(WEB_DIR, 'store/wishlistStore.js')).href);
+    const ord = await import(pathToFileURL(join(WEB_DIR, 'store/orderStore.js')).href);
+    const cp = await import(pathToFileURL(join(WEB_DIR, 'store/couponStore.js')).href);
+    const src = (f) => readFileSync(join(WEB_DIR, f), 'utf8');
+    const cssSrc = readFileSync(join(WEB_DIR, '..', 'styles.css'), 'utf8');
+    const indexSrc = readFileSync(join(WEB_DIR, '..', 'index.html'), 'utf8');
+
+    const as = (id) => localStorage.setItem('current_user', JSON.stringify({ id, nickname: id, identifier: id }));
+    const anon = () => localStorage.removeItem('current_user');
+    const DAY = 24 * 60 * 60 * 1000;
+    const T0 = Date.parse('2026-11-05T10:00:00.000Z');
+    localStorage.clear();
+    anon();
+
+    /* 1) 档位配置：2/3/5 三档，折扣全在 10%–30%，人越多越便宜 */
+    const sizes = gbCfg.GB_TIERS.map((t) => t.size).join(',');
+    const discounts = gbCfg.GB_TIERS.map((t) => t.discount);
+    const tierOk = sizes === '2,3,5'
+      && discounts.every((d) => d >= gbCfg.GB_DISCOUNT_MIN && d <= gbCfg.GB_DISCOUNT_MAX)
+      && discounts.every((d, i) => i === 0 || d > discounts[i - 1])
+      && gbCfg.GB_DISCOUNT_MIN === 0.1 && gbCfg.GB_DISCOUNT_MAX === 0.3
+      && gbCfg.GB_TIERS[1].size === gbCfg.GB_DEFAULT_SIZE;
+
+    /* 2) 团价：到分、恒低于单买价、非法输入不炸 */
+    const p399 = gb.gbPriceOf(399, 0.18);
+    const priceOk = p399 === 327.18
+      && gb.gbPriceOf(399, 0) === 399
+      && gb.gbPriceOf(0, 0.2) === 0
+      && gb.gbPriceOf(1, 0.1) < 1 && gb.gbPriceOf(1, 0.1) > 0
+      && gbCfg.GB_TIERS.every((t) => gb.gbPriceOf(199, t.discount) < 199)
+      && gb.gbSaveOf(399, p399) === 71.82
+      && gb.gbDiscountPct(0.28) === 28;
+
+    /* 3) 团号：GB + yyMMdd + 4 位序号，同日递增不重复 */
+    const no1 = gb.newGroupNo([], T0);
+    const no2 = gb.newGroupNo([{ no: no1 }], T0);
+    const noOk = /^GB\d{10}$/.test(no1) && no1 !== no2
+      && Number(no2.slice(-4)) === Number(no1.slice(-4)) + 1;
+
+    /* 4) 建团：档位/团价/成员/截止时间全部落地 */
+    as('ga');
+    const product = { id: 'p1', name: '静音空气循环扇', price: 399, pic: '', coverColor: '#123' };
+    const made = gb.createGroup(product, 3, '我', T0);
+    const g0 = made.group;
+    const makeOk = made.ok && g0.size === 3 && g0.unitPrice === 399
+      && g0.groupPrice === gb.gbPriceOf(399, gb.tierBySize(3).discount)
+      && g0.members.length === 1 && g0.members[0].owner === true
+      && Date.parse(g0.deadlineAt) - Date.parse(g0.createdAt) === gbCfg.GB_DURATION_MS
+      && g0.no === no1;
+    const rejectOk = gb.createGroup(product, 4).reason === 'invalid_size'
+      && gb.createGroup({ id: 'x', price: 0 }, 2).reason === 'invalid_product';
+
+    /* 5) 三态推导：满员即终态（过期也不回退），未满过期即失败 */
+    const statusOk = gb.groupStatus(g0, T0) === 'open'
+      && gb.remainingSlots(g0) === 2
+      && gb.groupStatus(g0, T0 + DAY + 1) === 'failed'
+      && gb.groupStatus({ ...g0, members: [1, 2, 3] }, T0 + DAY * 9) === 'formed'
+      && gb.remainingSlots({ ...g0, members: [1, 2, 3] }) === 0
+      && gb.remainingMs(g0, T0) === DAY
+      && gb.remainingMs({ ...g0, members: [1, 2, 3] }, T0) === -1;
+
+    /* 6) 倒计时格式化与紧张态 */
+    const countdownOk = gb.fmtCountdown(DAY) === '24:00:00'
+      && gb.fmtCountdown(3723000) === '01:02:03'
+      && gb.fmtCountdown(-5) === '00:00:00'
+      && gb.isUrgent(g0, T0 + DAY - 60 * 1000) === true
+      && gb.isUrgent(g0, T0) === false;
+
+    /* 7) 模拟好友：昵称不重复，池用尽后带序号续命 */
+    const j1 = gb.simulateJoin(g0.id, T0 + 1000);
+    const j2 = gb.simulateJoin(g0.id, T0 + 2000);
+    const formed = gb.getGroup(g0.id);
+    const joinOk = j1.ok && j2.ok && j2.reason === 'formed'
+      && formed.members.length === 3
+      && new Set(formed.members.map((m) => m.name)).size === 3
+      && gb.groupStatus(formed) === 'formed'
+      && gb.simulateJoin(g0.id).reason === 'formed';
+    const exhausted = { size: 9, members: gbCfg.GB_FRIEND_NAMES.map((n) => ({ name: n })) };
+    const nameOk = gb.pickFriendName(exhausted) === (gbCfg.GB_FRIEND_FALLBACK + '1')
+      && gb.pickFriendName({ members: [] }) === gbCfg.GB_FRIEND_NAMES[0];
+
+    /* 8) 过期团不能参团 */
+    const stale = gb.createGroup(product, 2, '我', T0).group;
+    const expireOk = gb.simulateJoin(stale.id, T0 + DAY + 1).reason === 'expired';
+
+    /* 9) 按 scopeId() 分桶：两个账户的团互不可见 */
+    as('gb');
+    const isoOk = gb.listGroups().length === 0 && gb.getGroup(g0.id) === null;
+    as('ga');
+    const backOk = gb.listGroups().length === 2;
+
+    /* 10) 损坏 JSON 读盘不抛、收敛为空 */
+    localStorage.setItem(gb.storageKey(), '{oops');
+    const corruptOk = Array.isArray(gb.load().groups) && gb.load().groups.length === 0;
+
+    /* 11) 结算草稿：写入可读、过期失效、清理干净 */
+    gb.setPendingCheckout(formed, T0);
+    const pend = gb.pendingCheckout(T0 + 1000);
+    const pendOk = Boolean(pend) && pend.groupId === formed.id && pend.groupPrice === formed.groupPrice
+      && pend.no === formed.no && gb.pendingCheckout(T0 + gb.GB_CHECKOUT_TTL_MS + 1) === null;
+    gb.clearPendingCheckout();
+    const clearOk = gb.pendingCheckout(T0) === null;
+
+    /* 12) 订单层：groupBuy 白名单透传 + 非拼团单不塞空键 + 脏数据剔除 */
+    const orderWith = ord.createOrder('u:ga', {
+      items: [{ productId: 'p1', name: '风扇', price: formed.groupPrice, qty: 1 }],
+      groupBuy: {
+        groupId: formed.id, no: formed.no, size: 3, unitPrice: 399,
+        groupPrice: formed.groupPrice, productName: '风扇', status: 'formed',
+      },
+    });
+    const orderPlain = ord.createOrder('u:ga', { items: [{ productId: 'p2', name: 'x', price: 10, qty: 1 }] });
+    const orderOk = Boolean(orderWith.groupBuy) && orderWith.groupBuy.no === formed.no
+      && orderWith.groupBuy.groupPrice === formed.groupPrice
+      && orderWith.groupBuy.status === 'formed'
+      && !('groupBuy' in orderPlain)
+      && ord.normalizeGroupBuy({ no: 'x' }) === null
+      && ord.normalizeGroupBuy({ groupId: 'gb_1', status: 'weird' }).status === 'formed'
+      && ord.groupStatusText('open') === '待成团' && ord.groupStatusText('formed') === '已成团'
+      && ord.groupStatusText('failed') === '拼团失败'
+      && ord.groupBuyOf(orderPlain) === null;
+
+    /* 13) 心愿理由归一：太短丢弃、超长截断、空白压缩 */
+    const reasonOk = wl.clampReason('') === '' && wl.clampReason('  hi ') === ''
+      && wl.clampReason('  想和朋友一起拿下  ') === '想和朋友一起拿下'
+      && wl.clampReason('啊'.repeat(200)).length === wlCfg.WL_REASON_MAX
+      && wl.displayReason({ reason: '' }) === wlCfg.WL_REASON_FALLBACK;
+
+    /* 14) 公开索引跨 scope 可读；访客看得到但只有最小快照 */
+    as('owner');
+    const pub = wl.publish(['p1', 'p2'], { ownerName: '小林', reason: '生日礼物候选' }, T0);
+    const pubId = pub.board.id;
+    as('visitor1');
+    const seen = wl.getPublic(pubId);
+    const publicOk = pub.ok && pubId.startsWith(wlCfg.WL_ID_PREFIX)
+      && Boolean(seen) && seen.products.length === 2 && seen.reason === '生日礼物候选'
+      && seen.ownerScope === 'u:owner'
+      && !('notices' in seen) && !('items' in seen);
+
+    /* 15) 助力规则：不能自助力、每人一次、跨阈值只解锁一次 */
+    const selfHelp = wl.canHelp(seen, 'u:owner').reason;
+    const h1 = wl.help(pubId, 'u:v1', T0 + 1000);
+    const h1dup = wl.help(pubId, 'u:v1', T0 + 2000);
+    wl.help(pubId, 'u:v2', T0 + 3000);
+    const h3 = wl.help(pubId, 'u:v3', T0 + 4000);
+    const helpOk = selfHelp === 'self'
+      && h1.ok && h1.count === 1 && h1.unlocked === null
+      && h1dup.ok === false && h1dup.reason === 'done'
+      && h3.count === 3 && Boolean(h3.unlocked) && h3.unlocked.threshold === 3
+      && h3.crossed.length === 1;
+
+    /* 16) 进度推导：人数 / 比例 / 下一档还差几人 */
+    const p3 = wl.getPublic(pubId);
+    const prog = wl.tierProgress(p3);
+    const progOk = prog.have === 3 && Math.abs(prog.ratio - 0.3) < 1e-9
+      && Boolean(prog.next) && prog.next.threshold === 10 && prog.next.need === 7
+      && prog.tiers.filter((t) => t.unlocked).length === 1
+      && wl.claimableTiers(p3).length === 1;
+
+    /* 17) 收藏变化后重发公开快照，助力记录不丢 */
+    as('owner');
+    wl.setReason('换季必买，等一个折扣');
+    wl.syncPublic(['p1'], { ownerName: '小林' });
+    const afterSync = wl.getPublic(pubId);
+    const syncOk = afterSync.products.length === 1 && wl.helpCount(afterSync) === 3
+      && afterSync.reason === '换季必买，等一个折扣';
+
+    /* 18) 主人通知：同档只推一次；领取后置读、不再出现在待领列表 */
+    wl.pushOwnerNotice(afterSync, { threshold: 3, couponId: 'cp-bag20', title: 'x' }, T0 + 5000);
+    const dupNotice = wl.pushOwnerNotice(afterSync, { threshold: 3, couponId: 'cp-bag20' }, T0 + 6000);
+    const noticeOk = dupNotice.reason === 'duplicate';
+    as('owner');
+    const unreadBefore = wl.unreadNotices().length;
+    wl.markTierClaimed(pubId, 3);
+    const claimOk = unreadBefore === 1 && wl.unreadNotices().length === 0
+      && wl.claimedTiers(pubId).includes(3)
+      && wl.claimableTiers(wl.getPublic(pubId)).length === 0;
+
+    /* 19) 奖励不写死：阶梯只存 couponId，券必须真实存在于券目录 */
+    const catalog = cp.currentCatalog();
+    const checked = wl.validateTiers(catalog);
+    const rewardOk = checked.every((t) => t.ok && t.coupon && t.coupon.id === t.couponId)
+      && wlCfg.WL_TIERS.every((t) => Object.keys(t).sort().join(',') === 'couponId,threshold')
+      && wlCfg.WL_TIERS.every((t) => !/减|折|¥|\d+元/.test(JSON.stringify(t)))
+      && wlCfg.WL_MAX_THRESHOLD === Math.max(...wlCfg.WL_TIER_THRESHOLDS);
+
+    /* 20) 收回公开后读不到；空收藏不发布 */
+    wl.unpublish();
+    const unpubOk = wl.getPublic(pubId) === null && wl.publish([]).reason === 'empty';
+
+    /* 21) 接线：三条路由 + 导航归属 + PDP 入口 + 收藏页面板 + 结算草稿 + 页脚 */
+    const appSrc = src('app.js');
+    const wiring = appSrc.includes("from './groupBuy.js'") && appSrc.includes("from './wishlist.js'")
+      && appSrc.includes("path === '/group-buy') renderGroupBuyList(view)")
+      && appSrc.includes("path.startsWith('/group-buy/')")
+      && appSrc.includes("path.startsWith('/wishlist/')")
+      && /path\.startsWith\('\/group-buy'\)[\s\S]{0,60}?'products'/.test(appSrc)
+      && /path\.startsWith\('\/wishlist'\)[\s\S]{0,40}?'account'/.test(appSrc)
+      && src('views.js').includes('groupBuyButton(p')
+      && src('account.js').includes('wishlistPanel(currentIds)')
+      && src('account.js').includes('groupStatusText(gb.status)')
+      && src('checkout.js').includes('pendingCheckout()')
+      && src('checkout.js').includes('clearPendingCheckout()')
+      && src('checkout.js').includes('co2-groupbuy')
+      && indexSrc.includes('href="#/group-buy"');
+
+    /* 22) 样式纪律：surface-1 + 1px 细线卡；进度条 1px 青色；圆形头像；移动端单列 + 吸底 + 44px */
+    const cardCss = (cssSrc.match(/\.gb-card\s*\{[^}]*\}/) || [''])[0];
+    const barCss = (cssSrc.match(/\.wl-progress-bar\s*\{[^}]*\}/) || [''])[0];
+    const fillCss = (cssSrc.match(/\.wl-progress-fill\s*\{[^}]*\}/) || [''])[0];
+    const avatarCss = (cssSrc.match(/\.gb-avatar\s*\{[^}]*\}/) || [''])[0];
+    // 移动端规则直接按「具体选择器 + 属性」在全文里找：文件里有多个 820px 媒体查询，
+    // 用区间切片容易切到上一段（对比页那一块），断言就会莫名其妙地红。
+    const styleOk = /background:\s*var\(--color-surface-1\)/.test(cardCss)
+      && /border:\s*1px solid var\(--color-hairline-dark\)/.test(cardCss)
+      && /height:\s*1px/.test(barCss) && /height:\s*1px/.test(fillCss)
+      && /background:\s*var\(--color-cyan\)/.test(fillCss)
+      && /border-radius:\s*50%/.test(avatarCss)
+      && /\.gb-grid\s*\{\s*grid-template-columns:\s*1fr/.test(cssSrc)
+      && /\.gb-bar\s*\{[^}]*position:\s*fixed/.test(cssSrc)
+      && /\.wl-bar\s*\{[^}]*position:\s*fixed/.test(cssSrc)
+      && /\.gb-page, \.wl-page \{ padding-bottom/.test(cssSrc)
+      && /min-height:\s*44px/.test(cssSrc)
+      && !/gb-[a-z-]+[^}]*infinite/.test(cssSrc) && !/wl-[a-z-]+[^}]*infinite/.test(cssSrc)
+      && /html\.reduced-fx \.wl-progress-fill/.test(cssSrc);
+
+    /* 23) 动效与 mock 纪律：整页只有一个 setInterval 且会被清理；不接真实分享 SDK / 支付 */
+    const gbJs = src('groupBuy.js');
+    const wlJs = src('wishlist.js');
+    const disciplineOk = (gbJs.match(/setInterval\(/g) || []).length === 1
+      && (gbJs.match(/clearInterval\(/g) || []).length >= 1
+      && /isConnected/.test(gbJs)
+      && !/setInterval/.test(wlJs)
+      && !/qrcode|QRCode|wx\.|window\.open|shareSDK/.test(gbJs + wlJs)
+      && !/alipay|wxpay|paymentSdk/i.test(gbJs + wlJs);
+
+    /* 24) 不改对比与盲盒：两侧零互引 */
+    const untouched = !/groupBuy|wishlist|gb-|wl-/.test(src('compare.js') + src('outfit.js') + src('blindbox.js'))
+      && !/groupBuy|wishlist/.test(
+        src('store/compareStore.js') + src('store/outfitStore.js') + src('store/blindboxStore.js'),
+      );
+
+    localStorage.clear();
+    anon();
+
+    const cases = [
+      ['成团人数 2/3/5 三档，折扣全在 10%–30% 且人越多越便宜', tierOk],
+      ['团价到分、恒低于单买价、非法输入不炸', priceOk],
+      ['团号 GB+yyMMdd+4 位序号，同日递增不重复', noOk],
+      ['建团落地档位/团价/团长/24h 截止；非法人数与无价商品被拒', makeOk && rejectOk],
+      ['三态推导：满员即终态（过期不回退），未满过期即失败', statusOk],
+      ['倒计时格式化正确，剩余 1 小时内进入紧张态', countdownOk],
+      ['模拟好友参团推进人数、满员成团、拒绝满员再参团；昵称不重复且池用尽带序号', joinOk && nameOk],
+      ['过期团无法再参团', expireOk],
+      ['按 scopeId() 分桶：换账户看不到别人的团，切回仍在', isoOk && backOk],
+      ['损坏 JSON 读盘不抛，收敛为空列表', corruptOk],
+      ['结算草稿可写可读、30 分钟过期失效、用完即清', pendOk && clearOk],
+      ['订单层 groupBuy 白名单透传，非拼团单不塞空键，脏数据剔除，三态词表齐全', orderOk],
+      ['心愿理由：太短丢弃、超长截断、空白压缩、空则回落兜底', reasonOk],
+      ['公开索引跨 scope 可读，且只暴露最小快照（无通知/无设置）', publicOk],
+      ['不能自助力、每访客只算一次、跨阈值仅解锁一次', helpOk],
+      ['进度人数/比例/下一档还差几人推导正确，达标即可领', progOk],
+      ['收藏变化后重发快照，助力记录与理由不丢', syncOk],
+      ['主人通知同档只推一次，领取后置读且不再可领', noticeOk && claimOk],
+      ['奖励只写 couponId 不写面额，且券必须真实存在于券目录', rewardOk],
+      ['收回公开后读不到，空收藏不允许发布', unpubOk],
+      ['路由/导航/PDP 入口/收藏页面板/结算草稿/页脚全部接线', wiring],
+      ['卡片 surface-1+1px 细线、进度条 1px 青色、圆形头像、移动端单列吸底 44px、reduced-fx', styleOk],
+      ['整页仅一个 setInterval 且断开即清理；不接真实分享 SDK 与支付', disciplineOk],
+      ['不改对比与盲盒：两侧零互引', untouched],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([l]) => l);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 拼团与心愿单助力（${cases.length} 条）${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 拼团与心愿单助力: ${String(e.message).split('\n')[0]}`);
   }
 }
 

@@ -1,8 +1,10 @@
-# 商品对比擂台 + AI 搭配师 — 交付总览
+# 拼团 + 心愿单助力 — 交付总览
 
-> **本步范围**：新增「商品对比」与「AI 搭配」两个决策辅助功能。
-> **明确不动**：AI 盲盒（`web/js/blindbox.js` 仅 1 处 `comparable: false`）、积分/签到/任务三件套
-> （`web/js/store/pointsConfig.js` / `pointsStore.js` / `web/js/points.js` / `web/js/store/pointsSpend.js` 全部零改动，有断言守着）。
+> **本步范围**：新增「拼团」与「心愿单助力」，让购买有「一起玩」的理由。
+> 拼团：详情页发起弹层（2/3/5 人）→ 团号 → 待成团 → 模拟好友参团 → 已成团 → 按团价结算 → 订单标记；
+> 心愿单：收藏页公开开关 → 免登录公开页 → 访客助力 → 阶梯奖励 → 主人领券。
+> **明确不动**：商品对比（`compare.js` / `outfit.js` / `compareStore.js` / `outfitStore.js` 源码零改动）、
+> AI 盲盒（`blindbox.js` 零改动）—— 两侧都有断言守着。
 > **设计语言**：沿用 Deep Space Command 深空令牌，未引入任何新色系。
 
 ---
@@ -11,12 +13,13 @@
 
 | # | 决策 | 一句话理由 |
 |---|---|---|
-| 1 | 规则与实现彻底分离：`compareConfig.js` / `outfitConfig.js` 只放常量，`compareStore.js` / `outfitStore.js` 只放纯函数 | 视图层只负责画，Node 侧可直接 `import` 断言，无需 DOM |
-| 2 | 对比按钮通过 `setCompareSlot(fn)` **注册插槽**注入 `ui.js` | `ui.js ⇄ compare.js` 若互相静态 import 会形成 ESM 循环依赖，插槽把依赖方向拧成单向 |
-| 3 | `compare.js` / `outfit.js` 用**动态 `await import('./views.js')`** 取 `getProducts()` / `doAdd()` | 同上，避开 `views.js → compare.js → views.js` 的环 |
-| 4 | 「最优项」用 `box-shadow: inset 0 0 0 1px` 而非真实 `border` | `table-layout: fixed` 下表加真实边框会撑动列宽，隔壁列跟着跳 |
-| 5 | AI 推荐指数只吃商品自身字段，不做「组内归一化」 | 否则加/减一件商品会让已经看到的分数漂移，用户会以为数据在乱跳 |
-| 6 | 搭配理由「先枚举所有真实成立的关系，再哈希挑一条」 | 原写法是「首个命中优先级」，实测 210 条抽样里 100% 落到「价位互补」，模板再多也没用 |
+| 1 | 团状态**不落盘、只推导**：`groupStatus(group, now)` 由「成员数 vs 成团人数」+「now vs deadlineAt」算出 | 落盘状态一定会过期，出现「已满员却显示待成团」；推导则刷新、改系统时间都不会说谎 |
+| 2 | 团价 = 单买价 × 档位折扣，实时算且写进团快照，同一数值直接作为购物袋价格 | 用户看到的团价 == 结算金额，杜绝「标 8 折、结算按原价」的虚标 |
+| 3 | 团的两根时间线分离：`groupBuy` 独立一列，不覆盖订单 `status` | 团生命周期（待成团/已成团/失败）与履约状态（待付款/待发货）正交，塞进一个字段必然互相覆盖 |
+| 4 | 心愿单公开出去的是**最小快照**（商品 id / 理由 / 助力记录），不是收藏夹本身 | 一个链接不该把整份收藏公开；索引独立成一张跨 scope 可读的键 |
+| 5 | 奖励只写 `couponId`，面额由券目录决定；校验函数 `validateTiers(catalog)` 在仓储层 | 运营改券不用改代码，也不会出现「页面写减 20、券包实际减 10」 |
+| 6 | 整页只起**一个** `setInterval`，节点被路由摘掉（`!isConnected`）或全部非待成团即自停 | 每张卡片各起一个定时器是最经典的「切页后还在跑」写法 |
+| 7 | 分享/二维码全部 mock：复制本站 hash 链接 + 5×5 纯 CSS 点阵占位 | 规格明确禁止真实分享 SDK；引一个二维码库为了一张占位图不值得 |
 
 ---
 
@@ -26,211 +29,220 @@
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `web/js/store/compareConfig.js` | 104 | 对比擂台唯一规则源：上限 4、维度表、属性组映射、AI 权重、旧类目别名 |
-| `web/js/store/compareStore.js` | 336 | 对比列表仓储（按 `scopeId()` 隔离）+ 维度/最优/差异/AI 指数纯函数 |
-| `web/js/store/outfitConfig.js` | 93 | AI 搭配唯一规则源：25 个一级类目全覆盖的搭配策略 + 7 条理由模板 |
-| `web/js/store/outfitStore.js` | 218 | 搭配挑选、理由判定、套装价、单件替换、购物袋载荷 |
-| `web/js/compare.js` | 276 | 加入/移出开关、全局悬浮条、`#/compare` 页面 |
-| `web/js/outfit.js` | 155 | 详情页 AI 搭配面板（默认收起，点击才算） |
-| `scripts/e2e-compare.mjs` | 367 | 31 条浏览器验收断言 |
+| `web/js/store/groupBuyConfig.js` | 123 | 拼团唯一规则源：2/3/5 三档（10%/18%/28%）、24h mock 截止、昵称池、三态词表、分享奖励（引用积分 `share1`）、文案 |
+| `web/js/store/groupBuyStore.js` | 422 | 团号生成、建团、模拟参团、三态/剩余人数/倒计时纯函数、`scopeId()` 分桶、结算草稿（30min TTL） |
+| `web/js/store/wishlistConfig.js` | 100 | 心愿单规则源：助力阶梯（3/10 人）、奖励 `couponId`、理由长度、每访客一次、可否自助力、文案 |
+| `web/js/store/wishlistStore.js` | 447 | 公开索引（跨 scope）、发布/收回/改理由、访客助力去重、阶梯进度、主人通知、领奖标记 |
+| `web/js/groupBuy.js` | 443 | PDP 发起弹层、`#/group-buy` 大厅、`#/group-buy/:id` 详情（单一 ticker） |
+| `web/js/wishlist.js` | 306 | 收藏页公开面板 + `#/wishlist/:id` 免登录公开页 |
+| `scripts/e2e-group.mjs` | 415 | 62 条浏览器验收断言 |
 
 ### 改动（8 个）
 
 | 文件 | 改动 |
 |---|---|
-| `web/js/ui.js` | +17：`setCompareSlot()` 注册插槽；`productCard()` 新增 `comparable` 选项 |
-| `web/js/views.js` | +6：PDP 次要操作区插入 `compareToggle`、服务卡后插入 `outfitPanel(p)` |
-| `web/js/app.js` | +12：路由 `#/compare`、`setActiveNav` 归到 products、`has-pdp-bar` 类、启动期装配插槽与悬浮条 |
-| `web/js/blindbox.js` | **+2 仅限**：结果卡 `comparable: false`（本步不动盲盒） |
-| `web/index.html` | +1：页脚「服务」列加「对比擂台」入口 |
-| `web/styles.css` | +543（12817 → 13360）：100 条 `.cmp-*` / `.ot-*` 规则 |
-| `scripts/check-web.mjs` | +260（3433 → 3693）：23 条对比/搭配断言，模块数 71 → **77** |
-| `README.md` | +2：命令清单补 `e2e-compare`，断言计数更新 |
+| `web/js/app.js` | 三条路由（`/group-buy`、`/group-buy/:id`、`/wishlist/:id`）+ 导航归属 + `has-pdp-bar` 覆盖新吸底页 |
+| `web/js/views.js` | 详情页次要操作区加 `groupBuyButton(p)`（1 行接线，无其它改动） |
+| `web/js/account.js` | 订单卡加「拼团」标记 + 团状态胶囊 + 「查看团」入口；收藏页顶部挂公开面板 |
+| `web/js/checkout.js` | 读拼团草稿写入 draft → 清单顶部拼团说明条 → 下单成功后清理草稿 |
+| `web/js/store/orderStore.js` | `normalizeGroupBuy()` + `groupStatusText()` + `groupBuyOf()`；`createOrder` / `normalizeRemote` 白名单透传 |
+| `web/styles.css` | +571 行 `.gb-*` / `.wl-*`（surface-1 + 1px 细线卡、1px 青色进度条、圆形头像、移动端单列吸底、reduced-fx） |
+| `web/index.html` | 页脚加「拼团大厅」；收藏链接改为「我的收藏 / 心愿单」 |
+| `scripts/check-web.mjs` | 新增 24 条断言块；**并把对比块 1 条脆断言改成语义匹配**（见第六节说明） |
 
 ---
 
 ## 三、关键代码
 
-### 1. 最优项：全员相同则不标
+### 1. 三态推导（纯函数，任何时刻都在说真话）
 
 ```js
-export function bestIndexes(dim, products) {
-  if (!dim || !dim.better || !Array.isArray(products) || products.length < 2) return [];
-  const values = products.map((p) => Number(dim.read(p)));
-  const valid = values.filter((v) => Number.isFinite(v));
-  if (valid.length < 2) return [];
-  const target = dim.better === 'lower' ? Math.min(...valid) : Math.max(...valid);
-  const out = [];
-  values.forEach((v, i) => { if (Number.isFinite(v) && v === target) out.push(i); });
-  return out.length === values.length ? [] : out; // 全体相同 → 没有「最优」
+// web/js/store/groupBuyStore.js
+export function groupStatus(group, now = Date.now()) {
+  const size = Math.max(1, Number(g.size) || 1);
+  const joined = Array.isArray(g.members) ? g.members.length : 0;
+  if (joined >= size) return GB_STATUS.FORMED;          // 成团是终态：过期也不回退
+  const deadline = Date.parse(g.deadlineAt || '');
+  if (Number.isFinite(deadline) && now > deadline) return GB_STATUS.FAILED;
+  return GB_STATUS.OPEN;
 }
 ```
 
-### 2. AI 推荐指数（只吃自身字段，不随对比对象漂移）
+### 2. 整页一个倒计时（只改文本，断开即停）
 
 ```js
-export function aiIndex(p) {
-  const r = clamp(num(p && p.rating), 0, AI_INDEX_CAPS.rating) / AI_INDEX_CAPS.rating;
-  const s = clamp(num(p && p.sales), 0, AI_INDEX_CAPS.sales) / AI_INDEX_CAPS.sales;
-  const v = clamp(reviewsOf(p), 0, AI_INDEX_CAPS.reviews) / AI_INDEX_CAPS.reviews;
-  return Math.round(clamp(AI_INDEX_WEIGHTS.rating * r + AI_INDEX_WEIGHTS.sales * s
-    + AI_INDEX_WEIGHTS.reviews * v, 0, 1) * 100);
+// web/js/groupBuy.js
+function mountCountdowns(pairs) {
+  const tick = () => {
+    if (!live.some((p) => p.node.isConnected)) { stop(); return; }   // 路由切走 → 收手
+    const anyOpen = live.map(paint).some(Boolean);
+    if (!anyOpen) stop();                                           // 全部非待成团 → 收手
+  };
+  tick();
+  timer = setInterval(tick, GB_TICK_MS);
+  return stop;
 }
-// 权重 0.6 / 0.25 / 0.15，和为 1（有断言）
 ```
 
-### 3. 旧类目兼容：三代兜底
-
-演示商品用的是上一代 16 类目体系（`phone` / `home` / `apparel`…），不在现行 25 个一级分类树内，
-不兜底的话搭配策略会永远走默认分支：
+### 3. 订单层登记拼团元数据（白名单，不登记就静默丢失）
 
 ```js
-export function l1Of(p) {
-  const chain = getAncestors(p.categoryId);                       // ① 现行分类树祖先
-  if (chain.length) return chain[chain.length - 1].id;
-  if (p.categoryId && LEGACY_L1_ALIAS[p.categoryId]) return LEGACY_L1_ALIAS[p.categoryId]; // ② 别名表
-  const hit = CATEGORY_TREE.find((n) => n.name === String(p.category || '').trim());        // ③ 类目名
-  return hit ? hit.id : null;
+// web/js/store/orderStore.js
+export function normalizeGroupBuy(raw) {
+  const r = raw && typeof raw === 'object' ? raw : null;
+  if (!r || !r.groupId) return null;
+  return { groupId, no, size, unitPrice, groupPrice, productName,
+           status: GB_STATUS_TEXT[r.status] ? String(r.status) : 'formed', createdAt };
 }
+// createOrder 内：
+...(normalizeGroupBuy(draft.groupBuy) ? { groupBuy: normalizeGroupBuy(draft.groupBuy) } : {}),
 ```
 
-### 4. 搭配理由：先枚举真实关系，再确定性挑一条
+### 4. 助力跨阈值才推通知（同档只推一次）
 
 ```js
-export function reasonCandidates(product, mate, strategy = strategyFor(product)) {
-  const out = [];
-  const c1 = colorFamilyOf(product); const c2 = colorFamilyOf(mate);
-  if (c1 && c2 && c1.id === c2.id) out.push(say('same-color', { color: c1.name }));
-  if (product && mate && product.brand && product.brand === mate.brand) out.push(say('same-brand'));
-  if (mainPrice > 0 && matePrice > 0) {
-    const diff = Math.round((Math.abs(mainPrice - matePrice) / Math.max(mainPrice, matePrice)) * 100);
-    if (diff <= 30) out.push(say('near-price', { diff })); else out.push(say('price-ladder'));
-  }
-  if (l1Of(mate) !== l1Of(product)) out.push(say('category-pair'));
-  if (stockOf(product) > 0 && stockOf(mate) > 0) out.push(say('ready-stock'));
-  out.push(say('same-scene'));           // 策略里的场景描述永远成立
-  return out;
-}
-// pickReason 用 hash(productId:mateId:r) 挑；reasonList 传 avoid Set，同一套装内不复用句式
+// web/js/store/wishlistStore.js —— help()
+const before = helpCount(pub);
+pub.helps = [...pub.helps, { scope, at }];
+const after = helpCount(pub);
+const crossed = WL_TIERS.filter((t) => before < t.threshold && after >= t.threshold);
 ```
 
-### 5. 对比页三态首屏（修掉的真实缺陷）
-
-`paint()` 是同步的，`getProducts()` 是异步的。原写法在池未到时就判定「商品已不在库中」，
-用户会看到一帧假错误：
+### 5. 结算衔接：团价直接进购物袋 + 草稿 30 分钟 TTL
 
 ```js
-const paint = () => {
-  if (!st.ids.length) { /* 空态 */ return; }
-  if (!poolReady)   { stage.appendChild(el('p', { class: 'cmp-hint', id: 'cmp-loading' }, COPY.loading)); return; }
-  if (poolFailed)   { stage.appendChild(el('p', { class: 'cmp-hint cmp-hint-warn', id: 'cmp-load-failed' }, COPY.loadFailed)); return; }
-  /* 真正渲染表格 */
-};
-loadPool().then((list) => { pool = list; poolReady = true; if (page.isConnected) paint(); })
-          .catch(() => { poolFailed = true; poolReady = true; if (page.isConnected) paint(); });
-```
-
-### 6. 最优项样式：1px 青线用 inset 阴影画
-
-```css
-.cmp-val.is-best {
-  background: var(--color-cyan-dim);
-  box-shadow: inset 0 0 0 1px var(--color-cyan-line);
-  color: var(--color-cyan);
-}
-```
-
-### 7. 移动端：表格换横向滚动卡片 + 悬浮条让位
-
-```css
-@media (max-width: 860px) {
-  .cmp-table { display: none; }
-  .cmp-card  { flex: 0 0 248px; width: 248px; }         /* 固定宽度，不挤压变形 */
-}
-body.has-pdp-bar .cmp-dock { bottom: calc(80px + env(safe-area-inset-bottom)); }  /* 不遮吸底栏 */
-body.has-pdp-bar .pdp-page { padding-bottom: calc(146px + env(safe-area-inset-bottom)); }
+// web/js/groupBuy.js → 去结算
+addToCart({ ...product, price: group.groupPrice }, 1, null);  // 状态层按 product.price 记账
+setPendingCheckout(group);
+navigate('#/checkout');
+// checkout.js finish() → clearPendingCheckout()（留着会污染下一笔普通订单）
 ```
 
 ---
 
 ## 四、访问路径
 
-| 入口 | 路径 |
+| 路径 | 说明 |
 |---|---|
-| 列表页加对比 | `#/products` → 商品卡「加入对比」 |
-| 详情页加对比 | `#/product/<id>` → 次要操作区「加入对比」（主操作区移动端隐藏，故放次要区） |
-| 对比页 | `#/compare`（页脚「服务 → 对比擂台」也可进） |
-| AI 搭配 | `#/product/<id>` → 服务卡下方「AI 搭配」入口，点击展开 |
+| `#/product/<id>` → 「发起拼团」 | 详情页次要操作区，选 2/3/5 人 → 团价实时预览 → 开团 |
+| `#/group-buy` | 拼团大厅，「进行中 / 已结束」两栏 |
+| `#/group-buy/<id>` | 团详情：团号、倒计时、成员头像、二维码占位、邀请好友、模拟好友参团、去结算 |
+| `#/group-buy/<id>?invite=1` | 分享落地（顶部多了「好友分享」提示条） |
+| `#/favorites` | 收藏页顶部「公开心愿单」开关 + 理由编辑 + 复制链接 + 主人通知条 |
+| `#/wishlist/<id>` | 公开心愿单，**免登录**；访客可助力，主人可领券 |
+| `#/orders` | 拼团单带「拼团」标记 + 团状态胶囊 + 「查看团」 |
 
 ---
 
-## 五、验收自检（逐项）
+## 五、验收自检（逐项对照规格）
 
-| 验收项 | 结果 | 证据 |
+### 一、拼团
+
+| 规格要求 | 结果 | 证据 |
 |---|---|---|
-| 可加入对比 | ✅ | 列表卡 / 详情页双入口可加；重复加去重、超 4 个 toast 提示「先移除一个」、存储失败单独文案 |
-| 可查看对比 | ✅ | 悬浮条显示「已选 N 件」+「去对比」；`#/compare` 并列展示价格/评分/销量/库存/核心属性/售后/AI 指数 |
-| 高亮最优项 | ✅ | 价格取最小、评分/销量/库存取最大；全员相同**不标**；青色细线 + 浅青底，无红绿 |
-| 只看差异项 | ✅ | `.is-diff-only` 下 `[data-diff="0"]` 整行隐藏；差异判定按原始值而非格式化文本 |
-| 移除单个 / 清空 | ✅ | 表格与卡片两种视图都能移除；清空后回空态并隐藏悬浮条 |
-| 刷新不丢、最多 4 个 | ✅ | key `maison_compare_v1::<scopeId()>`；`addId` 硬上限 4；登录/匿名各自独立 |
-| AI 搭配按分类合理 | ✅ | 25 个一级类目全部有策略（有断言 `missing === 0`）；服饰搭鞋包配饰、数码搭配件、家居搭软装 |
-| 可单个替换 | ✅ | 「换一件」走 `replaceMate()`，排除已用与主商品；无候选时按钮置灰而不是空转 |
-| 整套加购 | ✅ | 「一键加购套装」逐件按主商品来源 `doAdd()`，数量 = 1+N |
-| 移动端横向滚动 | ✅ | 实测卡片宽 248px、容器横滚、表格已隐藏 |
-| 控制台无错误 | ✅ | `e2e-compare` 全程监听 `pageerror` / `console.error`，0 条 |
+| 详情页「发起拼团」，选 2/3/5 人与 mock 团价（低 10–30%） | ✅ | 三档 `10%/18%/28%`；弹层实时预览；`e2e-group` 断言「团价 = 单买价 × 82%」「团价确实低于单买价」「省 N%」 |
+| 生成 mock 团号，状态「待成团」 | ✅ | `GB` + yyMMdd + 4 位序号，同日递增；`/^GB\d{10}$/` 双端断言 |
+| `#/group-buy` 列表：进行中、剩余人数、倒计时 | ✅ | 两栏切换；卡片含状态胶囊/团号/团价对比/成员头像/剩余人数/倒计时 |
+| `#/group-buy/:id` 详情：团信息、成员头像占位、分享按钮 | ✅ | 圆形占位（昵称首字，不加载真实头像）+ 二维码占位 + 吸底操作条 |
+| 拼团分享：mock 链接/二维码，「邀请好友」复制 + 10 积分（与步骤 3 打通） | ✅ | 复制 `#/group-buy/<id>?invite=1`；`recordBehavior('share')` 让积分 `share1` 任务 +1（断言 `progress 0→1`）；文案如实写「任务已记录，去积分页领取」 |
+| 不显眼的「模拟好友参团」，人数 +1，满员成团，可进结算 | ✅ | `.gb-sim` 虚线次要按钮；满员后按钮消失、状态转「已成团」、结算按钮解禁 |
+| 订单列表标记「拼团」，状态含待成团/已成团/拼团失败 | ✅ | 订单头 `[拼团]` + 团状态胶囊（三态词表齐全且由纯函数推导，见 `check-web` 第 12 条） |
 
-**命令实跑**：
+### 二、心愿单助力
 
-```text
-node scripts/check-web.mjs      → 77 个 ESM 真实 import + 23 条对比/搭配断言，✓ 前端自检通过
-node scripts/e2e-compare.mjs    → 31/31，✓ 商品对比 / AI 搭配验收全部通过
-```
+| 规格要求 | 结果 | 证据 |
+|---|---|---|
+| 收藏夹「公开心愿单」开关，开启后生成 mock 分享链接 | ✅ | 开关 + 理由输入 + 复制链接 + 预览公开页 |
+| `#/wishlist/:id` 展示商品、理由、助力进度条 | ✅ | 「已获 N 人助力，再 M 人可享奖励」+ 1px 青色进度条 + 阶梯胶囊 |
+| 访客点「助力」人数 +1；达阈值主人收到通知并可领券 | ✅ | 每访客一次（重复助力 `reason: 'done'`）；跨阈值推通知；主人领券真进券包（断言券包数 +1） |
+| 助力规则与奖励抽成配置，不写死 | ✅ | `WL_TIERS` 只含 `{threshold, couponId}`；断言「阶梯里不含面额字样」+「券必须真实存在于券目录」 |
+
+### 三、数据与样式
+
+| 规格要求 | 结果 | 证据 |
+|---|---|---|
+| 拼团/助力数据按用户隔离存 localStorage；倒计时用 mock 截止时间 | ✅ | `maison_groupbuy_v1::<scopeId>` / `maison_wishlist_v1::<scopeId>`；截止 = 建团时间 + 24h |
+| 拼团卡 surface-1 + 1px 细线；进度条 1px 青色细线；头像圆形占位 | ✅ | 断言直接量 CSS：`background: var(--color-surface-1)`、`border: 1px solid var(--color-hairline-dark)`、`height: 1px` + `background: var(--color-cyan)`、`border-radius: 50%` |
+| 移动端单列、分享按钮吸底、热区 ≥44px | ✅ | 390×844 实测：无横向滚动、`.gb-bar` / `.wl-bar` `position: fixed`、按钮高度 44px |
+
+### 四、禁止项
+
+| 禁止 | 结果 | 证据 |
+|---|---|---|
+| 真实支付 / 真实分享 SDK | ✅ | 断言源码不含 `qrcode|wx\.|window\.open|shareSDK|alipay|wxpay`；二维码为纯 CSS 点阵 |
+| 倒计时无限循环导致性能问题 | ✅ | 断言 `groupBuy.js` 里 `setInterval` 恰好 1 处且带 `clearInterval` + `isConnected` 自停；`wishlist.js` 零定时器 |
+| 拼团价虚标后无法成团 | ✅ | 团价与档位折扣同源计算并写进快照，结算单价断言等于团价；成团仅需成员数达标（模拟参团可达） |
+| 心愿单强制登录才能看公开页 | ✅ | 清掉登录态后仍能打开并渲染（断言 hash 未被重定向、进度卡可见） |
+
+### 五、总体验收
+
+| 项 | 结果 |
+|---|---|
+| 可发起拼团、生成团号、模拟参团、成团后进结算 | ✅ 62/62 e2e 全过 |
+| 拼团订单在订单列表有标记和状态 | ✅ |
+| 心愿单可公开、可助力、进度和奖励正确 | ✅ |
+| 分享按钮可用（复制 mock 链接） | ✅ 剪贴板读回含 `#/group-buy/gb_...&invite=1` |
+| 刷新状态不丢 | ✅ 团状态、助力数、领取标记均持久 |
+| 移动端可用 | ✅ |
+| 控制台无错误 | ✅ |
 
 ---
 
-## 六、独立证伪核验抓到并修掉的问题
+## 六、断言脚本自身的修复（不是产品问题）
 
-既有断言全绿 ≠ 覆盖充分，另写 26 项一次性核验（用完即删）。其中 **1 项真实产品缺陷 + 3 项我自己的判定口径写错**：
+`e2e-group` 首轮 12 条红、`check-web` 首轮 2 条红，全部出在断言脚本上，已逐条修正并留注释：
 
-| 类型 | 问题 | 处理 |
+| 现象 | 真因 | 修法 |
 |---|---|---|
-| **产品缺陷** | 对比页首屏闪一帧「所选商品已不在当前商品库中」 | `renderCompare` 加 `poolReady` / `poolFailed` 三态；补一条持久 e2e 断言（route 延迟 `/api/products` 后抓首屏 DOM） |
-| 核验脚本误报 | B3 把「两件价格相同」当成应标两个最优项 | 产品设计是「全员相同不标」，回源码确认无误，只改脚本为 `[100,100,200,300]` 应标 0,1 |
-| 核验脚本误报 | `globalThis.navigator` 只读，赋不上 | 改 `Object.defineProperty(..., { configurable: true, writable: true })` |
-| 核验脚本误报 | `check-web` 三条断言自己写错（只扫前 200 条商品 / 非串行吃初始 state / 池里其实有替代品） | 逐一改成全量扫描、串行、`replaceMate([main], …)` |
+| 详情页找不到「发起拼团」 | 商品 id 取自 `store/products.js` 的 mock 库，不在 `views.getProducts()` 的消费者池里 → 页面显示「商品已下架」 | 断言改用与前台一致的取数入口 |
+| 大厅 `.gb-card` 超时 | 默认「进行中」栏本来就该是空的（唯一团已成团） | 先断言空态，再切「已结束」栏断言卡片 |
+| 开关 `check()` 超时 | input 视觉隐藏（1px + `opacity:0`） | 点可见轨道 `.wl-switch-track` |
+| 公开页打不开 | `browser.newPage()` 是**独立 context**，localStorage 为空 | 同一 context 内清 `current_user` 后导航 |
+| 主人收不到通知 | 同一 context 里另一个页面改了 storage，主页面停在旧渲染 | 恢复登录态后显式 `reload()` |
+| 移动端找不到团 | 新 context 里没有团数据 | 改 `page.setViewportSize()` 复用同一页 |
+| 移动端找不到 `.wl-bar` | 主人视角本来就没有助力按钮 | 改用匿名页（访客视角）验 |
 
-顺手做掉的两个体验改进：
+**另修 1 条既有脆断言**：对比步骤的 `appSrc.includes("path.startsWith('/compare') ? 'products'")` 逐字匹配了导航表达式，本步往同一个 `products` 桶加 `/group-buy` 后立刻误报「对比接线断了」。改为
+`/path\.startsWith\('\/compare'\)[\s\S]{0,140}?'products'/`，仍然验「它归 products 桶」这件事——断言该匹配语义，而不是匹配业务代码的字符相邻。
 
-- **搭配理由句式分布**：修前 210 条抽样 100% 是「价位互补」；修后 `ready-stock 99 / price-ladder 70 / near-price 15 / same-scene 15 / category-pair 11`。
-- **演示商品无 `attributes`**：原会硬套属性组，对比页出现整行「—」；改为「真有 attributes 才归组」，否则回落「分类 / 品牌」。
+**自查抓到的真实缺陷 2 处**（已改）：
+1. `wishlistConfig.js` 第一版 `import { COUPON_CATALOG } from './couponStore.js'` → 经 `api.js → auth.js` 把 `location` 依赖拖进纯配置层，Node 里 `location is not defined`。改为配置只存 `couponId`，校验下沉到 `validateTiers(catalog)`。
+2. 邀请好友的文案原本写「+10 积分」，但机制是把积分 `share` 任务推到「可领取」，积分要用户自己去领。改为「分享任务已记录 · 10 积分在『积分与任务』里领取」。
 
 ---
 
 ## 七、已知限制
 
-1. **对比维度不跨类目自适应**：核心属性按「主商品所属属性组」取，混类目对比（如耳机 vs 连衣裙）时非同类商品该行显示「—」，不会强行对齐出伪维度。
-2. **搭配是规则驱动，不是模型驱动**：`OUTFIT_STRATEGY_BY_L1` 是手写映射，新加一级类目必须同步补一条，否则走默认策略（现有 25 条已全覆盖，且 `check-web` 守着）。
-3. **套装折扣固定 95 折**：配置里单一常量，不支持按类目差异化或阶梯满减。
-4. **对比列表上限硬编码 4**：来自需求，`COMPARE_MAX` 可改但 UI 文案（「最多 4 件」）是独立字符串，改常量时要一起改。
-5. **`e2e-ai-panel` 的历史断言缺陷未修**：该脚本「关闭按钮热区 ≥44px」实测 43.9998px（面板动画未完全收敛，`matrix(0.999995,…)` 把 44px 压了 0.0002px）。产品本身合规，属上一轮步骤范围，按「不改范围外」本轮不动。
+1. **跨浏览器不同步**：拼团分享链接与公开心愿单都依赖同源 localStorage，换浏览器/设备打开会显示「这个团不存在 / 这份心愿单不存在」。没有服务端就不可能真同步，页面如实提示，不做假的实时。
+2. **拼团订单通常显示「已成团」**：本演示链路里只有满员后才能结算，所以订单快照基本是 formed。「待成团 / 拼团失败」两态由同一套推导函数产生，用于团列表/详情；订单上保留三态词表是为了团数据被清理后仍能如实回显当时状态。
+3. **一笔订单对应一个团**：拼团结算走的是「团价加入购物袋 + 草稿标记」，如果购物袋里还有别的商品，整单都会被标记为拼团。真实业务应做行级归属。
+4. **「拼团失败」在 UI 上不可达**：截止时间固定 24h，演示期内无法等到过期。该分支由 `check-web` 用构造的过期时间做纯函数断言（`groupStatus(g, T0 + DAY + 1) === 'failed'`）。
+5. **心愿单一 scope 一份**：开关就是「我的收藏夹是否公开」，不支持多份并列心愿单（配置里预留的 `WL_MAX_ITEMS` 只用于公开页截断）。
+6. **助力上限 10 人**：最后一个阶梯达标后按钮置灰（再助力没有新增收益）。
 
 ---
 
-## 八、全量回归（31 套串行实跑）
-
-`for f in scripts/e2e-*.mjs` 逐套串行执行，总耗时约 18 分钟。
+## 八、全量回归（33 套串行实跑）
 
 | 结果 | 套数 | 说明 |
 |---|---|---|
-| 通过 | **29** | 含本步新增 `e2e-compare`（31/31）、`e2e-ai-panel`（本轮绿，见下）、`e2e-blindbox`、`e2e-points` 全绿 |
-| 外部噪音 | 2 | `e2e-discovery` 45/46、`e2e-merchant` 26/27，各自只差「控制台无 JS 错误」1 条 |
-| 需网关 | 1 | `e2e-merchant-apply` 起 8080 网关后**补跑 42/42 全过** |
+| 通过 | **30** | 含本步新增 `e2e-group`（62/62）、`check-web`（83 模块 + 24 条新断言） |
+| 外部噪音 | 3 | `e2e-discovery` 45/46、`e2e-merchant` 26/27，各自只差「控制台无 JS 错误」1 条，报错是外部演示图 `net::ERR_CONNECTION_CLOSED`；`e2e-ai-panel` 42/43 差「关闭热区 ≥44px 实测 43.9998px」（上一轮已定位为父层 `matrix(0.999995)` 动画残差，属断言缺 0.01 级容差，**上一轮范围内的问题，本步未改**） |
 
-**那 2 条失败的根因（已实测定位，非本步代码）**：写一次性探针监听 `requestfailed` 抓到 3 个 URL 全部 `net::ERR_CONNECTION_CLOSED` ——
-`images.openbeautyfacts.org/...jpg`、`images.openfoodfacts.org/...jpg`、`kolzsticks.github.io/Free-Ecommerce-Products-Api/.../handbag.jpg`。
-都是 mock 数据里引用的外部演示图，离线/被墙时拉不到。与本步的商品对比、AI 搭配代码零关系。
+断言合计：**1290 条通过 / 3 条已知噪音**。第二批 16 套是在本地网关（`http://127.0.0.1:8080`，`/health` 200）起来后跑的，含 `e2e-merchant-apply` 42/42。
 
-**`e2e-ai-panel` 的跨轮表现**：上一轮 3 连跑稳定红（43.9998px），本轮绿。说明它是 0.0002px 级别的动画收敛时序抖动，
-不是稳定失败 —— 结论仍是「产品合规、断言缺容差」，正解是给 0.01 级容差或等父层 `transform: none`，而不是靠重跑碰运气。
-该脚本属上一轮步骤范围，按「不改范围外」本轮不动。
+---
+
+## 九、闸门快照
+
+| 闸门 | 结果 |
+|---|---|
+| `node scripts/check-web.mjs` | ✅ 83 模块全部加载，三块断言（积分 22 / 盲盒 24 / 对比 23 / 拼团 24）全绿 |
+| `node scripts/e2e-group.mjs` | ✅ 62/62 |
+| 控制台 | ✅ 无 JS 错误 |
+| 移动端 390×844 | ✅ 无横向滚动，吸底条就位，热区 44px |
+| 刷新持久化 | ✅ 团状态 / 助力数 / 领取标记均保持 |
+| 对比与盲盒零改动 | ✅ 源码断言守着 |
+| 真实支付 / 分享 SDK | ✅ 不存在 |
+| 定时器 | ✅ 全站本步只新增 1 个 `setInterval`，带清理 |
+| 硬编码密钥 | ✅ 无（`.env.example` 未涉及本步） |

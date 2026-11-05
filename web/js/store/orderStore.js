@@ -13,6 +13,7 @@
 // （GET /api/config），本模块只通过 store/config.js 读取，
 // 保证结算页展示、下单请求、订单快照三处拿到的是同一组数字。
 import { findPayment, findShipping, paymentMethods, shippingFeeOf, shippingMethods } from './config.js';
+import { GB_STATUS_TEXT } from './groupBuyConfig.js';
 import { mockDeliverEvents, mockShipment } from './logistics.js';
 
 const KEY_PREFIX = 'maison_orders::';
@@ -59,6 +60,46 @@ export const ORDER_STATUS_TEXT = {
 
 export function statusText(status) {
   return ORDER_STATUS_TEXT[status] || status || '—';
+}
+
+/* ---------------- 拼团元数据（订单上的第二根时间线） ---------------- */
+
+/**
+ * 拼团订单 = 普通订单 + 一段团信息快照。
+ *
+ * 关键取舍：团的生命周期（待成团 / 已成团 / 拼团失败）与订单的履约状态
+ * （待付款 / 待发货 / 已完成）是两条正交的线，塞进同一个 status 字段必然打架——
+ * 团成了但还没付钱、付了钱但团没满（理论上不允许），任何组合都会让胶囊文案说谎。
+ * 所以单独一列 groupBuy，订单卡上并列显示。
+ *
+ * 另一个坑：createOrder 是**字段白名单**，draft 里多传一个键会被静默丢掉。
+ * 想让订单列表看到拼团标记，就必须在这里显式登记，否则「加了标记但页面没有」很难查。
+ */
+export function normalizeGroupBuy(raw) {
+  const r = raw && typeof raw === 'object' ? raw : null;
+  if (!r || !r.groupId) return null;
+  return {
+    groupId: String(r.groupId),
+    no: String(r.no || ''),
+    size: Math.max(2, Number(r.size) || 2),
+    unitPrice: Math.round((Number(r.unitPrice) || 0) * 100) / 100,
+    groupPrice: Math.round((Number(r.groupPrice) || 0) * 100) / 100,
+    productName: String(r.productName || '').slice(0, 60),
+    // 快照态：下单那一刻团是满员的，所以通常就是 formed；
+    // 保留 open / failed 是为了让「团数据被清理后」的订单仍能如实回显当时的状态。
+    status: GB_STATUS_TEXT[r.status] ? String(r.status) : 'formed',
+    createdAt: typeof r.createdAt === 'string' ? r.createdAt : new Date().toISOString(),
+  };
+}
+
+/** 团状态文案（订单卡、拼团列表、详情页共用一份词表）。 */
+export function groupStatusText(status) {
+  return GB_STATUS_TEXT[status] || status || '—';
+}
+
+/** 取订单的拼团信息；不是拼团单返回 null，调用方无需再判类型。 */
+export function groupBuyOf(order) {
+  return normalizeGroupBuy(order && order.groupBuy);
 }
 
 /**
@@ -269,6 +310,8 @@ export function createOrder(userId, draft = {}) {
     ...(draft.completedAt ? { completedAt: draft.completedAt } : {}),
     ...(draft.logistics ? { logistics: draft.logistics } : {}),
     ...(draft.aftersales ? { aftersales: draft.aftersales } : {}),
+    // 拼团快照（团号 / 团价 / 团状态）：非拼团单不会有这个键
+    ...(normalizeGroupBuy(draft.groupBuy) ? { groupBuy: normalizeGroupBuy(draft.groupBuy) } : {}),
     // remote=true 表示这条是服务端订单的本地镜像（核销/取消都以服务端为准）
     ...(draft.remote ? { remote: true } : {}),
   };
@@ -448,6 +491,8 @@ export function normalizeRemote(raw = {}) {
     paidAt: raw.paidAt || null,
     shippedAt: raw.shippedAt || null,
     completedAt: raw.completedAt || null,
+    // 服务端不认识团（它只存了商品与金额），拼团快照由下单方带上来、由镜像沿用
+    ...(normalizeGroupBuy(raw.groupBuy) ? { groupBuy: normalizeGroupBuy(raw.groupBuy) } : {}),
     // 物流与售后只有详情接口会带；列表接口没有这两个字段，保持 undefined 而不是空对象，
     // 免得详情页把「列表数据」误当成「没有物流事件」。
     ...(raw.logistics ? {

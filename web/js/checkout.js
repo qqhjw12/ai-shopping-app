@@ -28,6 +28,7 @@ import {
   bestCouponId, decorateMine, fmtCouponValue, hydrateWallet, listWallet, markCouponUsed, sortForCheckout,
   syncWallet,
 } from './store/couponStore.js';
+import { clearPendingCheckout, pendingCheckout } from './store/groupBuyStore.js';
 
 /**
  * 幂等键：优先 crypto.randomUUID（安全随机，碰撞概率可忽略），
@@ -486,6 +487,17 @@ export async function renderCheckout(view) {
     itemCard.innerHTML = '';
     const cart = getCart();
     itemCard.appendChild(cardHead('商品清单', `${cart.reduce((n, i) => n + (Number(i.qty) || 0), 0)} 件 · 可直接调整`));
+    // 拼团结算：把「这一单来自哪个团、团价多少」写在清单顶部。
+    // 草稿 30 分钟不落地就自动失效，避免上次的拼团标记粘到后面的普通订单上。
+    const gb = pendingCheckout();
+    if (gb) {
+      itemCard.appendChild(el('div', { class: 'co2-groupbuy' }, [
+        el('span', { class: 'co2-gb-tag' }, '拼团'),
+        el('span', { class: 'co2-gb-no num' }, `团号 ${gb.no}`),
+        el('span', { class: 'co2-gb-note' },
+          `${gb.size} 人团 · 拼团价 ${fmtPrice(gb.groupPrice)}（单买 ${fmtPrice(gb.unitPrice)}）`),
+      ]));
+    }
     cart.forEach((it) => {
       const key = it.__key || it.id;
       // 库存夹逼上限：无库存信息的商品不设限（服务端下单仍会兜底校验）
@@ -624,6 +636,8 @@ export async function renderCheckout(view) {
     getCart().forEach((i) => removeFromCart(i.__key || i.id));
     updateCartBadge();
     state.submitting = false;
+    // 拼团结算草稿用完即焚：留着会把下一笔普通订单也标成拼团
+    clearPendingCheckout();
     // 服务端订单的券是在事务里核销的：拉一次卡包让本机立刻显示「已使用」。
     // 失败不影响下单结果——下次进券包还会再同步一次。
     if (order && order.remote) syncWallet(user.id).catch(() => {});
@@ -651,6 +665,21 @@ export async function renderCheckout(view) {
    */
   async function placeOrder(cart, address) {
     const amt = amounts();
+    // 拼团快照：进结算页时由拼团详情写入，下单时随草稿落到订单上。
+    // 服务端不认这个字段（它只关心商品与金额），所以超时/降级两条路径都要自己带上，
+    // 否则「服务端下单成功但订单卡上没有拼团标记」这种半截状态极难排查。
+    const gb = pendingCheckout();
+    const gbSnapshot = gb
+      ? {
+        groupId: gb.groupId,
+        no: gb.no,
+        size: gb.size,
+        unitPrice: gb.unitPrice,
+        groupPrice: gb.groupPrice,
+        productName: gb.productName,
+        status: 'formed',
+      }
+      : null;
     const draft = {
       items: cart,
       address,
@@ -658,6 +687,7 @@ export async function renderCheckout(view) {
       paymentMethod: paymentById(state.paymentId),
       remark: state.remark,
       amounts: amt,
+      ...(gbSnapshot ? { groupBuy: gbSnapshot } : {}),
     };
 
     try {
@@ -698,6 +728,7 @@ export async function renderCheckout(view) {
         status: remote.status,
         createdAt: remote.createdAt,
         remote: true,
+        ...(gbSnapshot ? { groupBuy: gbSnapshot } : {}),
       });
 
       // 服务端金额与页面预览不一致（价格更新、库存档位变化）：以服务端为准，并明确告知
