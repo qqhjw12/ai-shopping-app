@@ -12437,3 +12437,128 @@ html.reduced-fx .hero-product,
 html.reduced-fx .ai-fab {
   background: var(--color-surface-1);
 }
+
+/* ===================== 积分 / 签到 / 任务中心（深空令牌） =====================
+   面板：--color-surface-1 + 1px 细线 + 16px 圆角；积分数字等宽 + 青色；
+   按钮：青色细线 / 浅青底，无实心大块青色；动效仅 300ms 一次性，无循环。 */
+.pt-page { max-width: var(--page); margin: 0 auto; padding: 28px var(--gutter) 64px; }
+.pt-card {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: 16px;
+  padding: 22px;
+}
+.pt-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 18px; margin-bottom: 18px; }
+.pt-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.pt-card-title { font-size: 15px; font-weight: 600; color: var(--color-text-primary); letter-spacing: .04em; }
+.pt-label { font: 11px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--color-text-muted); }
+.pt-points-value {
+  font: 600 46px/1.1 var(--font-mono);
+  color: var(--color-cyan);
+  letter-spacing: .04em;
+  margin: 6px 0 18px;
+}
+.pt-total-earned { font: 500 24px/1.2 var(--font-mono); color: var(--color-text-primary); margin: 8px 0 20px; }
+.pt-streak, .pt-level-name { font: 12px var(--font-mono); color: var(--color-cyan); }
+.pt-hint { font-size: 12px; line-height: 1.7; color: var(--color-text-muted); }
+
+/* 签到日历：7 等分网格，移动端不溢出 */
+.pt-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 20px; }
+.pt-day { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
+.pt-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--color-hairline-dark); background: transparent; }
+.pt-dot.is-signed { background: var(--color-cyan); border-color: var(--color-cyan); }
+.pt-day.is-today .pt-day-label { color: var(--color-cyan); }
+.pt-day-label { font: 10px var(--font-mono); color: var(--color-text-muted); }
+
+/* 按钮：青色细线 + 浅青底，触控热区 ≥44px */
+.pt-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; min-width: 44px; padding: 0 18px;
+  border: 1px solid var(--color-cyan-line);
+  border-radius: 12px;
+  background: var(--color-cyan-dim);
+  color: var(--color-cyan);
+  font: 13px var(--font-mono);
+  cursor: pointer;
+  transition: border-color 150ms var(--ease), background-color 150ms var(--ease);
+}
+.pt-btn:hover:not(:disabled) { border-color: var(--color-cyan); }
+.pt-btn:active:not(:disabled) { transform: scale(.98); transition-duration: 120ms; }
+.pt-btn:disabled { opacity: .55; cursor: default; }
+.pt-btn--done { border-color: var(--color-hairline-dark); background: transparent; color: var(--color-text-muted); }
+.pt-signin-btn { width: 100%; margin-bottom: 12px; }
+
+/* 等级进度条：1px 青色细线 */
+.pt-level-track { height: 1px; background: var(--color-hairline-dark); margin: 4px 0 12px; }
+.pt-level-fill { height: 1px; background: var(--color-cyan); transition: width 300ms var(--ease); }
+
+/* 任务中心 */
+.pt-tasks-card, .pt-ledger-card { margin-bottom: 18px; }
+.pt-task { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid var(--color-hairline-dark); }
+.pt-task-main { flex: 1; min-width: 0; }
+.pt-task-title { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--color-text-primary); }
+.pt-task-desc { margin-top: 5px; font-size: 12px; color: var(--color-text-muted); }
+.pt-tag { font: 10px var(--font-mono); color: var(--color-text-muted); border: 1px solid var(--color-hairline-dark); border-radius: 999px; padding: 3px 8px; }
+.pt-task-side { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+.pt-task-progress { font: 13px var(--font-mono); color: var(--color-text-muted); min-width: 44px; text-align: center; }
+.pt-badge { font: 11px var(--font-mono); color: var(--color-text-muted); min-width: 56px; text-align: center; }
+.pt-badge.is-claimable { color: var(--color-cyan); }
+.pt-badge.is-done { opacity: .6; }
+
+/* 积分流水 */
+.pt-ledger-row { display: grid; grid-template-columns: 56px 1fr 64px 116px; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--color-hairline-dark); font-size: 12px; }
+.pt-ledger-type, .pt-ledger-amount { font-family: var(--font-mono); color: var(--color-cyan); }
+.pt-ledger-amount { text-align: right; }
+.pt-ledger-desc { color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-ledger-time { font-family: var(--font-mono); color: var(--color-text-muted); text-align: right; }
+
+/* 个人中心入口卡 */
+.pt-entry-card { margin: 0 0 18px; }
+.pt-entry-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.pt-entry-link { font: 12px var(--font-mono); color: var(--color-cyan); text-decoration: none; }
+.pt-entry-body { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.pt-entry-points { font-size: 34px; margin: 4px 0 6px; }
+.pt-entry-signin { flex: 0 0 auto; }
+
+/* 轻量 toast：pointer-events:none，不遮挡任何操作 */
+.pt-toast {
+  position: fixed; left: 50%; bottom: 88px; z-index: 130;
+  transform: translateX(-50%);
+  pointer-events: none;
+  padding: 8px 16px; border-radius: var(--r-pill);
+  border: 1px solid var(--color-cyan-line);
+  background: var(--color-surface-2);
+  color: var(--color-cyan);
+  font: 12px var(--font-mono);
+  letter-spacing: .04em;
+  animation: pt-toast-in 240ms var(--ease) both;
+  transition: opacity 200ms ease;
+}
+.pt-toast.is-leaving { opacity: 0; }
+@keyframes pt-toast-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* 签到积分数字上浮：300ms 一次性，animationend 后移除 class */
+.pt-points-value.is-bump { animation: pt-bump 300ms var(--ease) both; }
+@keyframes pt-bump {
+  from { transform: translateY(6px); opacity: .45; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* 全局性能开关：降级时停掉积分页装饰动效（反馈动画本身有限时长，不循环） */
+html.reduced-fx .pt-points-value.is-bump,
+html.reduced-fx .pt-toast { animation: none; }
+html.reduced-fx .pt-level-fill { transition: none; }
+
+/* 移动端：单列、触控热区不缩水、无横向滚动 */
+@media (max-width: 767px) {
+  .pt-page { padding: 20px var(--gutter) 48px; }
+  .pt-grid { grid-template-columns: 1fr; }
+  .pt-entry-body { flex-wrap: wrap; }
+  .pt-ledger-row { grid-template-columns: 48px 1fr 56px; }
+  .pt-ledger-time { display: none; }
+  .pt-task { flex-wrap: wrap; }
+  .pt-task-side { width: 100%; justify-content: space-between; }
+}

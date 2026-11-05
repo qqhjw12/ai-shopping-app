@@ -7,6 +7,7 @@
 import { api } from '../api.js';
 import { getUserId } from '../state.js';
 import { scopeId } from './userScope.js';
+import { recordBehavior } from './pointsStore.js';
 
 const STORE_KEY = 'maison_favorites_v2';
 const LEGACY_KEY = 'maison_pdp_favorites_v1'; // 旧版详情页只存 id 的收藏列表
@@ -141,6 +142,8 @@ export function addFavorite(product, { silent = false } = {}) {
   if (list.some((i) => String(i.id) === id)) return false;
   all[key] = [snapshot({ ...product, id }), ...list];
   writeAll(all);
+  // 积分任务埋点：仅用户主动收藏计一次（silent 是服务端并回，不算行为）
+  if (!silent) recordBehavior('favorite');
   // silent 用于「从服务端并回」：数据本来就是服务端的，回写只是幂等空转，省一次请求
   if (!silent) syncServer({ op: 'add', id });
   if (!silent) notify();

@@ -6,6 +6,7 @@ import { el, productThumb, fmtPrice } from './ui.js';
 import { addToCart, getUserId } from './state.js';
 import { isDemoMode } from './demo.js';
 import { trackEvent } from './track.js';
+import { recordBehavior } from './store/pointsStore.js';
 import { getProducts } from './views.js';
 
 const messagesEl = () => document.getElementById('ai-messages');
@@ -174,6 +175,8 @@ async function streamRun(toTab, { path, body, makeWrap, onEvent }) {
       if (toTab === tab) scrollBottom();
     });
     if (!wrap) typing.remove(); // 流结束但无内容
+    // 积分任务埋点：三个 tab 的流式回复成功结束都算完成一轮 AI 对话
+    recordBehavior('ai_chat');
   } catch (e) {
     typing.remove();
     if (wrap) wrap.remove();

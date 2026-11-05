@@ -1,3 +1,113 @@
+# 积分 / 每日签到 / 任务中心（奖励底座）— 交付总览
+
+> 本步范围：**新增奖励底座，不改商品数据、不改已有业务逻辑**。
+> 六个真实行为点各加 1 行埋点调用（纯接线，业务分支零改动）；规则全部抽到配置，按 `scopeId()` 分桶存 localStorage。
+> 架构决策：纯函数数据层 + 配置层 + 视图层三层；积分页 `#/points` 对匿名开放（未登录用持久匿名 id），
+> 个人中心放精简签到卡；实时方案用「订阅通知 + 刷新持久化」，不引入轮询 / WebSocket；
+> 错误在边界处兜底（localStorage 读写 try/catch、未知行为白名单），不向用户抛堆栈。
+
+## 交付内容 / 改动文件列表
+
+| 文件 | 类型 | 说明 |
+|---|---|---|
+| `web/js/store/pointsConfig.js` | 新增 | 签到规则、连续加成、5 档等级、6 个任务、4 类流水、周期与文案全部配置化 |
+| `web/js/store/pointsStore.js` | 新增 | 纯函数规则（签到/断签/等级/任务/去重/周期重置）+ 按用户隔离的 localStorage 仓储 + 通知订阅 |
+| `web/js/points.js` | 新增 | `#/points` 完整页 + 个人中心精简签到卡 + 300ms 上浮 + 轻量 toast |
+| `web/styles.css` | 修改 | 追加 `.pt-*` 样式（surface-1 面板 / 1px 细线 / 16px 圆角 / 等宽青色数字 / 1px 等级线 / 移动端单列 / reduced-fx 降级） |
+| `web/js/app.js` | 修改 | import `renderPoints` + `#/points` 路由分支 + 顶栏 account 高亮映射 |
+| `web/js/accountCenter.js` | 修改 | 个人中心插入 `renderPointsEntry()` 一行 |
+| `web/index.html` | 修改 | footer「服务」列加 `#/points` 链接 |
+| `web/js/views.js` | 修改 | 3 行埋点：浏览 / 评价 / 分享 |
+| `web/js/store/favoriteStore.js` | 修改 | 1 行埋点：主动收藏成功（silent 服务端并回不计） |
+| `web/js/assistant.js` | 修改 | 1 行埋点：流式回复成功结束（三个 tab 统一） |
+| `web/js/checkout.js` | 修改 | 1 行埋点：`finish()` 统一收尾，覆盖真网关与本地降级两条下单路径 |
+| `scripts/e2e-points.mjs` | 新增 | 31 条浏览器验收 |
+| `scripts/check-web.mjs` | 修改 | 追加 12 条确定性断言组 |
+| `README.md` | 修改 | e2e 清单补 `e2e-points`，构建模块数 63 → 66 |
+
+## 关键代码
+
+规则全部在配置层，组件只引用（禁止写死）：
+
+```js
+// store/pointsConfig.js
+export const SIGNIN_RULES = {
+  base: 10,
+  milestones: [{ every: 7, bonus: 50, label: '连续 7 天' }, { every: 3, bonus: 20, label: '连续 3 天' }],
+};
+export const LEVELS = [
+  { level: 1, name: '新手', min: 0 }, { level: 2, name: '探索者', min: 200 },
+  { level: 3, name: '行家', min: 800 }, { level: 4, name: '鉴赏家', min: 2000 },
+  { level: 5, name: '收藏家', min: 5000 },
+];
+```
+
+签到纯函数（同日拦截 / 连续判定 / 断签重置 / 写流水）：
+
+```js
+// store/pointsStore.js
+export function signIn(state, today = dateKey()) {
+  const st = normalizeState(state, state.userId, today);
+  if (st.account.lastSignInDate === today) return { state: st, result: { ok: false, reason: 'already' } };
+  const streak = st.account.lastSignInDate === offsetDateKey(today, -1)
+    ? st.account.signInStreak + 1 : 1;
+  const reward = signInReward(streak);
+  st.account.signInStreak = streak;
+  st.account.lastSignInDate = today;
+  addPoints(st, reward.total, LEDGER_TYPES.SIGNIN, `每日签到${reward.label ? ` · ${reward.label}加成` : ''}`, today);
+  return { state: st, result: { ok: true, amount: reward.total, streak } };
+}
+export function storageKey(userId = scopeId()) { return `${STORAGE_PREFIX}${userId}`; }
+```
+
+真实行为埋点（每处 1 行，不改业务分支，例：下单成功统一收尾）：
+
+```js
+// checkout.js — finish(order)
+recordBehavior('order_success');   // 真网关与本地降级两条路径都汇聚于此
+```
+
+## 访问路径
+
+- 独立页：`#/points`（积分、签到日历、任务中心、等级进度、流水）
+- 个人中心：`#/account`（顶部精简签到卡 + 「积分与任务 →」链接）
+- 页脚「服务」列：`#/points`
+- 数据源：`web/js/store/pointsConfig.js`、`web/js/store/pointsStore.js`
+- 验收命令：`node scripts/check-web.mjs`、`node scripts/e2e-points.mjs`
+
+## 验收清单逐项自检
+
+| 验收项 | 结果 | 实测证据 |
+|---|---|---|
+| 每日签到可签、连续签到有加成、断签重置 | ✅ | 首签 +10；连续第 3 天 +30（10+20）；第 7 天 +60（10+50）；间隔 3 天断签重置为第 1 天且仅 +10；同日重复拦截 |
+| 任务进度由真实行为驱动，可领取后积分入账并写流水 | ✅ | 浏览 3 款不同商品（当日同款去重）、收藏、分享走真实 UI；AI 对话 / 下单 / 评价走事件入口；领取 +5 写 `type='任务'` 流水，按钮变「已领取」，重复领取拦截 |
+| 等级进度随积分变化 | ✅ | 累计 500 → Lv2 探索者 / 50% /「还差 300 分」；累计 5000 → Lv5 满进度；进度条 1px 青色细线 |
+| 刷新后积分、签到、任务状态不丢且按用户隔离 | ✅ | 刷新前后账户/签到/等级/任务一致；`current_user` 切到另一用户积分归零、签到可再签、任务重置；切回恢复；key = `maison_points_v1::<scopeId()>` |
+| 移动端可用 | ✅ | 375×812 单列、签到按钮 ≥44px、无横向滚动 |
+| 控制台无错误 | ✅ | e2e-points 零 JS 错误（过滤外部图与 `/api` 噪音） |
+| 禁止弹窗 / 无限循环动画 / 规则写死 / 用户共享积分 | ✅ | 无 dialog/alert、300ms 一次性上浮（animationend 移除）、规则全在 config、按用户分桶 |
+| 不改商品数据与已有业务逻辑 | ✅ | 6 处各 1 行埋点，`views.js` 商品源与所有业务分支零改动 |
+
+构建：`node scripts/check-web.mjs` → **66 个模块全部真实 import 通过**，新增 12 条积分底座断言全过；
+`node scripts/e2e-points.mjs` → **31/31 全过**。
+
+全量回归 30 套 e2e 串行实跑：**28 套通过**（含新增 `e2e-points` 31/31、`e2e-products` 27/27、
+`e2e-merchant` 27/27）；`e2e-merchant-apply` 按惯例启动独立 8080 网关 + 临时库补跑 **42/42**；
+`e2e-discovery`(45/46) 仅「控制台无 JS 错误」一条因 3 个外部商品图 `ERR_CONNECTION_CLOSED`
+失败——`demo-real-data.js` 未改动、本步埋点不在该断言的资源加载路径内，属环境网络噪音，
+**零新增回归**。（外部图噪音随网络抖动出现/消失，上一轮 `e2e-merchant` 亦曾因此 26/27。）
+
+## 已知限制
+
+- 任务周期：浏览 / 收藏 / AI 对话 / 分享为每日任务，下单为每周任务，评价为一次性任务；重置按**本地日期**计算，未与服务端时间校准。
+- 连续加成按**周期性里程碑**发放（每满 7 天 +50，否则每满 3 天 +20），不是仅第 3 / 第 7 天各一次。
+- AI 对话埋点在三个 tab 的流式成功路径统一计一次；演示模式无网关时请求失败，不计进度（符合「真实行为」口径）。
+- e2e 中「下单成功 / 评价 / AI 对话」三条链路用数据层事件入口直调验证累加与领取；其真实触发点由 `check-web` 源码断言覆盖，避免验收依赖登录态、网关与表单提交。
+- 积分目前只做「赚取 + 流水」，兑换 / 下单消费未接（`LEDGER_TYPES` 已预留「下单」「兑换」）。
+- 无跨标签页实时同步（刷新即可见）；数据仅在本机 localStorage，未接服务端。
+
+---
+
 # mock 商品数据层（1100 款，单文件 ESM）— 交付总览
 
 ## 验收复核（第 2 轮：实跑构建 + 逐项自检 + 范围内修复）

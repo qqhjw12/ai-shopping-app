@@ -7,6 +7,7 @@ import { renderCart } from './cart.js';
 import { renderOrderSuccess } from './orderSuccess.js';
 import { renderOrders, renderFavorites } from './account.js';
 import { renderAccount } from './accountCenter.js';
+import { renderPoints } from './points.js';
 import { renderOrderDetail } from './orderDetail.js';
 import { renderCoupons } from './coupons.js';
 import { renderLogin } from './login.js';
@@ -124,7 +125,7 @@ function setActiveNav(path) {
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
     : path.startsWith('/merchant') ? 'merchant'
-    : path.startsWith('/account') || path.startsWith('/coupons') || path.startsWith('/checkout') || path.startsWith('/orders') || path.startsWith('/favorites') || path.startsWith('/login') ? 'account'
+    : path.startsWith('/account') || path.startsWith('/coupons') || path.startsWith('/points') || path.startsWith('/checkout') || path.startsWith('/orders') || path.startsWith('/favorites') || path.startsWith('/login') ? 'account'
     : '';
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.nav === key));
 }
@@ -148,6 +149,7 @@ function dispatch({ path, query }) {
   else if (path === '/login') renderLogin(view, { redirect: query.redirect || '' });
   else if (path === '/account') renderAccount(view, { tab: query.tab || 'orders' });
   else if (path === '/coupons') renderCoupons(view);
+  else if (path === '/points') renderPoints(view);
   else if (path.startsWith('/account/order/')) {
     renderOrderDetail(view, decodeURIComponent(path.slice('/account/order/'.length)));
   }

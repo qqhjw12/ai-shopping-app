@@ -11,6 +11,7 @@ import { askProductQA } from './assistant.js';
 // 首页 hero、空态、AI 工坊条带、详情页入口都走同一个口子，避免两套导购体验。
 import { askGuide } from './aiShop.js';
 import { recordVisit, listRecent, clearRecent } from './store/recentStore.js';
+import { recordBehavior } from './store/pointsStore.js';
 import { navigate } from './router.js';
 import { demoProducts } from './demo-data.js';
 import { setDemoMode, isDemoMode } from './demo.js';
@@ -1281,6 +1282,8 @@ export async function renderProductDetail(view, id, from) {
   }
   // 最近浏览：进详情即记一条（同款去重并置顶），首页轨道据此渲染
   recordVisit(p);
+  // 积分任务埋点：真实浏览行为（数据层按当日不同商品 id 去重）
+  recordBehavior('view_product', { productId: p.id });
   ensureDemoBanner(view);
   container.innerHTML = '';
   container.appendChild(buildDetailPage(p, from, related));
@@ -2081,6 +2084,8 @@ function buildDetailPage(p, from, presetRelated = []) {
         images: (draft.images || []).map((pic) => pic.key || pic.url),
       });
       allReviews.unshift(review);
+      // 积分任务埋点：评价发布成功（在线 / 离线降级两条路径都到这里）
+      recordBehavior('review');
 
       draft.rating = 0;
       draft.content = '';
@@ -2655,6 +2660,8 @@ function buyNow(p, sku, from, qty = 1) {
 function copyShareLink(p, from) {
   // 分享埋点（带来源渠道，便于归因「经哪个渠道被分享出去」）
   trackEvent({ event: 'share', source: from || 'direct', productId: p.id });
+  // 积分任务埋点：与上面的既有 share 埋点同口径，用户发起分享即记一次
+  recordBehavior('share');
   const url = `${location.origin}${location.pathname}#/product/${p.id}` + (from ? `?from=${encodeURIComponent(from)}` : '');
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(

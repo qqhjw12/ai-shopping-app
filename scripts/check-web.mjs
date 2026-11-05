@@ -2792,5 +2792,139 @@ if (failed === 0) {
   }
 }
 
+/* ---------------- 积分 / 签到 / 任务中心断言（配置 / 纯函数 / 隔离 / 埋点接线） ---------------- */
+if (failed === 0) {
+  console.log('\n积分与任务底座断言（配置抽离 / 签到加成 / 断签重置 / 等级 / 任务 / 隔离 / 埋点）');
+  try {
+    const cfg = await import(pathToFileURL(join(WEB_DIR, 'store/pointsConfig.js')).href);
+    const pts = await import(pathToFileURL(join(WEB_DIR, 'store/pointsStore.js')).href);
+    const src = (f) => readFileSync(join(WEB_DIR, f), 'utf8');
+    const indexSrc = readFileSync(join(WEB_DIR, '..', 'index.html'), 'utf8');
+    const cssSrc = readFileSync(join(WEB_DIR, '..', 'styles.css'), 'utf8');
+
+    /* 1) 规则全部抽到配置 */
+    const thresholds = cfg.LEVELS.map((l) => l.min);
+    const behaviors = cfg.TASK_DEFS.map((t) => t.behavior);
+    const configOk = cfg.SIGNIN_RULES.base === 10
+      && cfg.SIGNIN_RULES.milestones.some((m) => m.every === 3 && m.bonus === 20)
+      && cfg.SIGNIN_RULES.milestones.some((m) => m.every === 7 && m.bonus === 50)
+      && JSON.stringify(thresholds) === JSON.stringify([0, 200, 800, 2000, 5000])
+      && cfg.TASK_DEFS.length === 6
+      && ['view_product', 'favorite', 'ai_chat', 'share', 'order_success', 'review']
+        .every((b) => behaviors.includes(b))
+      && Object.keys(cfg.LEDGER_TYPES).length === 4;
+
+    /* 2) 组件不写死规则 */
+    const pointsView = src('points.js');
+    const noHardcode = pointsView.includes("from './store/pointsConfig.js'")
+      && pointsView.includes('SIGNIN_RULES') && pointsView.includes('TASK_DEFS')
+      && !pointsView.includes('连续 3 天') && !pointsView.includes('reward: 5')
+      && !/\b200\b|\b800\b|\b2000\b|\b5000\b/.test(pointsView);
+
+    /* 3) 纯函数：7 天连续签到序列 / 同日重复 / 断签 */
+    const today = '2026-11-05';
+    let st = pts.createState('u:node', today);
+    const amounts = [];
+    for (let i = 0; i < 7; i += 1) {
+      const r = pts.signIn(st, pts.offsetDateKey(today, i));
+      st = r.state;
+      amounts.push(r.result.amount);
+    }
+    const signinOk = JSON.stringify(amounts) === JSON.stringify([10, 10, 30, 10, 10, 30, 60])
+      && st.account.signInStreak === 7 && st.account.points === 160
+      && st.ledger.every((x) => x.type === cfg.LEDGER_TYPES.SIGNIN);
+    const repeatOk = pts.signIn(st, pts.offsetDateKey(today, 6)).result.ok === false;
+    const gap = pts.signIn(st, pts.offsetDateKey(today, 9));
+    const gapOk = gap.result.amount === 10 && gap.result.streak === 1;
+
+    /* 4) 等级阈值与进度 */
+    const levelOk = pts.levelOf(0).level === 1 && pts.levelOf(200).level === 2
+      && pts.levelOf(800).level === 3 && pts.levelOf(2000).level === 4
+      && pts.levelOf(5000).level === 5 && pts.levelProgress(500).ratio === 0.5;
+
+    /* 5) 任务：真实行为累加 / 去重 / 领取 / 白名单 / 周期重置 */
+    let ts = pts.createState('u:node', today);
+    ['p1', 'p2', 'p3'].forEach((id) => {
+      ts = pts.applyBehavior(ts, 'view_product', { productId: id }, today).state;
+    });
+    const dedupe = pts.applyBehavior(ts, 'view_product', { productId: 'p1' }, today);
+    const progressOk = ts.tasks.browse3.status === cfg.TASK_STATUS.CLAIMABLE
+      && dedupe.changed.length === 0;
+    const claim = pts.claimTask(ts, 'browse3', today);
+    const claimTwice = pts.claimTask(claim.state, 'browse3', today);
+    const claimOk = claim.result.ok && claim.result.amount === 5
+      && claim.state.account.points === 5
+      && claim.state.ledger[0].type === cfg.LEDGER_TYPES.TASK
+      && !claimTwice.result.ok;
+    const whitelistOk = pts.applyBehavior(ts, 'not_a_behavior', {}, today).changed.length === 0;
+    const stale = JSON.parse(JSON.stringify(ts));
+    stale.tasks.browse3.periodKey = '2026-11-01';
+    const reset = pts.normalizeState(stale, 'u:node', today);
+    const resetOk = reset.tasks.browse3.status === cfg.TASK_STATUS.ACTIVE
+      && reset.tasks.review1.status === cfg.TASK_STATUS.ACTIVE;
+
+    /* 6) 按 scopeId() 分桶，不同用户积分互不可见（真实 localStorage 垫片） */
+    let isolationOk = false;
+    try {
+      localStorage.removeItem('current_user');
+      const anon = pts.storageKey();
+      localStorage.setItem('current_user', JSON.stringify({ id: 'u_a' }));
+      const keyA = pts.storageKey();
+      pts.doSignIn();
+      const a = pts.getSnapshot().account.points;
+      localStorage.setItem('current_user', JSON.stringify({ id: 'u_b' }));
+      const keyB = pts.storageKey();
+      const b = pts.getSnapshot().account.points;
+      isolationOk = keyA !== keyB && keyA !== anon && a === 10 && b === 0;
+      localStorage.removeItem('current_user');
+      localStorage.removeItem(keyA);
+      localStorage.removeItem(keyB);
+    } catch {
+      isolationOk = false;
+    }
+
+    /* 7) 六处真实行为埋点 + 路由 / 入口接线 */
+    const wiring = [
+      src('views.js').includes("recordBehavior('view_product'"),
+      src('views.js').includes("recordBehavior('review')"),
+      src('views.js').includes("recordBehavior('share')"),
+      src('store/favoriteStore.js').includes("recordBehavior('favorite')"),
+      src('assistant.js').includes("recordBehavior('ai_chat')"),
+      src('checkout.js').includes("recordBehavior('order_success')"),
+      src('app.js').includes("path === '/points'") && src('app.js').includes('renderPoints'),
+      src('accountCenter.js').includes('renderPointsEntry()'),
+      indexSrc.includes('href="#/points"'),
+    ].every(Boolean);
+
+    /* 8) 纪律：无弹窗 / 无无限循环动画 / 积分页不设登录门禁 */
+    const discipline = !/openModal|window\.alert|window\.confirm|<dialog/.test(pointsView)
+      && !src('guard.js').includes("'/points'")
+      && /@keyframes pt-bump/.test(cssSrc)
+      && /animation: pt-bump 300ms/.test(cssSrc)
+      && !/pt-bump[^}]*infinite/.test(cssSrc);
+
+    const cases = [
+      ['规则全部抽到 pointsConfig.js（签到 10 / 3 天 20 / 7 天 50、5 档等级、6 任务、4 流水类型）', configOk],
+      ['组件不写死规则数值，一律引用配置', noHardcode],
+      ['纯函数签到：7 天序列 10/10/30/10/10/30/60，流水均为签到', signinOk],
+      ['同日重复签到拦截', repeatOk],
+      ['断签重置为第 1 天且无加成', gapOk],
+      ['等级阈值与进度条比例正确', levelOk],
+      ['任务进度真实累加 + 浏览按商品去重', progressOk],
+      ['领取入账写「任务」流水 + 重复领取拦截 + 未知行为白名单', claimOk && whitelistOk],
+      ['每日任务跨周期重置（一次性任务不重置）', resetOk],
+      ['按 scopeId() 分桶，不同用户积分互不可见', isolationOk],
+      ['六处真实行为埋点 + 独立路由 + 个人中心入口 + 页脚链接全部接线', wiring],
+      ['无弹窗 / 无无限循环动画 / 积分页不设登录门禁', discipline],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([l]) => l);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 积分与任务底座（${cases.length} 条）${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 积分与任务底座: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

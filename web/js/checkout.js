@@ -14,6 +14,7 @@ import { el, fmtPrice, toast, updateCartBadge, productThumb } from './ui.js';
 import { getCart, removeFromCart, setQty } from './state.js';
 import { navigate } from './router.js';
 import { getCurrentUser } from './user.js';
+import { recordBehavior } from './store/pointsStore.js';
 import { api, isMissingEndpoint } from './api.js';
 import {
   computeAmounts, createOrder, getPaymentMethods, getShippingMethods, normalizeRemote, paymentById,
@@ -617,6 +618,8 @@ export async function renderCheckout(view) {
 
   /** 下单成功后的统一收尾：清购物袋 → 同步券 → 跳成功页 */
   function finish(order) {
+    // 积分任务埋点：真网关与本地降级两条下单路径都汇聚到这里，只触发一次
+    recordBehavior('order_success');
     // 只清掉已结算的商品：结算期间在别处新加的东西不该被一起清空
     getCart().forEach((i) => removeFromCart(i.__key || i.id));
     updateCartBadge();

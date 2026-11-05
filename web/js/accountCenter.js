@@ -11,6 +11,7 @@
 import { api } from './api.js';
 import { el, fmtPrice, loading, toast, productThumb } from './ui.js';
 import { navigate } from './router.js';
+import { renderPointsEntry } from './points.js';
 import { logout as closeSession } from './auth.js';
 import {
   clearCurrentUser, displayName, getCurrentUser, initials, maskIdentifier, onUserChange,
@@ -58,6 +59,7 @@ export function renderAccount(view, { tab = 'orders' } = {}) {
   const page = el('section', { class: 'acct-page' });
   const bento = buildBento(user, { addresses });
   page.appendChild(bento.node);
+  page.appendChild(renderPointsEntry());
   page.appendChild(buildTabs(active));
 
   const panel = el('div', { class: 'acct-panel' });
