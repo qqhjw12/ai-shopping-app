@@ -166,6 +166,6 @@ export function tryOnTintOf(spec) {
 | 构建 | `node scripts/check-web.mjs` → 90 模块全绿，含 14 条新断言 |
 | 新 e2e | `node scripts/e2e-showroom-ar.mjs` → 57/57 |
 | 全量回归 | 34 套，详见交付消息 |
-| 提交 | `<commit>`（交付消息更新），`main == origin/main` |
+| 提交 | `58fd697`，`main == origin/main` |
 | 首屏请求 | 桌面/移动 PDP 与展厅首屏均无 `arTryOn.js` / three / model-viewer / glb |
 | 控制台 | 全部页面 context 零 JS 错误 |
