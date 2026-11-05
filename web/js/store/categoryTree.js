@@ -5,8 +5,9 @@
  * 模型沿用既有 Category：{ id, name, slug, parentId, level, icon, description,
  *                          productCount, sort, children }
  *   - id/slug 全英文（禁中文 id）；二级/三级 id 由「父 id + 序号」确定性生成；
- *   - productCount：叶子节点用确定性哈希占位（6–60），父级 = 直接子级汇总
- *     —— 后续步骤会用真实商品数据回填，届时只需替换 leafCount 一个函数；
+ *   - productCount：由 products.js 用真实 mock 商品数回填（叶子 = 直接挂载数，
+ *     父级 = 自身 + 全部子孙），**不再写死常数、不再用哈希假数字**；
+ *     未接入商品数据源时初值为 0；
  *   - icon：一级类目的细线风格占位图标名（emoji 字符，不使用实拍图片）。
  *
  * ⚠️ 页面组件禁止直接 import 本文件的任何裸数组；一律走下面导出的工具函数
@@ -292,23 +293,9 @@ const RAW = [
   ]],
 ];
 
-/* ---------------- 构建与占位计数 ---------------- */
-
-/** FNV-1a 稳定哈希（与首页 MATCH 同口径）：给叶子节点确定性 mock 计数 */
-function stableHash(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
-}
-
-/** 叶子占位计数（6–60，贴近演示站 256 款商品的量级）：
- *  后续步骤用真实商品数据回填时只改这里 */
-function leafCount(id) {
-  return 6 + (stableHash(id) % 55);
-}
+/* ---------------- 构建（productCount 由商品数据源回填） ----------------
+ * 本文件不再生成任何假计数：productCount 初值恒为 0，
+ * 由 products.js 加载后调用 setCategoryProductCounts() 写入真实值。 */
 
 function buildTree() {
   const top = RAW.map(([id, name, icon, description, subs]) => {
@@ -345,22 +332,18 @@ function buildTree() {
                   level: 3,
                   icon: '',
                   description: '',
-                  productCount: leafCount(tId),
+                  productCount: 0, // 由 setCategoryProductCounts 回填
                   sort: ti + 1,
                   children: [],
                 };
               })
             : [],
         };
-        // 二级计数 = 直接三级汇总；无三级则按叶子占位
-        l2.productCount = l2.children.length
-          ? l2.children.reduce((a, c) => a + c.productCount, 0)
-          : leafCount(l2Id);
+        // 二级计数由 setCategoryProductCounts 回填（此处保持 0，不写假数字）
         return l2;
       }),
     };
-    // 一级计数 = 直接二级汇总（子级汇总占位，绝不写假常数）
-    l1.productCount = l1.children.reduce((a, c) => a + c.productCount, 0);
+    // 一级计数同样由 setCategoryProductCounts 回填
     l1.sort = 0;
     return l1;
   });
@@ -369,6 +352,25 @@ function buildTree() {
 }
 
 export const CATEGORY_TREE = buildTree();
+
+/**
+ * 用真实商品计数回填全树 productCount（不再使用哈希假数字）。
+ * @param {Map<string, number>} directCounts 节点 id → 直接挂在该节点的商品数
+ * 叶子 = 直接挂载数；父级 = 自身直接数 + Σ 子节点完整子树计数，
+ * 与 getProductsByCategory(id, { includeDescendants: true }) 口径完全一致。
+ * 依赖方向保持单向：products.js → categoryTree.js，本文件不反向 import。
+ */
+export function setCategoryProductCounts(directCounts) {
+  const counts = directCounts instanceof Map
+    ? directCounts
+    : new Map(Object.entries(directCounts || {}));
+  const apply = (nodes) => nodes.reduce((sum, n) => {
+    const childSum = apply(n.children || []);
+    n.productCount = (counts.get(n.id) || 0) + childSum;
+    return sum + n.productCount;
+  }, 0);
+  apply(CATEGORY_TREE);
+}
 
 /** 扁平索引（模块内部用；页面请走工具函数，勿直接 import 裸数组） */
 const INDEX = new Map();

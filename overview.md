@@ -1,3 +1,90 @@
+# mock 商品数据层（1100 款，单文件 ESM）— 交付总览
+
+> 本步范围（已与用户确认）：**只补数据层 + 真实计数回填 + 分类页总览读数**；
+> 首页 / 分类详情 / 搜索结果 / 甄选页的商品源保持不动，页面 UI 与查询逻辑不变。
+
+## 交付内容
+
+| 文件 | 说明 |
+|---|---|
+| `web/js/store/products.js`（新） | 确定性运行时生成 1100 款 mock 商品 + 4 个查询函数 + 真实计数回填 |
+| `web/js/store/categoryTree.js` | 移除哈希假计数，新增 `setCategoryProductCounts()`，`productCount` 由真实数据回填 |
+| `web/js/categories.js` | 总览读数 `introCount` 改读 `getCategoryProductCount()`（一处文本，零结构改动） |
+| `scripts/check-web.mjs` | 新增 12 条 mock 商品断言组 |
+| `scripts/e2e-products.mjs`（新） | 23 断言，浏览器真实加载 + 占位图解码 + 分类页计数一致 + 四页零回归 |
+| `README.md` | e2e 清单补 `e2e-products` |
+
+## 关键代码（设计令牌沿用深空指挥舱）
+
+商品图统一 3:4 占位，底色 `--color-surface-1 #0F141C`、细线 `--color-cyan-line rgba(34,211,238,.22)`、读数 `--color-text-muted #8B95A3`、信号色 `--color-cyan #22D3EE`，零外部请求：
+
+```js
+const PLACEHOLDER_SVG = `<svg ... viewBox="0 0 300 400" width="300" height="400">
+<rect width="300" height="400" fill="#0F141C"/>
+<rect x="0.5" y="0.5" width="299" height="399" fill="none"
+      stroke="rgba(34,211,238,0.22)" stroke-width="1"/> ... </svg>`;
+export const PLACEHOLDER_IMAGE = `data:image/svg+xml,${encodeURIComponent(PLACEHOLDER_SVG)}`;
+```
+
+商品挂三级优先、名称内嵌所属分类名（保证「美妆里不出手机」）：
+
+```js
+const anchors = l2.children.length ? l2.children : [l2];
+const anchor = anchors[i % anchors.length];
+name: `${brand} ${anchor.name} ${pick(SERIES, seed, 3)}`,  // 内容必含分类名
+categoryId: anchor.id,
+```
+
+计数真实化——`categoryTree.js` 不再生成假数字，由商品源单向回填：
+
+```js
+export function setCategoryProductCounts(directCounts) {
+  const apply = (nodes) => nodes.reduce((sum, n) => {
+    const childSum = apply(n.children || []);
+    n.productCount = (counts.get(n.id) || 0) + childSum;  // 与 includeDescendants 口径一致
+    return sum + n.productCount;
+  }, 0);
+  apply(CATEGORY_TREE);
+}
+```
+
+分类页唯一接线点（`introCount` 一处文本，卡片「N 件」仍保留价格区间筛选语义）：
+
+```js
+introCount.textContent = `${rows.length} 个类目 · 收录 ${getCategoryProductCount()} 件商品...`;
+```
+
+## 验收清单逐项自检
+
+| 验收项 | 结果 | 实测 |
+|---|---|---|
+| 每个二级 ≥4 个商品 | ✅ | 每个二级 **5** 款（220 × 5 = 1100） |
+| 每个一级 ≥30 个商品 | ✅ | 35–55 款，全部落在 30–60 |
+| 全站 ≥600 | ✅ | **1100** 款，id 全局唯一 |
+| 查一级返回所有子孙商品 | ✅ | `mobile` 含子孙 35 / 不含 0；`womenswear_01` = 5 |
+| 总览计数与真实数据一致 | ✅ | 25 个一级 `productCount` === `getCategoryProductCount(id)`；分类页显示「收录 1100 件商品」 |
+| 商品与分类匹配 / 价格合理 | ✅ | 1100 款商品名均含所属分类名；猫粮 114–274、智能手机 4065–7481、女士香水 442–1275 |
+| 无破图 | ✅ | 占位图浏览器解码 300×400，零外部请求 |
+| 控制台无错误 | ✅ | 首页/分类/甄选/搜索四页零 JS 错误 |
+| 不改页面 UI 与查询逻辑 | ✅ | `views.js` 仍是唯一商品入口 `getProducts()`；分类页仍 16 张卡、拼图结构不变 |
+
+构建：`node scripts/check-web.mjs` → 63 个模块全部真实 import 通过，12 条新断言全过；CI 产物 63 个 js / 204 条 import 边 / **0 未解析**，`store/products.js` 在产物内。
+
+全量回归 30 套：**28 套通过**（含新增 `e2e-products` 23/23、`e2e-category-tree` 11/11）；
+`e2e-merchant-apply` 按惯例补跑独立 8080 网关 **42/42**；
+`e2e-discovery`(45/46) 与 `e2e-merchant`(26/27) 仍仅因 3 个外部商品图 `ERR_CONNECTION_CLOSED`
+在「控制台零错误」一条失败——与上一轮完全相同的环境网络噪音，`demo-real-data.js` 未改动、
+本步改动不被这断言路径加载，零新增回归。
+
+## 已知限制
+
+- 仓库**没有 mega menu / 总览页**：`getCategoryProductCount()` 已提供真实计数，本步以「分类页 intro 总览读数」作为唯一展示点；后续若加 mega menu 直接调用该函数即可。
+- 4 个页面仍读原有 2951 款真实演示商品 + 商家上架商品（`views.js` 的 `getProducts()`），本步未替换、未删除旧数组，也未改商品卡分类标签——属用户确认范围内「下一步」。
+- 分类页卡片上的「N 件」仍是旧商品源的价格区间筛选件数，与本步新目录计数口径不同（保留既有筛选功能）。
+- 商品属性为按类目语义分组的通用模板（颜色/尺码/规格/香型等），未做到每个三级类目的专属 SKU 属性。
+
+---
+
 # 分类树数据层扩充（25 一级，纯数据不改 UI）— 交付总览
 
 ## 验收复核与修复（实际运行构建后）

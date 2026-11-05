@@ -2701,6 +2701,61 @@ if (failed === 0) {
       console.log(`  FAIL 分类树数据层: ${String(e.message).split('\n')[0]}`);
     }
 
+    /* ---- mock 商品数据层（覆盖 / 字段 / 价格 / 真实计数 / 不接页面商品源）---- */
+    try {
+      const pm = await import(pathToFileURL(dir('store/products.js')).href);
+      const cm = await import(pathToFileURL(dir('store/categoryTree.js')).href);
+      const P = pm.products;
+      const L2 = cm.CATEGORY_TREE.flatMap((c) => c.children);
+      const perL2 = L2.map((s) => pm.getProductsByCategory(s.id).length);
+      const perL1 = cm.CATEGORY_TREE.map((c) => pm.getProductsByCategory(c.id).length);
+      const FIELDS = ['id', 'name', 'price', 'originalPrice', 'images', 'categoryId', 'brand',
+        'attributes', 'stock', 'sales', 'rating', 'reviewCount', 'createdAt', 'isNew', 'tags'];
+      const fieldsOk = P.every((x) => FIELDS.every((f) => f in x));
+      const anchorOk = P.every((x) => {
+        const n = cm.getCategoryById(x.categoryId);
+        return n && (n.level === 3 || n.level === 2) && x.name.includes(n.name);
+      });
+      const priceOk = P.every((x) => x.price > 0 && x.originalPrice > x.price);
+      const pointBandOk = [['pet_01', 20, 300], ['mobile_01', 800, 8000], ['fragrance_01', 100, 2000]]
+        .every(([id, lo, hi]) => pm.getProductsByCategory(id).every((x) => x.price >= lo && x.price <= hi));
+      const imgOk = P.every((x) => x.images[0] === pm.PLACEHOLDER_IMAGE
+        && /^data:image\/svg\+xml/.test(x.images[0])
+        && /viewBox="0 0 300 400"/.test(decodeURIComponent(x.images[0])));
+      const countOk = cm.CATEGORY_TREE.every((c) => c.productCount === pm.getCategoryProductCount(c.id))
+        && pm.getCategoryProductCount() === P.length;
+      const prodCases = [
+        [`全站 ≥600 款（实际 ${P.length}）`, P.length >= 600 && new Set(P.map((x) => x.id)).size === P.length],
+        [`每个二级 4–8 款（${Math.min(...perL2)}–${Math.max(...perL2)}）`,
+          perL2.every((n) => n >= 4 && n <= 8)],
+        [`每个一级 30–60 款（${Math.min(...perL1)}–${Math.max(...perL1)}）`,
+          perL1.every((n) => n >= 30 && n <= 60)],
+        ['Product 字段齐全（15 项）/ id 唯一', fieldsOk],
+        ['categoryId 指向二级或三级且商品名含所属分类名（内容不串类目）', anchorOk],
+        ['价格合理 + 点名口径（猫粮 20–300 / 手机 800–8000 / 香水 100–2000）', priceOk && pointBandOk],
+        ['images 统一 3:4 data-URI SVG 占位（零外部请求、不破图）', imgOk],
+        ['查一级自动含全部子孙商品（includeDescendants 默认 true）',
+          pm.getProductsByCategory('mobile').length === 35
+          && pm.getProductsByCategory('mobile', { includeDescendants: false }).length === 0
+          && pm.getProductsByCategory('womenswear_01').length === 5],
+        ['getProductById / searchProducts 可用（搜「猫粮」命中 5 款）',
+          pm.getProductById(P[0].id) === P[0] && pm.searchProducts('猫粮').length === 5
+          && pm.searchProducts('').length === 0],
+        ['getCategoryProductCount 与真实数据一致（25 个一级 productCount 回填 + 全站总数）', countOk],
+        ['分类页总览计数走真实数据源（introCount 不再写假数字）',
+          readFileSync(dir('categories.js'), 'utf8').includes('getCategoryProductCount()')],
+        ['4 个页面商品源未被替换（views.js 仍走 getProducts()）',
+          viewsSrc.includes('export async function getProducts()')
+          && !viewsSrc.includes("from './store/products.js'")],
+      ];
+      const badProd = prodCases.filter(([, ok]) => !ok).map(([label]) => label);
+      console.log(`  ${badProd.length === 0 ? 'ok  ' : 'FAIL'} mock 商品数据层（${P.length} 款/二级全覆盖/价格口径/真实计数）${badProd.length ? ` → 缺失: ${badProd.join('、')}` : ''}`);
+      if (badProd.length) failed++;
+    } catch (e) {
+      failed++;
+      console.log(`  FAIL mock 商品数据层: ${String(e.message).split('\n')[0]}`);
+    }
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);

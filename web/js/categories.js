@@ -12,6 +12,7 @@ import { getProducts, deriveCategoryTree } from './views.js';
 import { navigate } from './router.js';
 import { isDemoMode } from './demo.js';
 import { PRICE_BANDS, bandById, bandLabel } from './store/catalog.js';
+import { getCategoryProductCount } from './store/products.js';
 import { sourcingStrip } from './sourcing.js';
 
 const CAT_SORTS = [
@@ -239,7 +240,9 @@ export async function renderCategories(view, query = {}) {
     if (sort === 'count') rows.sort((a, b) => b.count - a.count || a.cat.name.localeCompare(b.cat.name, 'zh'));
     else if (sort === 'name') rows.sort((a, b) => a.cat.name.localeCompare(b.cat.name, 'zh'));
 
-    introCount.textContent = `${rows.length} 个类目${band ? ` · ${bandLabel(band.min, band.max)}` : ''}`;
+    // 总览读数走真实商品数据源（不再用假数字）：getCategoryProductCount() 省略 categoryId 返回全站总数。
+    // 卡片上的「N 件」仍保留原有「价格区间内件数」筛选语义，不随本步改动。
+    introCount.textContent = `${rows.length} 个类目 · 收录 ${getCategoryProductCount()} 件商品${band ? ` · ${bandLabel(band.min, band.max)}` : ''}`;
 
     if (!rows.length) {
       wrap.appendChild(emptyEditorial({

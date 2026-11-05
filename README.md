@@ -1035,6 +1035,7 @@ node scripts/e2e-ai-panel.mjs # AI 助手：触发器规格（48/44px 圆形、�
 node scripts/e2e-pdp-immersive.mjs # 详情页 3D/360° + AR：首屏零 3D 请求、拖拽切帧/惯性/回绕/方向键、演示标注、桌面 AR 提示零脚本、移动不支持降级说明、WebXR 桩演示层按需 import、帧预载失败兜底、reduced-motion 无惯性（静态站即可）
 node scripts/e2e-ambient.mjs # 氛围动效与性能开关：网格 30s 漂移、Hero 环内扫描线 ≤0.25 且面板打开时暂停、稳态无限 keyframes ≤3、卡片 hover 只留边框信号、reduced-motion / <768px / <4GB → .reduced-fx 全停 + 玻璃换不透明、低电量 .low-power 单独静止（静态站即可）
 node scripts/e2e-category-tree.mjs # 分类树数据层：25 一级/220 二级/三级 100% 覆盖、6 工具函数（含 getDescendantIds 子孙查询与 LEGACY 旧类目映射）、分类页 UI 零回归、控制台零错（静态站即可）
+node scripts/e2e-products.mjs # mock 商品数据层：1100 款/每二级 5 款/每级 35–55 款、字段齐全、内容与分类匹配、点名价格口径（猫粮 20–300 / 手机 800–8000 / 香水 100–2000）、3:4 占位图可解码不破图、查一级含子孙、getCategoryProductCount 与分类树计数一致、分类页总览读数真实、四页 UI 零回归（静态站即可）
 node scripts/check-web.mjs        # 前端构建/链接检查：递归真实 import 全部 62 个 ESM（含 store/ 子目录）、15 条分类树断言（结构/无中文 id/旧二级全映射/按二级查子孙商品/构建覆盖）
 node scripts/shot-hud.mjs # HUD 框架层视觉验收截图（桌面 7 页 + 滚动吸顶 + 移动 3 页 + reduced-motion 探针）
 node scripts/shot-dark.mjs # 深空令牌视觉验收截图（桌面 8 页 + 移动 2 页 + 焦点环 + 底色/网格/卡片色探针）
