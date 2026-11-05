@@ -1,3 +1,135 @@
+# AI 盲盒 / 每日一签（惊喜选品层）— 交付总览
+
+> 本步范围：**新增 AI 盲盒推荐与每日一签，不改签到和任务系统**。
+> `pointsConfig.js` / `pointsStore.js` / `points.js` **三个既有文件零改动**；「消耗 20 积分」与
+> 「积分兑换次数」通过新增独立适配层 `store/pointsSpend.js`，复用既有公开的 `load / save`
+> 与早已预留的 `LEDGER_TYPES.REDEEM`（「兑换」），真实扣减、写负额流水，并派发 `points:changed`。
+
+## 一、关键决策
+
+| 决策 | 理由 |
+|---|---|
+| 商品池用 `views.js` 的 `getProducts()` | 与首页/列表/PDP 同一真源，开出的商品一定能进详情、加购、收藏，杜绝「结果与商品库无关」或详情断链；数据层接收 pool 作参数，保持纯函数、Node 可断言 |
+| 规则/文案全部进 `blindboxConfig.js` | 3 个偏好维度、12 条推荐理由模板、24 条签文、次数与积分价、6 次/天硬上限、全部文案都是配置；组件层零硬编码 |
+| 状态按 `scopeId()` 分桶 + 状态内带 `date` | key = `maison_blindbox_v1::<scope>`；`normalizeState()` 读盘时日期不同即整体重置，跨天/换账号/损坏数据都自洽 |
+| 抽取顺序「纯函数先出结果 → 再扣积分 → 再落盘」 | 抽不成就一分不扣，不需要任何退款补偿逻辑 |
+| 入口呼吸用**有限 3 次、仅 opacity** | 满足「轻微呼吸」，又不占全站 `e2e-ambient` 的「稳态无限动画 ≤3」预算；`reduced-fx` 下直接关闭 |
+| 首页第 7 张卡跨整行 + 一签卡放在扫描结果之后 | 不打乱既有「简报 → 读数 → 模块 → 任务带 → 结果」信息架构顺序断言；两个硬编码 `hp-mod.length === 6` 的 e2e 断言同步适配为 7（只改测试，既有 6 卡零改动） |
+| 补充途径只做**积分兑换 + 去任务中心** | 「看广告」未接真实广告 SDK，不做点击即送的假进度；任务中心链接形成「做任务赚积分 → 兑换次数」真实闭环 |
+
+## 二、改动文件清单
+
+| 类别 | 文件 | 内容 |
+|---|---|---|
+| 新增 | `web/js/store/blindboxConfig.js` | 3 维度偏好、12 条理由模板、24 条签文、次数/积分规则、全部文案 |
+| 新增 | `web/js/store/blindboxStore.js` | 确定性随机、偏好过滤、当日推荐池、开盒/换一个/一签/再抽纯函数、按用户+日期的仓储与动作 |
+| 新增 | `web/js/store/pointsSpend.js` | 积分消费适配层：真实扣减 + 「兑换」负额流水 + 事件通知 |
+| 新增 | `web/js/blindbox.js` | `#/blindbox` 独立页：偏好选择、一次性开盒动效、商品卡 + AI 理由、换一个与次数配额 |
+| 新增 | `web/js/fortune.js` | 首页「今日一签」卡 + 玩法共用的轻量 `.bb-toast` |
+| 新增 | `scripts/e2e-blindbox.mjs` | 38 条浏览器验收 |
+| 修改 | `web/styles.css` | 末尾追加 `.bb-*` / `.ft-*` / `.hp-mod--blindbox`：青色细线、300ms 一次性开盒、衬线签文、44px 热区、reduced-fx、移动端单列 |
+| 修改 | `web/js/views.js` | 首页第 07 张模块卡、一签卡插在结果之后、`doAdd` 加 `export` 供盲盒页复用（业务行为零改动） |
+| 修改 | `web/js/app.js`、`web/index.html` | 注册 `#/blindbox`、nav 高亮、页脚「AI 盲盒」 |
+| 修改 | `scripts/check-web.mjs` | 新增 15 条持久断言；模块数 66 → 71 |
+| 修改 | `scripts/e2e-home.mjs`、`scripts/e2e-flash.mjs` | 适配第 7 张模块卡的硬编码数量断言（仅测试脚本） |
+| 修改 | `README.md`、`overview.md` | 命令清单与本章交付总览 |
+| 记忆 | `.workbuddy/memory/2026-11-05.md` | 第 20 轮经验（被 `.gitignore` 忽略，不入版本控制） |
+
+## 三、关键代码
+
+```js
+// blindboxConfig.js：次数硬上限与规则全部配置化
+export const BLINDBOX_RULES = {
+  baseDraws: 1, freeSwaps: 3, pointsPerSwap: 20, maxPointSwaps: 2,
+  fortuneRerollCost: 20, fortuneRerollLimit: 1,
+  maxDrawsPerDay: 6,   // = 1 + 3 + 2，任何路径都不得突破
+  dailyPoolSize: 12, historyMax: 12,
+};
+export const REASON_TEMPLATES = [ /* 12 种句式，占位符 {prefs}/{name}/{category}/{brand}/{price}/{tag} */ ];
+export const FORTUNE_QUOTES = [ /* 24 条安静短句，无运势/中奖/抽奖措辞 */ ];
+```
+
+```js
+// blindboxStore.js：偏好过滤多维度 AND，空组合逐步放宽，结果永不脱库
+export function filterByPreferences(pool, prefs) {
+  const conds = activeConditions(prefs);
+  if (!conds.length || !pool.length) return { items: pool.slice(), relaxed: false };
+  for (let n = conds.length; n > 0; n -= 1) {
+    const items = pool.filter((p) => conds.slice(0, n).every((c) => c(p)));
+    if (items.length) return { items, relaxed: n < conds.length };
+  }
+  return { items: pool.slice(), relaxed: true };
+}
+
+// 当日推荐池：用户 + 日期 确定性洗牌，同一天刷新不变
+export function dailyPool(pool, scope, today, size = R.dailyPoolSize) { /* mulberry32 + Fisher-Yates */ }
+```
+
+```js
+// pointsSpend.js：不改签到和任务系统，只做一次真实的积分消费
+export function spendPoints(amount, description) {
+  const st = load();                                  // pointsStore 的公开仓储 API
+  if (st.account.points < n) return { ok: false, reason: 'insufficient', balance: st.account.points };
+  st.account.points -= n;                           // totalEarned / level 不动（等级按累计获得算）
+  st.ledger.unshift({ id, userId: st.userId, type: LEDGER_TYPES.REDEEM, amount: -n,
+    description, createdAt: new Date().toISOString(), date: dateKey() });
+  st.ledger = st.ledger.slice(0, LEDGER_MAX);
+  if (!save(st)) return { ok: false, reason: 'storage' };
+  window.dispatchEvent(new CustomEvent('points:changed', { detail: { kind: 'spend', amount: n } }));
+  return { ok: true, balance: st.account.points };
+}
+```
+
+```js
+// blindbox.js：每次成功抽取播一次 300ms 一次性开盒动效，animationend 后立即摘掉 class
+wrap.classList.add('is-opening');
+frame.addEventListener('animationend', () => wrap.classList.remove('is-opening'), { once: true });
+setTimeout(() => wrap.classList.remove('is-opening'), 420); // reduced-fx 下无动画，兜底清 class
+```
+
+## 四、访问路径
+
+- 独立页 `#/blindbox`：偏好选择 → 开启盲盒 → 商品卡 + AI 理由 → 换一个 / 积分兑换；**匿名可用**（未加入 `guard.js` 登录门禁）。
+- 首页 `#/`：第 07 张跨行模块卡「AI 盲盒」；扫描结果之后是「今日一签」卡。
+- 页脚「服务」列：`AI 盲盒`。
+- 本地预览：`node scripts/static-server.mjs`；验收 `node scripts/check-web.mjs`、`node scripts/e2e-blindbox.mjs`。
+
+## 五、验收清单逐项自检
+
+| 验收项 | 结果 | 证据 |
+|---|---|---|
+| 盲盒可选偏好、可开盒、有推荐理由 | ✅ | 3 维度最多选 2、可不选可清空；开盒 300ms 一次性青框；理由来自 12 种模板且含偏好文案 |
+| 可换一个且次数受限 | ✅ | 免费 3 次 → 20 积分兑换 2 次 → 每日硬上限 6 次；第 7 次按钮禁用 + 数据层 `limit`，不重复扣分 |
+| 盲盒商品可加购 / 收藏 / 看详情 | ✅ | 走真实 `doAdd` / `toggleFavorite` / `openProductDetail`，购物车、收藏夹、URL 实测 |
+| 每日一签每天只生成一次 | ✅ | 刷新前后签文 / 好物 / 日期一致；跨天整体重置；24 条签文按 用户+日期 确定性抽取 |
+| 可收下或积分再抽 | ✅ | 收下写入按用户隔离的收藏夹、按钮变「已收下」；再抽扣 20 分写「兑换」流水，每日限 1 次 |
+| 刷新后次数和状态保持 | ✅ | 已开出的结果、理由、`draws` 刷新后一致；切用户全新分桶、切回原桶恢复 |
+| 移动端可用 | ✅ | 单列、偏好与按钮热区 ≥44px、无横向滚动、`reduced-fx` 自动开启且开盒动画为 `none` |
+| 控制台无错误 | ✅ | `e2e-blindbox` 零 JS 错误（过滤外部图与 `/api` 噪音） |
+| 不改签到和任务系统 | ✅ | 三个既有积分文件零改动；`check-web` 用源码字符串断言固化该边界 |
+
+**实跑验证**：`node scripts/check-web.mjs` → **71 个 ESM 真实导入** + 15 条盲盒断言全过；
+`node scripts/e2e-blindbox.mjs` → **38/38 全过**；另写 20 项独立证伪核验（模板占位符、
+签文去重、30 天 × 4 次长序列、未开盒换一个、损坏读盘、积分消费边界、CSS 动效纪律）全部通过。
+
+**全量回归**：31 套 e2e 串行实跑 → **28 套通过，零新增回归**。其中 `e2e-home` 26/26、
+`e2e-flash` 18/18、`e2e-ambient`（稳态无限动画预算）、`e2e-points`、`e2e-products`、
+`e2e-checkout` 39/39 全过，证明首页新增模块卡与一签卡、积分消费适配层都没打破既有行为。
+3 套失败中：`e2e-merchant-apply` 因网关未启动，另起独立 8080 网关与临时库后补跑 **42/42**
+（已停网关）；`e2e-discovery` 45/46、`e2e-merchant` 26/27 均只失败「控制台无 JS 错误」
+一条，为 3 张外部演示图 `ERR_CONNECTION_CLOSED` 的环境网络噪音，非 JS 异常。
+
+## 六、已知限制
+
+1. 「看广告补充次数」未接真实广告 SDK，只提供 **20 积分兑换** 与 **去任务中心赚积分** 两条真实途径；任务中心本身不改。
+2. 盲盒 / 一签状态只在本机 localStorage，未接服务端；任务周期同样按本地 `YYYY-MM-DD`，未与服务端时间校准；无跨标签实时同步（刷新可见）。
+3. 偏好是商品文本关键词匹配（配置化正则），不是结构化标签；组合过窄时按「去掉最后一个条件 → 退回全库」逐级放宽，理由文案不会声明已放宽。
+4. 状态只存商品 id，若该商品从目录移除，结果区会显示「这件好物暂时不在目录里了」，可换一个。
+5. 开盒与换一个共用 300ms 一次性动效；入口呼吸为有限 3 次（约 9.6s 后静止），不是常驻无限动画。
+6. 上一轮遗留仍在：仓库无 mega menu / 总览页、四页仍读旧演示商品源、商品卡二级分类标签未改、外部演示图 `ERR_CONNECTION_CLOSED` 网络噪音。
+
+---
+
 # 积分步骤验收复核（实跑构建 + 独立证伪式全量核验）
 
 > 本轮范围：**只复核并修复「积分 / 每日签到 / 任务中心」步骤内的问题，不改范围外页面**。

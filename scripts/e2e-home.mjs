@@ -4,7 +4,7 @@
 //   1) 信息架构顺序：任务简报 → 读数胶囊 → 模块卡 → 任务条带 → 扫描结果
 //   2) 首屏第一眼是「系统在运行」：扫描状态 + 两条 CTA + 扫描环
 //   3) 读数胶囊数字现算（已匹配 = 商品总数，隐藏选项 = 折扣狠且未卖爆）
-//   4) 六张编号模块卡可点：分类/甄选/洞察/货源/订单真的路由，AI 导购开面板
+//   4) 七张编号模块卡可点：分类/甄选/洞察/货源/订单/AI 盲盒真的路由，AI 导购开面板
 //   5) 扫描结果流：7 条、首条跨两列、每条带 MATCH / PRICE INDEX、卡片可进详情
 //   6) MATCH 读数确定性（刷新后同一商品同一分数）
 //   7) 入场级联只播一次（二次进首页不再有动画类）
@@ -100,9 +100,11 @@ check('读数胶囊：已匹配 = 商品总数（>0）', Boolean(matched) && /�
 check('读数胶囊：隐藏选项 >0（折扣狠且未卖爆）', /隐藏选项\s*[1-9]/.test(info.reads.find((t) => t.includes('隐藏选项')) || ''), info.reads.join(' | '));
 
 /* ---------------- 4) 模块卡路由 ---------------- */
-check('六张编号模块卡（01–06）', info.modules.length === 6 && info.modules[0].n === '01' && info.modules[5].n === '06', JSON.stringify(info.modules));
-const expect = ['(button)', '#/categories', '#/products', '#/analytics', '#/merchant/sourcing', '#/account?tab=orders'];
-check('模块指向：导购(按钮)/分类/甄选/洞察/货源/订单',
+check('七张编号模块卡（01–07，含 AI 盲盒入口）',
+  info.modules.length === 7 && info.modules[0].n === '01' && info.modules[5].n === '06'
+  && info.modules[6].n === '07' && info.modules[6].t === 'AI 盲盒', JSON.stringify(info.modules));
+const expect = ['(button)', '#/categories', '#/products', '#/analytics', '#/merchant/sourcing', '#/account?tab=orders', '#/blindbox'];
+check('模块指向：导购(按钮)/分类/甄选/洞察/货源/订单/AI 盲盒',
   info.modules.map((m) => m.href).join('|') === expect.join('|'), info.modules.map((m) => m.href).join('|'));
 
 await page.locator('.hp-mod[href="#/categories"]').click();

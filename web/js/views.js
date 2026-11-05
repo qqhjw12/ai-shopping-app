@@ -17,6 +17,7 @@ import { demoProducts } from './demo-data.js';
 import { setDemoMode, isDemoMode } from './demo.js';
 import { listMerchantMallProducts } from './store/merchantShopStore.js';
 import { renderFlashSale, stopFlashSale } from './flashSale.js';
+import { renderHomeFortune } from './fortune.js';
 import { trackEvent, fetchProductStats } from './track.js';
 import { createGalleryModes } from './pdpImmersive.js';
 import {
@@ -341,6 +342,8 @@ const HOME_MODULES = [
   { n: '04', title: '洞察', status: '价格水位 · 实时', href: '#/analytics' },
   { n: '05', title: '货源市场', status: '供应商目录 · B 端', href: '#/merchant/sourcing' },
   { n: '06', title: '我的订单', status: '履约追踪 · 实时', href: '#/account?tab=orders' },
+  // 07 是跨整行的惊喜入口：青色细线 + 仅 opacity 的有限次呼吸（不占稳态无限动画预算）
+  { n: '07', title: 'AI 盲盒', status: '不知道买什么 · 每日限次', href: '#/blindbox', featured: true },
 ];
 
 function moduleInner(m) {
@@ -352,11 +355,12 @@ function moduleInner(m) {
 }
 
 function homeModules() {
+  const cls = (m) => `hp-mod${m.featured ? ' hp-mod--blindbox' : ''}`;
   return el('section', { class: 'hp-modules', style: '--i:2', 'aria-label': '功能模块' },
     HOME_MODULES.map((m) => (m.action === 'guide'
       // 导购要开面板，不是跳页：用 button 才是对的语义，剩下的都是真链接
-      ? el('button', { type: 'button', class: 'hp-mod', onclick: () => askGuide('') }, moduleInner(m))
-      : el('a', { class: 'hp-mod', href: m.href }, moduleInner(m)))));
+      ? el('button', { type: 'button', class: cls(m), onclick: () => askGuide('') }, moduleInner(m))
+      : el('a', { class: cls(m), href: m.href }, moduleInner(m)))));
 }
 
 /* ---- 五、AI 任务条带（页面中段） ---- */
@@ -544,6 +548,8 @@ export async function renderHome(view) {
   const results = homeResults(products);
   panel.appendChild(homeTaskStrip(results.saving));
   panel.appendChild(results.node);
+  // 今日一签：放在扫描结果之后，不改动 Hero → 读数 → 模块 → 任务带 → 结果 的顺序
+  panel.appendChild(renderHomeFortune(products));
 
   /* ---- 秒杀（限时窗口）----
      放在结果之后：它有时间窗，但首页的第一件事应该是「系统在做什么」，
@@ -621,7 +627,7 @@ function bannerCell(message) {
   ]);
 }
 
-function doAdd(p, source, skuId, qty = 1) {
+export function doAdd(p, source, skuId, qty = 1) {
   // 加购埋点（含来源渠道归因）
   trackEvent({ event: 'add_to_cart', source: source || 'unknown', productId: p.id });
   addToCart(p, qty, skuId || null);

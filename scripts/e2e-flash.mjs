@@ -197,7 +197,7 @@ check('首页任务简报照旧（Hero 在最前，读数/模块/结果齐备）
     const kids = panel ? [...panel.children] : [];
     return kids[0]?.classList.contains('hp-hero')
       && (panel.querySelector('.hp-readbar')?.textContent || '').includes('已匹配')
-      && panel.querySelectorAll('.hp-mod').length === 6
+      && panel.querySelectorAll('.hp-mod').length === 7
       && panel.querySelectorAll('.scan-item').length >= 5;
   }));
 check('商品详情页可达', await (async () => {

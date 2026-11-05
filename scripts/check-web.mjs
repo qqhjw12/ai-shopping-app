@@ -3026,5 +3026,208 @@ if (failed === 0) {
   }
 }
 
+/* ---------------- AI 盲盒 / 每日一签断言（配置 / 纯函数 / 次数 / 积分 / 隔离 / 接线 / 动效） ---------------- */
+if (failed === 0) {
+  console.log('\nAI 盲盒与每日一签断言（配置抽离 / 偏好过滤 / 次数上限 / 积分兑换 / 按用户与日期隔离 / 接线 / 动效纪律）');
+  try {
+    const bbCfg = await import(pathToFileURL(join(WEB_DIR, 'store/blindboxConfig.js')).href);
+    const ptsCfg = await import(pathToFileURL(join(WEB_DIR, 'store/pointsConfig.js')).href);
+    const bb = await import(pathToFileURL(join(WEB_DIR, 'store/blindboxStore.js')).href);
+    const spend = await import(pathToFileURL(join(WEB_DIR, 'store/pointsSpend.js')).href);
+    const pts = await import(pathToFileURL(join(WEB_DIR, 'store/pointsStore.js')).href);
+    const src = (f) => readFileSync(join(WEB_DIR, f), 'utf8');
+    const cssSrc = readFileSync(join(WEB_DIR, '..', 'styles.css'), 'utf8');
+    const indexSrc = readFileSync(join(WEB_DIR, '..', 'index.html'), 'utf8');
+    const R = bbCfg.BLINDBOX_RULES;
+    const T = '2026-11-05';
+    const T2 = '2026-11-06';
+    const pool = Array.from({ length: 36 }, (_, i) => ({
+      id: `bb-${i}`,
+      name: `盲盒测试商品${i}`,
+      category: i % 3 === 0 ? '家居生活' : (i % 3 === 1 ? '手机数码' : '图书文具'),
+      brand: `B${i}`,
+      price: 80 + i * 90,
+      tags: i % 2 ? ['轻薄', '办公'] : ['居家', '舒适'],
+    }));
+
+    /* 1) 规则与文案全部抽到配置 */
+    const configOk = bbCfg.MAX_PREFERENCES === 2
+      && bbCfg.PREF_DIMENSIONS.length === 3
+      && bbCfg.REASON_TEMPLATES.length >= 10
+      && bbCfg.FORTUNE_QUOTES.length >= 20 && bbCfg.FORTUNE_QUOTES.length <= 30
+      && R.freeSwaps === 3 && R.pointsPerSwap === 20
+      && R.fortuneRerollCost === 20 && R.fortuneRerollLimit === 1
+      && R.maxDrawsPerDay === R.baseDraws + R.freeSwaps + R.maxPointSwaps;
+
+    /* 2) 组件不写死规则数值 */
+    const views = src('blindbox.js') + src('fortune.js');
+    const noHardcode = views.includes('BLINDBOX_RULES as R')
+      && views.includes('R.fortuneRerollCost') && views.includes('R.pointsPerSwap')
+      && !/20 积分|每日限 3 次|限 1 次/.test(views);
+
+    /* 3) 偏好过滤：预算 / 场景 / 多维度 AND / 空组合逐步放宽且永不脱库 */
+    const byBudget = bb.filterByPreferences(pool, { budget: 'b1' });
+    const byScene = bb.filterByPreferences(pool, { scene: 's1' });
+    const narrow = bb.filterByPreferences(pool, { budget: 'b1', scene: 's3' });
+    const capped = bb.canonicalPrefs({ budget: 'b1', scene: 's1', mood: 'm1' });
+    const filterOk = byBudget.items.length > 0 && byBudget.items.every((p) => p.price < 300) && !byBudget.relaxed
+      && byScene.items.length > 0 && byScene.items.every((p) => /家居|居家|舒适/.test(bb.textOf(p)))
+      && narrow.items.length > 0 && narrow.relaxed && narrow.items.every((p) => pool.includes(p))
+      && Object.keys(capped).length === bbCfg.MAX_PREFERENCES;
+
+    /* 4) 推荐结果一定来自传入的商品库，理由来自配置模板 */
+    const rec = bb.recommend(pool, { budget: 'b2' }, 'seed-a');
+    const libOk = Boolean(rec) && pool.includes(rec.product) && rec.reason.length > 0
+      && bbCfg.REASON_TEMPLATES.some((t) => t.id === rec.reasonId)
+      && bb.resolveProduct(pool, 'bb-3') === pool[3] && bb.resolveProduct(pool, 'nope') === null;
+
+    /* 5) 12 种句式：同一 seed 稳定、排除上一条、不连续重复 */
+    const ctx = { prefs: '不设限', name: 'X', category: 'C', brand: 'B', price: '¥1', tag: 'T' };
+    const reasonIds = new Set();
+    let lastId = '';
+    let repeatHit = false;
+    for (let i = 0; i < 24; i += 1) {
+      const r = bb.pickReason(ctx, `seed-${i}`, lastId);
+      reasonIds.add(r.reasonId);
+      if (r.reasonId === lastId) repeatHit = true;
+      lastId = r.reasonId;
+    }
+    const reasonOk = reasonIds.size >= 6 && !repeatHit
+      && JSON.stringify(bb.pickReason(ctx, 'seed-x', '')) === JSON.stringify(bb.pickReason(ctx, 'seed-x', ''));
+
+    /* 6) 当日推荐池：同用户同日稳定、换日/换用户不同、且只含库内商品 */
+    const pa = bb.dailyPool(pool, 'u:a', T).map((p) => p.id).join(',');
+    const pb = bb.dailyPool(pool, 'u:a', T).map((p) => p.id).join(',');
+    const pc = bb.dailyPool(pool, 'u:a', T2).map((p) => p.id).join(',');
+    const pd = bb.dailyPool(pool, 'u:b', T).map((p) => p.id).join(',');
+    const dailyOk = pa === pb && pa !== pc && pa !== pd
+      && bb.dailyPool(pool, 'u:a', T).every((p) => pool.includes(p));
+
+    /* 7) 次数硬上限：1 开盒 + 3 免费 + 2 积分 = 6，之后任何路径都拒绝 */
+    let st = bb.createState('u:seq', T);
+    const first = bb.openBox(st, pool, {}, T);
+    st = first.state;
+    const drawn = [String(first.result.product.id)];
+    let freeOk = 0;
+    for (let i = 0; i < 3; i += 1) {
+      const r = bb.swapBox(st, pool, {}, T, false);
+      if (r.result.ok) { st = r.state; freeOk += 1; drawn.push(String(r.result.product.id)); }
+    }
+    const q3 = bb.swapQuota(st);
+    const p1 = bb.swapBox(st, pool, {}, T, true); st = p1.state; drawn.push(String(p1.result.product.id));
+    const p2 = bb.swapBox(st, pool, {}, T, true); st = p2.state; drawn.push(String(p2.result.product.id));
+    const over = bb.swapBox(st, pool, {}, T, true);
+    const quotaOk = first.result.ok && freeOk === 3 && q3.canPoints
+      && p1.result.ok && p2.result.ok && !over.result.ok && over.result.reason === 'limit'
+      && st.box.draws === R.maxDrawsPerDay && new Set(drawn).size === 6;
+
+    /* 8) 跨天重置：次数、开盒状态、一签全部清空 */
+    const tomorrow = bb.normalizeState(st, 'u:seq', T2);
+    const resetOk = !tomorrow.box.opened && tomorrow.box.draws === 0
+      && tomorrow.box.current === null && tomorrow.fortune.date === '';
+
+    /* 9) 每日一签：幂等、再抽限 1 次且签文与好物都变、结果始终在商品库内 */
+    let fs = bb.createState('u:f', T);
+    const f1 = bb.openFortune(fs, pool, T); fs = f1.state;
+    const f2 = bb.openFortune(fs, pool, T);
+    const r1 = bb.rerollFortune(fs, pool, T); fs = r1.state;
+    const r2 = bb.rerollFortune(fs, pool, T);
+    const a1 = bb.acceptFortune(fs, T);
+    const a2 = bb.acceptFortune(a1.state, T);
+    const fortuneOk = f1.result.ok && !f2.result.ok && f2.result.reason === 'already'
+      && r1.result.ok && r1.result.quoteId !== f1.result.quoteId
+      && r1.result.product.id !== f1.result.product.id
+      && !r2.result.ok && r2.result.reason === 'limit'
+      && pool.includes(f1.result.product) && pool.includes(r1.result.product)
+      && a1.result.ok && !a2.result.ok && a2.result.reason === 'already';
+
+    /* 10) 签文口径：安静短句，不写运势 / 中奖 / 抽奖 */
+    const toneOk = bbCfg.FORTUNE_QUOTES.length >= 20
+      && bbCfg.FORTUNE_QUOTES.every((q) => q.length >= 8 && !/吉|凶|运势|中奖|抽奖|转运|开运|财神/.test(q));
+
+    /* 11) 按用户隔离 + 损坏数据规整 */
+    const isolationOk = bb.storageKey('u:a') !== bb.storageKey('u:b')
+      && bb.storageKey('u:a').startsWith(bbCfg.BB_STORAGE_PREFIX)
+      && bb.normalizeState({ date: T, box: { draws: 2 } }, 'u:a', T).scope === 'u:a';
+    const dirty = bb.normalizeState({
+      date: T,
+      box: { draws: 999, swaps: 999, pointSwaps: 999, history: 'bad', current: { productId: 'bb-1' } },
+      fortune: { date: T, quoteId: 'q1', productId: 'bb-1', accepted: true, rerolls: 999 },
+    }, 'u:d', T);
+    const dirtyOk = dirty.box.draws === R.maxDrawsPerDay && dirty.box.swaps === R.freeSwaps
+      && dirty.box.pointSwaps === R.maxPointSwaps && Array.isArray(dirty.box.history)
+      && dirty.fortune.rerolls === R.fortuneRerollLimit;
+
+    /* 12) 积分消费：真实扣减 +「兑换」流水 + 累计获得与等级不变 + 余额不足拦截 */
+    localStorage.clear();
+    const acc = pts.getSnapshot();
+    acc.account.points = 50;
+    acc.account.totalEarned = 500;
+    pts.save(acc);
+    const pre = pts.getSnapshot();
+    const paid = spend.spendPoints(20, '测试兑换');
+    const post = pts.getSnapshot();
+    const spendOk = paid.ok && post.account.points === pre.account.points - 20
+      && post.account.totalEarned === pre.account.totalEarned
+      && post.account.level === pre.account.level
+      && post.ledger[0].type === ptsCfg.LEDGER_TYPES.REDEEM
+      && post.ledger[0].amount === -20
+      && !spend.spendPoints(9999, 'x').ok && !spend.spendPoints(0, 'x').ok;
+    localStorage.clear();
+
+    /* 13) 「不改签到和任务系统」边界：三个既有积分文件不含盲盒逻辑，路由不设登录门禁 */
+    const ptsSrc = src('store/pointsStore.js') + src('store/pointsConfig.js') + src('points.js');
+    const untouched = !/blindbox|fortune|spendPoints|BB_STORAGE/.test(ptsSrc)
+      && !src('guard.js').includes("'/blindbox'");
+
+    /* 14) 六处接线：路由 / 首页模块卡 / 首页一签卡 / 加购导出 / 商品池 / 商品卡 / 页脚 */
+    const appSrc = src('app.js');
+    const viewSrc = src('views.js');
+    const boxSrc = src('blindbox.js');
+    const wiring = appSrc.includes("from './blindbox.js'") && appSrc.includes("path === '/blindbox'")
+      && viewSrc.includes("href: '#/blindbox'") && viewSrc.includes('renderHomeFortune(products)')
+      && /export function doAdd\(/.test(viewSrc)
+      && boxSrc.includes('getProducts()') && boxSrc.includes('productCard(')
+      && boxSrc.includes("doAdd(x, 'blindbox')") && boxSrc.includes("openProductDetail(x, 'blindbox')")
+      && src('fortune.js').includes('addFavorite(p)')
+      && indexSrc.includes('href="#/blindbox"');
+
+    /* 15) 动效纪律：300ms 一次性开盒、有限次仅 opacity 呼吸、可降级、无音效、无无限循环 */
+    const fxOk = /@keyframes bb-open/.test(cssSrc)
+      && /animation: bb-open 300ms/.test(cssSrc)
+      && !/bb-open[^;]*infinite/.test(cssSrc)
+      && /animation: bb-breathe 3200ms var\(--ease\) 3 both/.test(cssSrc)
+      && /@keyframes bb-breathe \{[\s\S]{0,140}opacity/.test(cssSrc)
+      && /html\.reduced-fx \.bb-result\.is-opening/.test(cssSrc)
+      && /\.bb-toast \{[^}]*pointer-events: none/s.test(cssSrc)
+      && /\.bb-btn \{[^}]*min-height: 44px/s.test(cssSrc)
+      && !/new Audio|\.play\(\)|<audio/i.test(boxSrc + src('fortune.js'));
+
+    const cases = [
+      ['规则、次数、12 条理由模板、24 条签文全部抽到配置', configOk],
+      ['组件不写死规则数值，一律引用配置', noHardcode],
+      ['偏好过滤：预算 / 场景 / 多维度 AND / 空组合逐步放宽且不脱库', filterOk],
+      ['推荐结果来自传入商品库，理由来自配置模板', libOk],
+      ['理由句式 ≥6 种实际命中、seed 稳定、排除上一条不连续重复', reasonOk],
+      ['当日推荐池同用户同日稳定、换日/换用户不同、只含库内商品', dailyOk],
+      ['每日硬上限 1+3+2=6 次，超出后任何路径都拒绝且抽取不重复', quotaOk],
+      ['跨天重置次数 / 开盒状态 / 一签', resetOk],
+      ['每日一签幂等、再抽限 1 次且签文与好物都变、始终在库内', fortuneOk],
+      ['签文为安静短句，无运势 / 中奖 / 抽奖措辞', toneOk],
+      ['按 scopeId() 分桶 + 损坏与越界数据读盘规整', isolationOk && dirtyOk],
+      ['积分真实扣减并写「兑换」流水，累计获得与等级不变，余额不足拦截', spendOk],
+      ['既有签到/任务三文件零改动，盲盒页不设登录门禁', untouched],
+      ['路由 / 首页模块卡 / 一签卡 / 加购 / 商品池 / 商品卡 / 页脚全部接线', wiring],
+      ['300ms 一次性开盒、有限次仅 opacity 呼吸、reduced-fx 降级、无音效、44px 热区', fxOk],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([l]) => l);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} AI 盲盒与每日一签（${cases.length} 条）${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL AI 盲盒与每日一签: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

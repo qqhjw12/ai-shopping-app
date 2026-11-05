@@ -8,6 +8,7 @@ import { renderOrderSuccess } from './orderSuccess.js';
 import { renderOrders, renderFavorites } from './account.js';
 import { renderAccount } from './accountCenter.js';
 import { renderPoints } from './points.js';
+import { renderBlindbox } from './blindbox.js';
 import { renderOrderDetail } from './orderDetail.js';
 import { renderCoupons } from './coupons.js';
 import { renderLogin } from './login.js';
@@ -121,7 +122,7 @@ onUserChange((user) => {
 function setActiveNav(path) {
   const key = path === '/' ? 'home'
     : path.startsWith('/categories') ? 'categories'
-    : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') ? 'products'
+    : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') || path.startsWith('/blindbox') ? 'products'
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
     : path.startsWith('/merchant') ? 'merchant'
@@ -150,6 +151,7 @@ function dispatch({ path, query }) {
   else if (path === '/account') renderAccount(view, { tab: query.tab || 'orders' });
   else if (path === '/coupons') renderCoupons(view);
   else if (path === '/points') renderPoints(view);
+  else if (path === '/blindbox') renderBlindbox(view);
   else if (path.startsWith('/account/order/')) {
     renderOrderDetail(view, decodeURIComponent(path.slice('/account/order/'.length)));
   }
