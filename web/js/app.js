@@ -12,6 +12,7 @@ import { renderBlindbox } from './blindbox.js';
 import { renderCompare, mountCompareDock, compareToggle } from './compare.js';
 import { renderGroupBuyDetail, renderGroupBuyList } from './groupBuy.js';
 import { renderWishlist } from './wishlist.js';
+import { renderShowroomDetail, renderShowroomList } from './showroom.js';
 import { renderOrderDetail } from './orderDetail.js';
 import { renderCoupons } from './coupons.js';
 import { renderLogin } from './login.js';
@@ -125,7 +126,7 @@ onUserChange((user) => {
 function setActiveNav(path) {
   const key = path === '/' ? 'home'
     : path.startsWith('/categories') ? 'categories'
-    : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') || path.startsWith('/blindbox') || path.startsWith('/compare') || path.startsWith('/group-buy') ? 'products'
+    : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') || path.startsWith('/blindbox') || path.startsWith('/compare') || path.startsWith('/group-buy') || path.startsWith('/showroom') ? 'products'
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
     : path.startsWith('/merchant') ? 'merchant'
@@ -203,6 +204,11 @@ function dispatch({ path, query }) {
   // 心愿单公开页：**免登录**。强制登录才能看别人的心愿，等于把这个场景判死。
   else if (path.startsWith('/wishlist/')) {
     renderWishlist(view, decodeURIComponent(path.slice('/wishlist/'.length)));
+  }
+  // 虚拟展厅：大厅与分区都公开，无登录墙（展厅是逛的地方，不是账户页）
+  else if (path === '/showroom') renderShowroomList(view);
+  else if (path.startsWith('/showroom/')) {
+    renderShowroomDetail(view, decodeURIComponent(path.slice('/showroom/'.length)));
   }
   else if (path === '/orders') renderOrders(view);
   else if (path === '/favorites') renderFavorites(view);

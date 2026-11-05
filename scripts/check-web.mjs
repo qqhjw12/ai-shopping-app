@@ -3984,5 +3984,228 @@ console.log('\n拼团与心愿单助力断言（档位折扣 / 团号与三态 /
   }
 }
 
+/* ============================================================
+   虚拟展厅 + AR 试穿/试妆
+   规则在 showroomConfig / showroomStore / tryOnConfig，渲染在 showroom.js /
+   pdpTryOn.js / arTryOn.js。这里实跑纯函数，并检查门控、接线与动效纪律。
+   ============================================================ */
+console.log('\n虚拟展厅与 AR 试穿断言（分区配置 / 取货 / 视图偏好隔离 / 六类门控 / 氛围图确定性 / 懒加载与动态 import / 样式纪律）');
+{
+  try {
+    const srCfg = await import(pathToFileURL(join(WEB_DIR, 'store/showroomConfig.js')).href);
+    const srStore = await import(pathToFileURL(join(WEB_DIR, 'store/showroomStore.js')).href);
+    const srArt = await import(pathToFileURL(join(WEB_DIR, 'showroomArt.js')).href);
+    const tryCfg = await import(pathToFileURL(join(WEB_DIR, 'store/tryOnConfig.js')).href);
+    const src = (f) => readFileSync(join(WEB_DIR, f), 'utf8');
+    const cssSrc = readFileSync(join(WEB_DIR, '..', 'styles.css'), 'utf8');
+    const indexSrc = readFileSync(join(WEB_DIR, '..', 'index.html'), 'utf8');
+
+    const as = (id) => localStorage.setItem('current_user', JSON.stringify({ id, nickname: id, identifier: id }));
+    localStorage.clear();
+
+    /* 1) 分区配置：3–5 个、id 唯一、每个都有取货类目与色调 */
+    const zones = srCfg.SHOWROOM_ZONES;
+    const ids = zones.map((z) => z.id);
+    const zoneOk = zones.length >= 3 && zones.length <= 5
+      && new Set(ids).size === ids.length
+      && zones.every((z) => Array.isArray(z.categories) && z.categories.length > 0)
+      && zones.every((z) => Number.isFinite(z.hue) && z.name && z.eyebrow && z.no)
+      && srCfg.SR_MAX_ZONES === 5
+      && srCfg.zoneById(ids[0]) === zones[0]
+      && srCfg.zoneById('nope') === null
+      && srCfg.zoneHash(ids[0]) === `#/showroom/${ids[0]}`;
+
+    /* 2) 取货：只认 categoryId、销量降序、确定性、上限、跨分区不串货 */
+    const pool = [
+      { id: 'a1', categoryId: 'beauty', sales: 5 },
+      { id: 'a2', categoryId: 'beauty', sales: 90 },
+      { id: 'a3', categoryId: 'phone', sales: 999 },
+      { id: 'a4', categoryId: 'beauty', sales: 12 },
+    ];
+    const lab = srCfg.zoneById('scent-lab');
+    const picked = srStore.pickZoneProducts(lab, pool).map((p) => p.id);
+    const pickOk = picked.join(',') === 'a2,a4,a1'
+      && srStore.pickZoneProducts(lab, pool).map((p) => p.id).join(',') === 'a2,a4,a1' // 刷新不重排
+      && srStore.pickZoneProducts(lab, pool, 2).length === 2
+      && srStore.pickZoneProducts(srCfg.zoneById('snowline-gear'), pool).length === 0
+      && srStore.zoneCount(lab, pool) === 3
+      && srStore.inZone({ categoryId: 'phone' }, srCfg.zoneById('digital-frontier')) === true
+      && srStore.inZone(null, lab) === false;
+
+    /* 3) 视图偏好：脏值收敛到网格，且按 scopeId 分桶互不干扰 */
+    as('sr-a');
+    srStore.saveView('hall');
+    const aView = srStore.loadView();
+    as('sr-b');
+    const bView = srStore.loadView();
+    srStore.saveView('grid');
+    as('sr-a');
+    const aBack = srStore.loadView();
+    localStorage.setItem('maison_showroom_view_v1::' + 'l:anon', 'not-a-view');
+    const dirtyView = srStore.loadView();
+    const viewOk = srCfg.normalizeView('hall') === 'hall'
+      && srCfg.normalizeView('whatever') === 'grid'
+      && srCfg.normalizeView(undefined) === 'grid'
+      && aView === 'hall' && bView === 'grid' && aBack === 'hall' && dirtyView === 'hall';
+
+    /* 4) 六类门控：两套类目 id 都认；「钟表眼镜」合并一级必须按关键词分叉 */
+    const cases = [
+      [{ categoryId: 'apparel', name: '羊毛混纺大衣' }, 'apparel'],
+      [{ categoryId: 'womenswear', name: '长款亚麻连衣裙' }, 'apparel'],
+      [{ categoryId: 'shoes', name: '切尔西靴' }, 'shoes'],
+      [{ categoryId: 'apparel', subCategory: '鞋履箱包', name: '低帮板鞋' }, 'shoes'],
+      [{ categoryId: 'beauty', name: '丝绒唇釉' }, 'beauty'],
+      [{ categoryId: 'jewelry', name: '淡水珍珠项链' }, 'jewelry'],
+      [{ categoryId: 'watches', name: '自动机械腕表' }, 'watch'],
+      [{ categoryId: 'watches', subCategory: '眼镜框', name: '板材太阳镜' }, 'glasses'],
+    ];
+    const kindOk = cases.every(([p, want]) => tryCfg.tryOnKindOf(p) === want)
+      && tryCfg.tryOnKindOf({ categoryId: 'phone', name: '极光 Pro 5G 智能手机' }) === null
+      && tryCfg.tryOnKindOf({ categoryId: 'food', name: '冷萃咖啡豆' }) === null
+      && tryCfg.tryOnKindOf(null) === null
+      && tryCfg.supportsTryOn({ categoryId: 'beauty', name: '香水' }) === true
+      && tryCfg.supportsTryOn({ categoryId: 'book', name: '随笔集' }) === false;
+
+    /* 5) 入口文案按类型分：试穿 / 试妆 / 试戴 */
+    const labelOk = tryCfg.tryOnLabel({ categoryId: 'apparel', name: '风衣' }) === 'AR 试穿'
+      && tryCfg.tryOnLabel({ categoryId: 'shoes', name: '乐福鞋' }) === 'AR 试穿'
+      && tryCfg.tryOnLabel({ categoryId: 'beauty', name: '口红' }) === 'AR 试妆'
+      && tryCfg.tryOnLabel({ categoryId: 'jewelry', name: '戒指' }) === 'AR 试戴'
+      && tryCfg.tryOnLabel({ categoryId: 'watches', name: '手表' }) === 'AR 试戴'
+      && tryCfg.tryOnLabel({ categoryId: 'phone', name: '手机' }) === '';
+
+    /* 6) 能力探测与贴图预设：没有 getUserMedia 就是静态示意；六类都有落点 */
+    const presetOk = ['apparel', 'shoes', 'beauty', 'jewelry', 'watch', 'glasses'].every((k) => {
+      const o = tryCfg.overlayPreset(k);
+      return o && o.top && o.left && o.scale > 0 && o.scale <= 1 && o.caption;
+    })
+      && tryCfg.cameraSupported({ mediaDevices: {} }) === false
+      && tryCfg.cameraSupported({ mediaDevices: { getUserMedia: () => {} } }) === true
+      && tryCfg.cameraSupported(null) === false
+      && tryCfg.TRYON_SHOT.W === 720 && tryCfg.TRYON_SHOT.H === 1280
+      && tryCfg.TRYON_CAMERA.facingMode === 'environment';
+
+    /* 7) SKU 换色：同规格同色相、不同规格大概率不同、范围合法；色名词表优先于哈希 */
+    const h1 = tryCfg.tryOnHueOf('黑 / M');
+    const hueOk = h1 === tryCfg.tryOnHueOf('黑 / M')
+      && h1 >= 0 && h1 < 360
+      && tryCfg.tryOnHueOf('燕麦色 / L') !== h1
+      && tryCfg.tryOnHueOf('') >= 0
+      && tryCfg.tryOnTintOf('黑 / M') !== tryCfg.tryOnTintOf('白 / M')
+      && tryCfg.tryOnTintOf('黑 / M') === tryCfg.tryOnTintOf('黑 / M')
+      && /hsl\(/.test(tryCfg.tryOnTintOf('水洗蓝 / 40'))
+      && tryCfg.tryOnTintOf('未知色号 X') !== tryCfg.tryOnTintOf('未知色号 Y');
+
+    /* 8) 氛围图：确定性、不同分区不同、无外部链接、有 SVG 骨架 */
+    const z0 = zones[0];
+    const art1 = srArt.zoneArtSvg(z0);
+    const art2 = srArt.zoneArtSvg(z0);
+    const artHero = srArt.zoneArtSvg(z0, { variant: 'hero' });
+    const artOther = srArt.zoneArtSvg(zones[1]);
+    const artOk = art1 === art2
+      && art1 !== artOther
+      && artHero !== art1
+      && /<svg[\s\S]*viewBox="0 0 1200 620"/.test(art1)
+      && /viewBox="0 0 1200 720"/.test(artHero)
+      && /linearGradient|radialGradient/.test(art1)
+      // 只放行 SVG 命名空间；任何真正的外链 src/href 都算破纪律
+      && !/https?:\/\/(?!www\.w3\.org)/.test(art1)
+      && art1.includes(z0.name);
+
+    /* 9) 懒加载 + 不自动轮播：IntersectionObserver 挂载、无定时器、不程序化滚动 */
+    const srJs = src('showroom.js');
+    const lazyOk = /IntersectionObserver/.test(srJs)
+      && /rootMargin/.test(srJs)
+      && /isConnected/.test(srJs)
+      && !/setInterval/.test(srJs)
+      && !/scrollLeft\s*=|scrollTo\(|autoRotate|autoplay/i.test(srJs);
+
+    /* 10) 首屏零 AR 脚本：只有 pdpTryOn.js 里有一处动态 import，没人静态引它 */
+    const pdpTry = src('pdpTryOn.js');
+    const arJs = src('arTryOn.js');
+    const lazyImportOk = /await import\('\.\/arTryOn\.js'\)/.test(pdpTry)
+      && /'\(pointer: coarse\)'/.test(pdpTry)
+      && /cameraSupported\(\)/.test(pdpTry)
+      && !/from '\.\/arTryOn\.js'/.test(src('views.js') + src('app.js') + src('showroom.js'))
+      && !/from '\.\/arTryOn\.js'/.test(pdpTry)
+      && !/arTryOn/.test(indexSrc)
+      && !/from '\.\/pdpTryOn\.js'/.test(src('app.js'));
+
+    /* 11) 演示层纪律：不识别不上传、无定时器、退出即停流、拒绝授权有兜底 */
+    const arOk = /getUserMedia/.test(arJs)
+      && /getTracks\(\)[\s\S]{0,80}stop\(\)/.test(arJs)
+      && /NotAllowedError|catch/.test(arJs)
+      && !/setInterval|setTimeout/.test(arJs)
+      && !/fetch\(|XMLHttpRequest|sendBeacon/.test(arJs)
+      && !/faceapi|face-api|mediapipe|human\.js|tensorflow|three/i.test(arJs)
+      && /toDataURL/.test(arJs)
+      && /download/.test(arJs)
+      && /aria-modal|role: 'dialog'|role: "dialog"/.test(arJs)
+      && /Escape/.test(arJs)
+      && /演示模式/.test(arJs + tryCfg.TRYON_COPY.demoTag);
+
+    /* 12) 接线：路由 / 导航归桶 / PDP 入口 / 页脚 / 缺失分区兜底 */
+    const appSrc = src('app.js');
+    const wiringOk = appSrc.includes("path === '/showroom') renderShowroomList(view)")
+      && appSrc.includes("path.startsWith('/showroom/')")
+      && appSrc.includes("path.startsWith('/showroom') ? 'products'")
+      && src('views.js').includes("tryOnButton(p, 'ghost')")
+      && indexSrc.includes('href="#/showroom"')
+      && /path\.startsWith\('\/showroom'\)[\s\S]{0,60}?'products'/.test(appSrc)
+      && /srCfg|zoneById\(id\)/.test(srJs)
+      && srJs.includes('这个展厅不存在');
+
+    /* 13) 样式纪律：surface-1 + 1px 细线、纯 CSS 景深、移动端单列、reduced-fx 关动效、热区 44px */
+    const railCss = (cssSrc.match(/\.sr-rail\s*\{[^}]*\}/) || [''])[0];
+    const hallCss = (cssSrc.match(/\.sr-hall-card\s*\{[^}]*\}/) || [''])[0];
+    const zoneCss = (cssSrc.match(/\.sr-zone\s*\{[^}]*\}/) || [''])[0];
+    const styleOk = /perspective:\s*\d+px/.test(railCss)
+      && /transform:\s*translateY\(calc\(var\(--lift/.test(hallCss)
+      && /rotateY\(calc\(var\(--tilt/.test(hallCss)
+      && /background:\s*var\(--color-surface-1\)/.test(zoneCss)
+      && /border:\s*1px solid var\(--color-hairline-dark\)/.test(zoneCss)
+      && /\.sr-zones\s*\{\s*grid-template-columns:\s*1fr/.test(cssSrc)
+      && /html\.reduced-fx \.sr-hall-card/.test(cssSrc)
+      && /\.try-close \{[^}]*width:\s*44px;[^}]*height:\s*44px/.test(cssSrc)
+      && /\.try-sku \{[^}]*min-height:\s*44px/.test(cssSrc)
+      && /\.try-act \{[^}]*min-height:\s*46px/.test(cssSrc)
+      && !/@import|url\(["']?https?:/.test(cssSrc);
+
+    /* 14) 本步不碰拼团 / 对比 / 盲盒：新增代码零互引，旧模块零改动痕迹 */
+    const untouched = !/groupBuy|compareStore|blindbox|gb-|cmp-|bb-/.test(
+      srJs + pdpTry + arJs + src('showroomArt.js') + src('store/showroomConfig.js')
+      + src('store/showroomStore.js') + src('store/tryOnConfig.js'),
+    )
+      && !/showroom|tryOn|sr-hall|try-layer/.test(
+        src('compare.js') + src('outfit.js') + src('blindbox.js') + src('groupBuy.js'),
+      );
+
+    localStorage.clear();
+
+    const table = [
+      ['五个分区配置完整、id 唯一、取货类目与色调齐备，zoneById/zoneHash 可用', zoneOk],
+      ['取货只认 categoryId、销量降序且确定性、支持上限、跨分区不串货', pickOk],
+      ['视图偏好脏值收敛到网格，且按 scopeId 分桶互不干扰', viewOk],
+      ['六类门控（服饰/鞋靴/美妆/珠宝/钟表/眼镜）双 id 体系都认，钟表眼镜按关键词分叉，非试穿类目返回 null', kindOk],
+      ['入口文案按类型区分：试穿 / 试妆 / 试戴', labelOk],
+      ['能力探测与贴图预设：无 getUserMedia 即静态示意，六类均有落点', presetOk],
+      ['SKU 换色色相稳定且在 0–359 内', hueOk],
+      ['氛围图确定性生成、分区间不同、纯内联 SVG 无外链', artOk],
+      ['展厅按视口懒加载，无定时器与程序化滚动（不自动轮播）', lazyOk],
+      ['首屏零 AR 脚本：仅 pdpTryOn 一处动态 import，无静态引用', lazyImportOk],
+      ['演示层不识别不上传、无定时器、退出停流、拒绝授权有兜底、可 Esc 关闭', arOk],
+      ['路由/导航归桶/PDP 入口/页脚/缺失分区兜底全部接线', wiringOk],
+      ['样式：surface-1+1px 细线、纯 CSS 景深、移动端单列、reduced-fx 关动效、热区达标', styleOk],
+      ['不改拼团 / 对比 / 盲盒：零互引', untouched],
+    ];
+    const bad = table.filter(([, ok]) => !ok).map(([l]) => l);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 虚拟展厅与 AR 试穿（${table.length} 条）${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 虚拟展厅与 AR 试穿: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

@@ -23,6 +23,7 @@ import { groupBuyButton } from './groupBuy.js';
 import { outfitPanel } from './outfit.js';
 import { trackEvent, fetchProductStats } from './track.js';
 import { createGalleryModes } from './pdpImmersive.js';
+import { tryOnButton } from './pdpTryOn.js';
 import {
   SORTS, PRICE_BANDS, bandById, bandLabel,
   applyFilters, facetCounts, hotSearches,
@@ -1765,6 +1766,8 @@ function buildDetailPage(p, from, presetRelated = []) {
       compareToggle(p, { className: 'ghost pdp-compare', label: '加入对比' }),
       // 拼团：放在次要操作区而不是主按钮旁边——逛的人先看清商品，想凑人时再开团
       groupBuyButton(p, 'ghost'),
+      // AR 试穿/试妆：只有服饰/鞋靴/美妆/珠宝/钟表/眼镜有；其他类目返回 null 不占位
+      tryOnButton(p, 'ghost'),
       el('button', { type: 'button', class: 'ghost', onclick: () => askProductQA(p) }, '问我这件商品'),
       el('button', { type: 'button', class: 'ghost', onclick: () => askGuide(`介绍一下「${p.name}」，适合什么人群和场景？`) }, 'AI 导购推荐'),
       el('button', { type: 'button', class: 'ghost', onclick: () => copyShareLink(p, from) }, '复制分享'),

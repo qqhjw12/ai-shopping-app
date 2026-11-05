@@ -1,11 +1,10 @@
-# 拼团 + 心愿单助力 — 交付总览
+# 虚拟展厅 + AR 试穿/试妆 — 交付总览
 
-> **本步范围**：新增「拼团」与「心愿单助力」，让购买有「一起玩」的理由。
-> 拼团：详情页发起弹层（2/3/5 人）→ 团号 → 待成团 → 模拟好友参团 → 已成团 → 按团价结算 → 订单标记；
-> 心愿单：收藏页公开开关 → 免登录公开页 → 访客助力 → 阶梯奖励 → 主人领券。
-> **明确不动**：商品对比（`compare.js` / `outfit.js` / `compareStore.js` / `outfitStore.js` 源码零改动）、
-> AI 盲盒（`blindbox.js` 零改动）—— 两侧都有断言守着。
-> **设计语言**：沿用 Deep Space Command 深空令牌，未引入任何新色系。
+> **本步范围**：新增「虚拟展厅」（`#/showroom`、`#/showroom/:id`，网格/展厅双视图）与
+> 「AR 试穿/试妆演示态」（分类门控入口 → 桌面提示 / 移动全屏演示层 → 静态示意降级）。
+> **明确不动**：拼团（`groupBuy*.js` / `wishlist*.js`）、商品对比（`compare.js` / `outfit.js`）、
+> AI 盲盒（`blindbox.js`）——源码零改动，两侧都有断言守着。
+> **设计语言**：沿用 Deep Space Command 深空令牌，未引入任何新色系、未引入任何 3D/AR 库。
 
 ---
 
@@ -13,15 +12,15 @@
 
 | # | 决策 | 一句话理由 |
 |---|---|---|
-| 1 | 团状态**不落盘、只推导**：`groupStatus(group, now)` 由「成员数 vs 成团人数」+「now vs deadlineAt」算出 | 落盘状态一定会过期，出现「已满员却显示待成团」；推导则刷新、改系统时间都不会说谎 |
-| 2 | 团价 = 单买价 × 档位折扣，实时算且写进团快照，同一数值直接作为购物袋价格 | 用户看到的团价 == 结算金额，杜绝「标 8 折、结算按原价」的虚标 |
-| 3 | 团的两根时间线分离：`groupBuy` 独立一列，不覆盖订单 `status` | 团生命周期（待成团/已成团/失败）与履约状态（待付款/待发货）正交，塞进一个字段必然互相覆盖 |
-| 4 | 心愿单公开出去的是**最小快照**（商品 id / 理由 / 助力记录），不是收藏夹本身 | 一个链接不该把整份收藏公开；索引独立成一张跨 scope 可读的键 |
-| 5 | 奖励只写 `couponId`，面额由券目录决定；校验函数 `validateTiers(catalog)` 在仓储层 | 运营改券不用改代码，也不会出现「页面写减 20、券包实际减 10」 |
-| 6 | 整页只起**一个** `setInterval`，节点被路由摘掉（`!isConnected`）或全部非待成团即自停 | 每张卡片各起一个定时器是最经典的「切页后还在跑」写法 |
-| 7 | 分享/二维码全部 mock：复制本站 hash 链接 + 5×5 纯 CSS 点阵占位 | 规格明确禁止真实分享 SDK；引一个二维码库为了一张占位图不值得 |
-
----
+| 1 | 「AR 预览」与「AR 试穿」是**两个入口**：前者（上一步交付）看空间摆放、全类目可用；后者穿在身上/脸上，只对服饰/鞋靴/美妆/珠宝/钟表/眼镜出现 | 合并成一个按钮会让买手机的人看到「试穿手机」；分开后旧功能与旧断言都不动 |
+| 2 | 分区氛围图**程序化 SVG 现画**（`showroomArt.js`），不引外链摄影图 | 这站商品图本来就是确定性 SVG；外链大图在离线/图床抖动时一片破图 + 控制台报错，前几轮踩过 |
+| 3 | 展厅景深 = `perspective + rotateY + translateY + scale` 的**纯 CSS transform**，无 WebGL | 「3D 感」不需要 3D 库；`prefers-reduced-motion` 时整块 transform 一起收掉 |
+| 4 | 懒加载是**真懒**：`IntersectionObserver`（rootMargin 240px）进视口才构建贴图，骨架占位防跳动 | 商品图是 data-URI SVG 虽零请求，但 DOM 构建本身有开销；换成真图床时同一套机制直接生效 |
+| 5 | 类目门控 = **一级类目映射 + 关键词兜底**（`tryOnConfig.js`） | 商品池（16 老类目）与分类树（25 新类目）并存，写死任一套都会漏；「钟表眼镜」合并一级必须按关键词二次分叉，否则太阳镜会拿到「AR 试戴手表」 |
+| 6 | AR 演示层 `arTryOn.js` **只在点击入口后动态 import**；桌面端连 import 都不发生 | 规格硬性要求首屏零 AR 请求；e2e 在网络面板上盯这一条 |
+| 7 | 摄像头**默认不申请**：演示层用 CSS 模拟画面，「启用摄像头背景」需用户主动点击并授权，被拒/无设备静默回落 | 进页面就弹权限框是最快流失方式；拒绝授权必须优雅降级，不能看起来像 bug |
+| 8 | 展厅**不自动轮播**：横向轨道是原生 `overflow-x + scroll-snap`，JS 里没有任何定时器与程序化滚动 | 规格明确禁止；也让 reduced-motion 语义天然成立 |
+| 9 | 视图偏好（网格/展厅）按 `scopeId()` 分桶存 localStorage，脏值收敛到网格 | 换账号不串视野；localStorage 损坏不能白屏，回落默认视图即可 |
 
 ## 二、文件清单
 
@@ -29,220 +28,144 @@
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `web/js/store/groupBuyConfig.js` | 123 | 拼团唯一规则源：2/3/5 三档（10%/18%/28%）、24h mock 截止、昵称池、三态词表、分享奖励（引用积分 `share1`）、文案 |
-| `web/js/store/groupBuyStore.js` | 422 | 团号生成、建团、模拟参团、三态/剩余人数/倒计时纯函数、`scopeId()` 分桶、结算草稿（30min TTL） |
-| `web/js/store/wishlistConfig.js` | 100 | 心愿单规则源：助力阶梯（3/10 人）、奖励 `couponId`、理由长度、每访客一次、可否自助力、文案 |
-| `web/js/store/wishlistStore.js` | 447 | 公开索引（跨 scope）、发布/收回/改理由、访客助力去重、阶梯进度、主人通知、领奖标记 |
-| `web/js/groupBuy.js` | 443 | PDP 发起弹层、`#/group-buy` 大厅、`#/group-buy/:id` 详情（单一 ticker） |
-| `web/js/wishlist.js` | 306 | 收藏页公开面板 + `#/wishlist/:id` 免登录公开页 |
-| `scripts/e2e-group.mjs` | 415 | 62 条浏览器验收断言 |
+| `web/js/store/showroomConfig.js` | 116 | 5 个主题分区（类目映射/色调/文案）、视图模式与偏好键、`zoneById/zoneHash` |
+| `web/js/store/showroomStore.js` | 74 | 按 categoryId 取货（销量降序确定性）、上限、视图偏好按 scope 读写 |
+| `web/js/showroomArt.js` | 148 | 宽幅氛围图 SVG（渐变/地平线/展台/巨型编号），确定性、零外链 |
+| `web/js/showroom.js` | 297 | 大厅 + 分区详情：双视图切换、懒加载、加购/进详情、空分区兜底 |
+| `web/js/store/tryOnConfig.js` | 158 | 六类门控（类目映射 + 关键词规则）、文案、截图尺寸、色名词表、贴图落点 |
+| `web/js/pdpTryOn.js` | 87 | 入口按钮（不支持的类目返回 null）、桌面提示、能力检测、动态 import |
+| `web/js/arTryOn.js` | 380 | 全屏演示层：模拟画面/真实背景、拖动贴图、SKU 换色、canvas 截图、mock 分享 |
 
-### 改动（8 个）
+### 改动（5 个）
 
 | 文件 | 改动 |
 |---|---|
-| `web/js/app.js` | 三条路由（`/group-buy`、`/group-buy/:id`、`/wishlist/:id`）+ 导航归属 + `has-pdp-bar` 覆盖新吸底页 |
-| `web/js/views.js` | 详情页次要操作区加 `groupBuyButton(p)`（1 行接线，无其它改动） |
-| `web/js/account.js` | 订单卡加「拼团」标记 + 团状态胶囊 + 「查看团」入口；收藏页顶部挂公开面板 |
-| `web/js/checkout.js` | 读拼团草稿写入 draft → 清单顶部拼团说明条 → 下单成功后清理草稿 |
-| `web/js/store/orderStore.js` | `normalizeGroupBuy()` + `groupStatusText()` + `groupBuyOf()`；`createOrder` / `normalizeRemote` 白名单透传 |
-| `web/styles.css` | +571 行 `.gb-*` / `.wl-*`（surface-1 + 1px 细线卡、1px 青色进度条、圆形头像、移动端单列吸底、reduced-fx） |
-| `web/index.html` | 页脚加「拼团大厅」；收藏链接改为「我的收藏 / 心愿单」 |
-| `scripts/check-web.mjs` | 新增 24 条断言块；**并把对比块 1 条脆断言改成语义匹配**（见第六节说明） |
-
----
+| `web/js/app.js` | +2 import、`#/showroom` 两条路由、`/showroom` 归入 products 导航桶 |
+| `web/js/views.js` | +1 import、`.pdp-secondary-actions` 里插 `tryOnButton(p, 'ghost')`（其他类目为 null 不占位） |
+| `web/index.html` | 页脚「探索」列加 `<a href="#/showroom">虚拟展厅</a>` |
+| `web/styles.css` | +约 500 行 `.sr-*` / `.try-*`（含移动端与两套 reduced-motion 块） |
+| `scripts/check-web.mjs` | 新增「虚拟展厅与 AR 试穿」断言块 14 条 |
 
 ## 三、关键代码
 
-### 1. 三态推导（纯函数，任何时刻都在说真话）
+**1) 分类门控的核心——「钟表眼镜」合并一级必须二次分叉：**
 
 ```js
-// web/js/store/groupBuyStore.js
-export function groupStatus(group, now = Date.now()) {
-  const size = Math.max(1, Number(g.size) || 1);
-  const joined = Array.isArray(g.members) ? g.members.length : 0;
-  if (joined >= size) return GB_STATUS.FORMED;          // 成团是终态：过期也不回退
-  const deadline = Date.parse(g.deadlineAt || '');
-  if (Number.isFinite(deadline) && now > deadline) return GB_STATUS.FAILED;
-  return GB_STATUS.OPEN;
+export function tryOnKindOf(product) {
+  const cat = String(product.categoryId || '');
+  const base = TRYON_CATEGORY_KIND[cat] || null;      // 两套类目 id 的映射表
+  const hay = [product.subCategory, product.subCategoryId, product.category,
+    product.name, (product.tags || []).join(' ')].filter(Boolean).join(' ');
+  const hit = TRYON_RULES.find(([re]) => re.test(hay));
+  const byKeyword = hit ? hit[1] : null;
+  if (base === 'watch') {                              // watches 一级 = 钟表 + 眼镜
+    if (byKeyword === 'glasses') return TRYON_KIND.GLASSES;
+    return TRYON_KIND.WATCH;
+  }
+  if (base === 'apparel' && byKeyword === 'shoes') return TRYON_KIND.SHOES; // 老池「服饰鞋包」里混着鞋
+  return base || byKeyword;
 }
 ```
 
-### 2. 整页一个倒计时（只改文本，断开即停）
+**2) 首屏零 AR 请求——只有入口在首屏，演示层在点击后：**
 
 ```js
-// web/js/groupBuy.js
-function mountCountdowns(pairs) {
-  const tick = () => {
-    if (!live.some((p) => p.node.isConnected)) { stop(); return; }   // 路由切走 → 收手
-    const anyOpen = live.map(paint).some(Boolean);
-    if (!anyOpen) stop();                                           // 全部非待成团 → 收手
-  };
-  tick();
-  timer = setInterval(tick, GB_TICK_MS);
-  return stop;
+// pdpTryOn.js（随首屏加载，但自己绝不 import arTryOn.js）
+if (!isCoarsePointer()) { openModal(...桌面提示...); return; }   // 桌面连 import 都不发生
+const mode = cameraSupported() ? 'camera' : 'static';           // 无 getUserMedia → 静态示意
+const { mountTryOn } = await import('./arTryOn.js');            // 此刻才请求演示层
+mountTryOn({ product, kind, mode });
+```
+
+**3) 展厅视图的景深全部是平面变换（无 3D 库）：**
+
+```css
+.sr-rail { perspective: 1400px; scroll-snap-type: x proximity; }
+.sr-hall-card {
+  transform: translateY(calc(var(--lift) * 1px)) rotateY(calc(var(--tilt) * 1deg)) scale(var(--scale));
+  transition: transform 320ms var(--ease), box-shadow 320ms var(--ease);
+}
+html.reduced-fx .sr-hall-card { transform: none; transition: none; }
+```
+
+**4) 懒加载：进视口才挂载，节点被路由摘掉就放弃：**
+
+```js
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (!entry.isIntersecting) return;
+    io.unobserve(entry.target);
+    if (!host.isConnected) return;          // 路由已切走：不再构建
+    host.appendChild(build());
+    host.classList.add('is-loaded');
+  });
+}, { rootMargin: '240px 0px' });
+```
+
+**5) SKU 换色：色名词表优先，哈希只做兜底**（「黑 / M」不该泛绿光）：
+
+```js
+export const TRYON_COLOR_WORDS = [
+  [/米白|燕麦|奶油|象牙|cream|ivory|oat/i, 'hsl(38 46% 84% / 0.5)'],
+  /* …14 组… */
+  [/黑|black/i, 'hsl(220 10% 10% / 0.6)'],
+];
+export function tryOnTintOf(spec) {
+  const hit = TRYON_COLOR_WORDS.find(([re]) => re.test(String(spec)));
+  return hit ? hit[1] : `hsl(${tryOnHueOf(spec)} 62% 58% / 0.34)`;
 }
 ```
-
-### 3. 订单层登记拼团元数据（白名单，不登记就静默丢失）
-
-```js
-// web/js/store/orderStore.js
-export function normalizeGroupBuy(raw) {
-  const r = raw && typeof raw === 'object' ? raw : null;
-  if (!r || !r.groupId) return null;
-  return { groupId, no, size, unitPrice, groupPrice, productName,
-           status: GB_STATUS_TEXT[r.status] ? String(r.status) : 'formed', createdAt };
-}
-// createOrder 内：
-...(normalizeGroupBuy(draft.groupBuy) ? { groupBuy: normalizeGroupBuy(draft.groupBuy) } : {}),
-```
-
-### 4. 助力跨阈值才推通知（同档只推一次）
-
-```js
-// web/js/store/wishlistStore.js —— help()
-const before = helpCount(pub);
-pub.helps = [...pub.helps, { scope, at }];
-const after = helpCount(pub);
-const crossed = WL_TIERS.filter((t) => before < t.threshold && after >= t.threshold);
-```
-
-### 5. 结算衔接：团价直接进购物袋 + 草稿 30 分钟 TTL
-
-```js
-// web/js/groupBuy.js → 去结算
-addToCart({ ...product, price: group.groupPrice }, 1, null);  // 状态层按 product.price 记账
-setPendingCheckout(group);
-navigate('#/checkout');
-// checkout.js finish() → clearPendingCheckout()（留着会污染下一笔普通订单）
-```
-
----
 
 ## 四、访问路径
 
-| 路径 | 说明 |
+| 路径 | 内容 |
 |---|---|
-| `#/product/<id>` → 「发起拼团」 | 详情页次要操作区，选 2/3/5 人 → 团价实时预览 → 开团 |
-| `#/group-buy` | 拼团大厅，「进行中 / 已结束」两栏 |
-| `#/group-buy/<id>` | 团详情：团号、倒计时、成员头像、二维码占位、邀请好友、模拟好友参团、去结算 |
-| `#/group-buy/<id>?invite=1` | 分享落地（顶部多了「好友分享」提示条） |
-| `#/favorites` | 收藏页顶部「公开心愿单」开关 + 理由编辑 + 复制链接 + 主人通知条 |
-| `#/wishlist/<id>` | 公开心愿单，**免登录**；访客可助力，主人可领券 |
-| `#/orders` | 拼团单带「拼团」标记 + 团状态胶囊 + 「查看团」 |
+| `#/showroom` | 展厅大厅：5 张大幅氛围图分区卡（春日衣橱 17 件 / 数码前线 49 件 / 香氛实验室 492 件 / 静境家居 32 件 / 雪线装备 32 件） |
+| `#/showroom/spring-wardrobe` 等 | 分区详情：网格 ↔ 展厅切换，展厅视图横向大卡 + CSS 景深，卡上加购/进详情 |
+| `#/product/p065`（服饰） | 详情页次要操作区「AR 试穿」；桌面点击 → 提示弹层（零脚本加载） |
+| `#/product/p135`（美妆） | 入口文案为「AR 试妆」 |
+| `#/product/p001`（手机） | 无 AR 试穿入口（门控生效） |
+| 移动端 PDP → AR 试穿 | 全屏演示层：模拟摄像头画面 + 商品贴图（可拖动）+ SKU 换色 + 截图/分享/退出 +「启用摄像头背景」（授权后才用真背景） |
+| 页脚「探索 → 虚拟展厅」 | 全站入口 |
 
----
+## 五、验收自检（对照规格第五节）
 
-## 五、验收自检（逐项对照规格）
-
-### 一、拼团
-
-| 规格要求 | 结果 | 证据 |
+| 验收项 | 结果 | 证据 |
 |---|---|---|
-| 详情页「发起拼团」，选 2/3/5 人与 mock 团价（低 10–30%） | ✅ | 三档 `10%/18%/28%`；弹层实时预览；`e2e-group` 断言「团价 = 单买价 × 82%」「团价确实低于单买价」「省 N%」 |
-| 生成 mock 团号，状态「待成团」 | ✅ | `GB` + yyMMdd + 4 位序号，同日递增；`/^GB\d{10}$/` 双端断言 |
-| `#/group-buy` 列表：进行中、剩余人数、倒计时 | ✅ | 两栏切换；卡片含状态胶囊/团号/团价对比/成员头像/剩余人数/倒计时 |
-| `#/group-buy/:id` 详情：团信息、成员头像占位、分享按钮 | ✅ | 圆形占位（昵称首字，不加载真实头像）+ 二维码占位 + 吸底操作条 |
-| 拼团分享：mock 链接/二维码，「邀请好友」复制 + 10 积分（与步骤 3 打通） | ✅ | 复制 `#/group-buy/<id>?invite=1`；`recordBehavior('share')` 让积分 `share1` 任务 +1（断言 `progress 0→1`）；文案如实写「任务已记录，去积分页领取」 |
-| 不显眼的「模拟好友参团」，人数 +1，满员成团，可进结算 | ✅ | `.gb-sim` 虚线次要按钮；满员后按钮消失、状态转「已成团」、结算按钮解禁 |
-| 订单列表标记「拼团」，状态含待成团/已成团/拼团失败 | ✅ | 订单头 `[拼团]` + 团状态胶囊（三态词表齐全且由纯函数推导，见 `check-web` 第 12 条） |
+| 展厅列表和详情可访问，商品可加购/看详情 | ✅ | e2e 1–3 节：5 分区卡、进详情、`shop_cart` 0→1、跳 `#/product/:id` |
+| 展厅/网格视图可切换 | ✅ | `aria-pressed` 互斥切换；**刷新后偏好保留**（scope 分桶落盘） |
+| 服饰美妆等分类有 AR 入口，桌面与移动端都有明确降级提示 | ✅ | 桌面：`请在移动设备上体验 AR 试穿`；移动无摄像头：`静态试穿示意`；拒绝授权：`摄像头未授权，已切回模拟画面` |
+| AR 演示层可切换 SKU、可关闭 | ✅ | 规格读数变化 + 选中态转移 + 贴图换色（色名词表）；`×`/Esc/退出按钮三种关法，关闭后解锁 `no-scroll` |
+| 首屏无 AR 相关脚本请求 | ✅ | e2e 在桌面与移动两个网络面板断言 `arTryOn.js` 请求数为 0，点击后才出现 |
+| 控制台无错误 | ✅ | 四个页面 context 全程零 console error / pageerror |
 
-### 二、心愿单助力
+规格第三节逐条：氛围图与商品贴图懒加载 ✅（IO + 骨架）；3D 感只用 CSS transform ✅（e2e 断言轨道 `perspective` 有值且无 three/glb 请求）；不支持/拒绝摄像头优雅降级不报错 ✅（两条独立 e2e 路径）；`prefers-reduced-motion` 关闭景深动效 ✅（`@media` 与 `html.reduced-fx` 双保险 + 断言）。
 
-| 规格要求 | 结果 | 证据 |
-|---|---|---|
-| 收藏夹「公开心愿单」开关，开启后生成 mock 分享链接 | ✅ | 开关 + 理由输入 + 复制链接 + 预览公开页 |
-| `#/wishlist/:id` 展示商品、理由、助力进度条 | ✅ | 「已获 N 人助力，再 M 人可享奖励」+ 1px 青色进度条 + 阶梯胶囊 |
-| 访客点「助力」人数 +1；达阈值主人收到通知并可领券 | ✅ | 每访客一次（重复助力 `reason: 'done'`）；跨阈值推通知；主人领券真进券包（断言券包数 +1） |
-| 助力规则与奖励抽成配置，不写死 | ✅ | `WL_TIERS` 只含 `{threshold, couponId}`；断言「阶梯里不含面额字样」+「券必须真实存在于券目录」 |
+规格第四节逐条：首屏零 AR 脚本 ✅；无人脸识别（不调任何模型，真背景仅当背景、不上传）✅；无自动轮播 ✅（JS 零定时器、零程序化滚动，断言守着）；AR 不是假按钮——演示层全功能可用 ✅。
 
-### 三、数据与样式
+## 六、验证与回归
 
-| 规格要求 | 结果 | 证据 |
-|---|---|---|
-| 拼团/助力数据按用户隔离存 localStorage；倒计时用 mock 截止时间 | ✅ | `maison_groupbuy_v1::<scopeId>` / `maison_wishlist_v1::<scopeId>`；截止 = 建团时间 + 24h |
-| 拼团卡 surface-1 + 1px 细线；进度条 1px 青色细线；头像圆形占位 | ✅ | 断言直接量 CSS：`background: var(--color-surface-1)`、`border: 1px solid var(--color-hairline-dark)`、`height: 1px` + `background: var(--color-cyan)`、`border-radius: 50%` |
-| 移动端单列、分享按钮吸底、热区 ≥44px | ✅ | 390×844 实测：无横向滚动、`.gb-bar` / `.wl-bar` `position: fixed`、按钮高度 44px |
-
-### 四、禁止项
-
-| 禁止 | 结果 | 证据 |
-|---|---|---|
-| 真实支付 / 真实分享 SDK | ✅ | 断言源码不含 `qrcode|wx\.|window\.open|shareSDK|alipay|wxpay`；二维码为纯 CSS 点阵 |
-| 倒计时无限循环导致性能问题 | ✅ | 断言 `groupBuy.js` 里 `setInterval` 恰好 1 处且带 `clearInterval` + `isConnected` 自停；`wishlist.js` 零定时器 |
-| 拼团价虚标后无法成团 | ✅ | 团价与档位折扣同源计算并写进快照，结算单价断言等于团价；成团仅需成员数达标（模拟参团可达） |
-| 心愿单强制登录才能看公开页 | ✅ | 清掉登录态后仍能打开并渲染（断言 hash 未被重定向、进度卡可见） |
-
-### 五、总体验收
-
-| 项 | 结果 |
-|---|---|
-| 可发起拼团、生成团号、模拟参团、成团后进结算 | ✅ 62/62 e2e 全过 |
-| 拼团订单在订单列表有标记和状态 | ✅ |
-| 心愿单可公开、可助力、进度和奖励正确 | ✅ |
-| 分享按钮可用（复制 mock 链接） | ✅ 剪贴板读回含 `#/group-buy/gb_...&invite=1` |
-| 刷新状态不丢 | ✅ 团状态、助力数、领取标记均持久 |
-| 移动端可用 | ✅ |
-| 控制台无错误 | ✅ |
-
----
-
-## 六、断言脚本自身的修复（不是产品问题）
-
-`e2e-group` 首轮 12 条红、`check-web` 首轮 2 条红，全部出在断言脚本上，已逐条修正并留注释：
-
-| 现象 | 真因 | 修法 |
-|---|---|---|
-| 详情页找不到「发起拼团」 | 商品 id 取自 `store/products.js` 的 mock 库，不在 `views.getProducts()` 的消费者池里 → 页面显示「商品已下架」 | 断言改用与前台一致的取数入口 |
-| 大厅 `.gb-card` 超时 | 默认「进行中」栏本来就该是空的（唯一团已成团） | 先断言空态，再切「已结束」栏断言卡片 |
-| 开关 `check()` 超时 | input 视觉隐藏（1px + `opacity:0`） | 点可见轨道 `.wl-switch-track` |
-| 公开页打不开 | `browser.newPage()` 是**独立 context**，localStorage 为空 | 同一 context 内清 `current_user` 后导航 |
-| 主人收不到通知 | 同一 context 里另一个页面改了 storage，主页面停在旧渲染 | 恢复登录态后显式 `reload()` |
-| 移动端找不到团 | 新 context 里没有团数据 | 改 `page.setViewportSize()` 复用同一页 |
-| 移动端找不到 `.wl-bar` | 主人视角本来就没有助力按钮 | 改用匿名页（访客视角）验 |
-
-**另修 1 条既有脆断言**：对比步骤的 `appSrc.includes("path.startsWith('/compare') ? 'products'")` 逐字匹配了导航表达式，本步往同一个 `products` 桶加 `/group-buy` 后立刻误报「对比接线断了」。改为
-`/path\.startsWith\('\/compare'\)[\s\S]{0,140}?'products'/`，仍然验「它归 products 桶」这件事——断言该匹配语义，而不是匹配业务代码的字符相邻。
-
-**自查抓到的真实缺陷 2 处**（已改）：
-1. `wishlistConfig.js` 第一版 `import { COUPON_CATALOG } from './couponStore.js'` → 经 `api.js → auth.js` 把 `location` 依赖拖进纯配置层，Node 里 `location is not defined`。改为配置只存 `couponId`，校验下沉到 `validateTiers(catalog)`。
-2. 邀请好友的文案原本写「+10 积分」，但机制是把积分 `share` 任务推到「可领取」，积分要用户自己去领。改为「分享任务已记录 · 10 积分在『积分与任务』里领取」。
-
----
+- `check-web.mjs`：83 → **90 模块**（+7）全绿；新增 14 条断言块（分区配置/取货确定性/视图偏好隔离/六类门控含钟表眼镜分叉/文案分型/能力探测/色名词表/氛围图确定性/懒加载与禁轮播/动态 import 唯一性/演示层纪律/接线/样式纪律/零互引）。
+- `e2e-showroom-ar.mjs`：**57/57** 通过（列表→详情→双视图→懒加载→偏好持久→加购→门控→桌面降级→移动演示层→SKU 换色→截图/分享→关闭→无摄像头降级→拒绝授权降级→移动端展厅→拼团对比不回归）。
+- 全量回归：34 套 e2e（含本地网关 `127.0.0.1:8080` 起来后跑的网关侧套件），结果见交付消息。
+- 断言脚本自身两处首轮错误已修：`zoneArtSvg` 含 `xmlns="http://www.w3.org/2000/svg"` 导致「无外链」断言误报（改为放行 w3.org 命名空间）；导航归桶正则漏写一个 `'`。
 
 ## 七、已知限制
 
-1. **跨浏览器不同步**：拼团分享链接与公开心愿单都依赖同源 localStorage，换浏览器/设备打开会显示「这个团不存在 / 这份心愿单不存在」。没有服务端就不可能真同步，页面如实提示，不做假的实时。
-2. **拼团订单通常显示「已成团」**：本演示链路里只有满员后才能结算，所以订单快照基本是 formed。「待成团 / 拼团失败」两态由同一套推导函数产生，用于团列表/详情；订单上保留三态词表是为了团数据被清理后仍能如实回显当时状态。
-3. **一笔订单对应一个团**：拼团结算走的是「团价加入购物袋 + 草稿标记」，如果购物袋里还有别的商品，整单都会被标记为拼团。真实业务应做行级归属。
-4. **「拼团失败」在 UI 上不可达**：截止时间固定 24h，演示期内无法等到过期。该分支由 `check-web` 用构造的过期时间做纯函数断言（`groupStatus(g, T0 + DAY + 1) === 'failed'`）。
-5. **心愿单一 scope 一份**：开关就是「我的收藏夹是否公开」，不支持多份并列心愿单（配置里预留的 `WL_MAX_ITEMS` 只用于公开页截断）。
-6. **助力上限 10 人**：最后一个阶梯达标后按钮置灰（再助力没有新增收益）。
+1. 演示层的「摄像头画面」默认是 CSS 模拟；真实摄像头只在用户点「启用摄像头背景」并授权后作为背景使用，帧不上传、不做任何识别——所以没有人体/人脸追踪，贴图位置要手动拖。
+2. 试穿截图是 canvas 合成的占位图（底色 + 网格 + 商品线稿 + 规格），不是真实 AR 合成。
+3. 当前演示商品池没有珠宝/钟表/眼镜类目，这三类的入口在真实目录里不会出现——门控逻辑本身由纯函数断言覆盖（含太阳镜→试戴的二次分叉）。
+4. 分区 ↔ 类目映射写在 `showroomConfig.js` 配置表里，运营加分区要改配置文件（这是刻意的：分区是内容运营决策，不该藏在视图里）。
+5. 展厅视图偏好只存本机 localStorage（跨设备不同步，与全站其他偏好一致）。
+6. 展厅商品图是程序化 SVG 封面；接真实图床后 `productThumb` 已自带 `loading="lazy"` 与破图兜底，无需改展厅代码。
 
----
+## 八、闸门快照
 
-## 八、全量回归（33 套串行实跑）
-
-| 结果 | 套数 | 说明 |
-|---|---|---|
-| 通过 | **30** | 含本步新增 `e2e-group`（62/62）、`check-web`（83 模块 + 24 条新断言） |
-| 外部噪音 | 3 | `e2e-discovery` 45/46、`e2e-merchant` 26/27，各自只差「控制台无 JS 错误」1 条，报错是外部演示图 `net::ERR_CONNECTION_CLOSED`；`e2e-ai-panel` 42/43 差「关闭热区 ≥44px 实测 43.9998px」（上一轮已定位为父层 `matrix(0.999995)` 动画残差，属断言缺 0.01 级容差，**上一轮范围内的问题，本步未改**） |
-
-断言合计：**1290 条通过 / 3 条已知噪音**。第二批 16 套是在本地网关（`http://127.0.0.1:8080`，`/health` 200）起来后跑的，含 `e2e-merchant-apply` 42/42。
-
----
-
-## 九、闸门快照
-
-| 闸门 | 结果 |
+| 项 | 值 |
 |---|---|
-| `node scripts/check-web.mjs` | ✅ 83 模块全部加载，三块断言（积分 22 / 盲盒 24 / 对比 23 / 拼团 24）全绿 |
-| `node scripts/e2e-group.mjs` | ✅ 62/62 |
-| 控制台 | ✅ 无 JS 错误 |
-| 移动端 390×844 | ✅ 无横向滚动，吸底条就位，热区 44px |
-| 刷新持久化 | ✅ 团状态 / 助力数 / 领取标记均保持 |
-| 对比与盲盒零改动 | ✅ 源码断言守着 |
-| 真实支付 / 分享 SDK | ✅ 不存在 |
-| 定时器 | ✅ 全站本步只新增 1 个 `setInterval`，带清理 |
-| 硬编码密钥 | ✅ 无（`.env.example` 未涉及本步） |
+| 构建 | `node scripts/check-web.mjs` → 90 模块全绿，含 14 条新断言 |
+| 新 e2e | `node scripts/e2e-showroom-ar.mjs` → 57/57 |
+| 全量回归 | 34 套，详见交付消息 |
+| 提交 | `<commit>`（交付消息更新），`main == origin/main` |
+| 首屏请求 | 桌面/移动 PDP 与展厅首屏均无 `arTryOn.js` / three / model-viewer / glb |
+| 控制台 | 全部页面 context 零 JS 错误 |
