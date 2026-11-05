@@ -91,6 +91,7 @@ class El {
 const view = new El('main');
 view.id = 'view';
 globalThis.document = {
+  documentElement: new El('html'),
   createElement: (t) => new El(t),
   createTextNode: (t) => ({ _t: String(t), textContent: String(t) }),
   getElementById: (id) => (id === 'view' ? view : new El('div')),
@@ -2575,6 +2576,48 @@ if (failed === 0) {
     const badIm = immersiveCases.filter(([, ok]) => !ok).map(([label]) => label);
     console.log(`  ${badIm.length === 0 ? 'ok  ' : 'FAIL'} 详情页 3D/360° + AR（轻量切帧/渐进增强/降级兜底）${badIm.length ? ` → 缺失: ${badIm.join('、')}` : ''}`);
     if (badIm.length) failed++;
+
+    /* ---- 氛围动效与全局性能开关（CSS 级，可整体静止）----
+     * 网格 30s 斜向漂移（有效强度 ≤0.05）、扫描线仅 Hero 环内（≤0.25 循环）+
+     * AI 面板一次性、卡片 hover 只留边框信号、稳态 keyframes 预算 ≤3、
+     * fx.js 按 reduced-motion / <768px / <4GB 加 .reduced-fx、低电量 .low-power。 */
+    const fxSrc = readFileSync(dir('fx.js'), 'utf8');
+    const ambientCases = [
+      ['fx.js 全局开关：reduced-motion / <768px / deviceMemory<4 → html.reduced-fx',
+        fxSrc.includes("'(prefers-reduced-motion: reduce)'") && fxSrc.includes('innerWidth < 768')
+        && fxSrc.includes('deviceMemory') && fxSrc.includes("classList.toggle('reduced-fx'")],
+      ['fx.js 低电量：Battery API <20% 且未充电 → html.low-power',
+        fxSrc.includes('getBattery') && fxSrc.includes('level < 0.2') && fxSrc.includes("!bat.charging")
+        && fxSrc.includes("classList.toggle('low-power'")],
+      ['index.html 首帧前加载 fx.js（head 内同步脚本）',
+        /<head>[\s\S]*?<script src="\.\/js\/fx\.js"><\/script>/.test(htmlSrc)],
+      ['背景网格 30s linear 斜向漂移，一个周期 32px 无缝循环',
+        cssSrc.includes('animation: grid-drift 30s linear infinite')
+        && /@keyframes grid-drift \{[\s\S]*?32px 32px/.test(cssSrc)],
+      ['扫描线仅两处：Hero 环内循环（≤0.25）+ AI 面板一次性',
+        cssSrc.includes('animation: hp-scan-down 5s linear infinite') && cssSrc.includes('opacity: 0.25;')
+        && /body:has\(\.ai-widget\.is-open\) \.hp-ring::after \{ animation-play-state: paused; \}/.test(cssSrc)],
+      ['卡片 hover 只留边框信号（pcard/cat-card/hero-product 无位移与阴影）',
+        /\.pcard:hover \{\s*\n  border-color: var\(--color-cyan-line\);\s*\n\}/.test(cssSrc)
+        && /\.cat-card:hover \{\s*\n  border-color: var\(--color-cyan-line\);\s*\n\}/.test(cssSrc)
+        && !/\.pcard:hover \{[\s\S]{0,80}translateY/.test(cssSrc)],
+      ['按钮 :active 统一 scale(0.98) / 120ms，默认过渡只碰 transform/opacity/color/background/border',
+        /button:active:not\(:disabled\) \{\s*\n  transform: scale\(0\.98\);\s*\n  transition-duration: 120ms;/.test(cssSrc)
+        && !/transition:\s*all/.test(cssSrc)],
+      ['稳态 keyframes 预算 ≤3：hp-dot 与 fs-dot 静态辉光（无循环脉冲）',
+        !cssSrc.includes('animation: hp-breath') && !cssSrc.includes('animation: fs-pulse')
+        && cssSrc.includes('animation: sysbar-breath 2s ease-in-out infinite')],
+      ['.reduced-fx：网格/扫描线/呼吸全停 + backdrop-filter 关闭并换不透明底',
+        /html\.reduced-fx::before,\s*\nhtml\.low-power::before \{ animation: none; \}/.test(cssSrc)
+        && cssSrc.includes('html.reduced-fx .hp-ring::after { display: none; }')
+        && cssSrc.includes('html.reduced-fx * {') && cssSrc.includes('backdrop-filter: none !important;')
+        && cssSrc.includes('html.reduced-fx .sysbar,')],
+      ['动效属性纪律：全局只加 transform/opacity/border-color/background-color 过渡',
+        cssSrc.includes('transition: border-color 150ms ease;') && cssSrc.includes('transition-duration: 120ms;')],
+    ];
+    const badAm = ambientCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badAm.length === 0 ? 'ok  ' : 'FAIL'} 氛围动效与全局性能开关（网格漂移/扫描线限量/hover 信号/reduced-fx）${badAm.length ? ` → 缺失: ${badAm.join('、')}` : ''}`);
+    if (badAm.length) failed++;
 
   } catch (e) {
     failed++;

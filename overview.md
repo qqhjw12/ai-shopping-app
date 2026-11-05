@@ -1,3 +1,52 @@
+# 氛围动效与全局性能开关（CSS 级）— 交付总览
+
+> 只加 CSS 级氛围动效并建立全局性能开关，不新增页面、不改结构与业务逻辑。
+
+## 交付内容
+
+1. **背景动态网格**：复用全局网格层（`html::before`），`grid-drift` 30s linear
+   infinite 以一个周期（32px）为步长斜向漂移——极慢到只被「感觉到」；有效强度
+   0.5×0.06≈0.03 ≤0.05。移动端 / reduced-motion / 低内存（`.reduced-fx`）与
+   低电量（`.low-power`）自动静止。
+2. **扫描线（限量两处）**：Hero 扫描环容器内 1px 渐变细线，5s 从上到下循环，
+   opacity 0.25（环自身 0.26 再压一层，实际 ≈0.065），只扫环内空白不覆盖文字
+   与商品图；AI 面板保持上轮的一次性横扫。AI 面板打开时 Hero 扫描线自动暂停
+   （`body:has(.ai-widget.is-open)` → animation-play-state: paused），预算让位。
+3. **交互信号**：卡片 hover 只留边框信号（`.pcard` / `.cat-card` / `.hero-product`
+   统一 border-color→青色细线 150ms，删除原 translateY 位移与新增阴影；首页结果卡
+   的信号在外壳 `.scan-item` 上，此前已是边框信号）；按钮默认过渡 150ms（组件自带
+   更具体过渡的以组件为准）+ 全局 `button:active scale(0.98) / 120ms`；全站
+   `transition: all` 清零，收敛为 transform/opacity/border-color/background-color/color。
+4. **全局性能开关**（`web/js/fx.js`，head 内首帧前同步加载）：
+   - `html.reduced-fx`：prefers-reduced-motion / 视口 <768px / deviceMemory<4
+     任一命中（matchMedia change、resize rAF 节流实时增删）；
+   - `html.low-power`：Battery API 电量 <20% 且未充电（levelchange/chargingchange 监听）；
+   - `.reduced-fx` 下：网格静止、扫描线消失、呼吸点停、backdrop-filter 全部关闭
+     且主要玻璃面（状态栏/顶栏/搜索/抽屉/弹层等）换 `--color-surface-1` 不透明底；
+   - `.low-power` 下：仅网格漂移停止（纯装饰），扫描线等反馈保留。
+5. **稳态 keyframes 预算 =3**：`grid-drift` + `sysbar-breath` + Hero 扫描线。
+   为守住预算，Hero 呼吸点（hp-dot）与秒杀 LIVE 点（fs-dot）改为静态辉光，
+   面板打开时扫描线暂停——任何页面组合下同时运行的无限循环动画 ≤3。
+
+## 验收自检（e2e-ambient 32 断言 + check-web 10 断言，全绿）
+
+- ✅ 桌面网格 30s 漂移运行中、移动端/reduced-motion/低内存静止；
+- ✅ 扫描线仅在 Hero 环内（商品区零循环扫描/脉冲）、opacity ≤0.25、面板打开即暂停；
+- ✅ 稳态无限 keyframes ≤3（面板打开后仍 ≤3）；
+- ✅ 卡片 hover 边框变青、transform 保持 none；
+- ✅ reduced-fx 下 backdrop-filter 关闭、状态栏不透明底 rgb(15,20,28)、页面完整可用；
+- ✅ 低电量只停网格、不误伤 reduced-fx 与扫描线；
+- ✅ 四种环境（桌面/移动/reduced-motion/低内存/低电量）控制台零错误。
+
+## 已知限制
+
+- 「稳态 ≤3」的口径：无限循环的装饰动画；一次性过渡（toast、入场、单次扫线）不计入。
+- 网格漂移动画的是 background-position（本步规格指定做法），已用极慢周期把重绘
+  成本压到最低；若后续要进一步省电可改双层 transform 方案。
+- fx.js 的 resize 监听用 rAF 节流，不拦截连续缩放中间态。
+
+---
+
 # 详情页 3D/360° + AR 入口（最轻方案）— 交付总览
 
 > 只在商品详情页增加 3D/360° 与 AR 的入口与演示态，其余区域一行未改。

@@ -128,6 +128,15 @@ html::before {
   background-image:
     repeating-linear-gradient(to right, rgba(139, 149, 163, 0.06) 0 1px, transparent 1px 32px),
     repeating-linear-gradient(to bottom, rgba(139, 149, 163, 0.06) 0 1px, transparent 1px 32px);
+  /* 氛围层：网格以一个周期（32px）为步长斜向漂移，30s 一循环——
+     极慢到只被「感觉到」；有效强度 0.5 × 0.06 ≈ 0.03，远低于 0.05 上限。
+     小屏 / reduced-motion / 低内存（.reduced-fx）与低电量（.low-power）下静止。 */
+  animation: grid-drift 30s linear infinite;
+}
+@keyframes grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 32px 32px, 32px 32px; }
+}
 }
 
 body.no-scroll { overflow: hidden; }
@@ -733,6 +742,15 @@ button.buy {
   font-weight: 600;
 }
 button.buy:hover { border-color: #4dddf0; background: #4dddf0; color: var(--ink); }
+/* 全局交互信号：按钮默认过渡（组件自带更具体 transition 时以组件为准），
+   :active 统一 0.98 缩放 / 120ms——全站按钮共享同一个按压手感。 */
+button {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 120ms ease, opacity 150ms ease;
+}
+button:active:not(:disabled) {
+  transform: scale(0.98);
+  transition-duration: 120ms;
+}
 .btn-primary:active,
 .buy:active,
 .nf-btn:active,
@@ -1094,9 +1112,9 @@ textarea { resize: vertical; }
   backdrop-filter: saturate(140%) blur(20px);
   color: var(--ink);
   text-decoration: none;
-  transition: transform 0.22s var(--ease), box-shadow 0.22s ease;
+  transition: border-color 150ms ease;
 }
-.hero-product:hover { transform: translateY(-2px); box-shadow: var(--shadow-float); }
+.hero-product:hover { border-color: var(--color-cyan-line); }
 .hero-product-kicker {
   display: flex;
   align-items: center;
@@ -1382,7 +1400,8 @@ textarea { resize: vertical; }
   border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: none;
-  transition: transform 0.22s var(--ease), box-shadow 0.22s ease, border-color 0.22s ease;
+  /* hover 只做边框信号（150ms）：不位移、不缩放、不新增阴影 */
+  transition: border-color 150ms ease;
 }
 .pcard--hero {
   box-shadow:
@@ -1390,8 +1409,7 @@ textarea { resize: vertical; }
     0 8px 24px rgba(0, 0, 0, 0.06);
 }
 .pcard:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-float);
+  border-color: var(--color-cyan-line);
 }
 .pcard .thumb {
   position: relative;
@@ -1949,12 +1967,11 @@ textarea { resize: vertical; }
   background: var(--surface);
   cursor: pointer;
   box-shadow: none;
-  transition: transform 0.22s var(--ease), box-shadow 0.22s ease, border-color 0.22s ease;
+  /* hover 只做边框信号（150ms）：不位移、不缩放 */
+  transition: border-color 150ms ease;
 }
 .cat-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(139, 149, 163, 0.18);
-  box-shadow: var(--shadow-float);
+  border-color: var(--color-cyan-line);
 }
 .cat-card:first-child { grid-column: span 2; }
 .cat-collage {
@@ -9029,7 +9046,7 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   border-radius: var(--r-pill);
   color: var(--body);
   font-size: 11.5px;
-  transition: all 0.18s var(--ease);
+  transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.18s var(--ease), opacity 0.18s var(--ease);
 }
 .mze-chip input:checked + span { border-color: var(--gold); background: var(--gold-weak); color: var(--gold-deep); }
 .mze-chip input:focus-visible + span { outline: 2px solid var(--gold); outline-offset: 2px; }
@@ -9120,7 +9137,7 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10.5px;
   cursor: pointer;
-  transition: all 0.18s var(--ease);
+  transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.18s var(--ease), opacity 0.18s var(--ease);
 }
 .mzt-var:hover { border-style: solid; border-color: var(--gold); color: var(--gold-deep); background: var(--gold-weak); }
 .mzt-toggle { display: flex; align-items: center; gap: 8px; color: var(--body); font-size: 11.5px; cursor: pointer; }
@@ -9186,7 +9203,7 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   color: var(--body);
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.18s var(--ease);
+  transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.18s var(--ease), opacity 0.18s var(--ease);
 }
 .mzu-btn:hover { border-style: solid; border-color: var(--gold); color: var(--gold-deep); background: var(--gold-weak); }
 /* 营业执照是唯一的硬性项：给一圈淡金边，不用红字催 */
@@ -9232,7 +9249,7 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   font-family: inherit;
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.18s var(--ease);
+  transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.18s var(--ease), opacity 0.18s var(--ease);
 }
 .mzu-del:hover { border-color: rgba(232, 145, 138, 0.45); color: #e8918a; }
 .mzu-foot { display: flex; justify-content: flex-start; }
@@ -9291,7 +9308,7 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   font-family: inherit;
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.18s var(--ease);
+  transition: background-color 0.18s var(--ease), border-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.18s var(--ease), opacity 0.18s var(--ease);
 }
 .mzf-demo-btn:hover { border-color: var(--gold); color: var(--gold-deep); background: var(--gold-weak); }
 
@@ -9728,7 +9745,7 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   font-family: inherit;
   font-size: 11.5px;
   cursor: pointer;
-  transition: all 0.16s var(--ease);
+  transition: background-color 0.16s var(--ease), border-color 0.16s var(--ease), color 0.16s var(--ease), transform 0.16s var(--ease), opacity 0.16s var(--ease);
 }
 .mdash-chip:hover { border-color: var(--line-strong); color: var(--ink); }
 .mdash-chip.is-active { border-color: var(--gold); background: var(--gold-weak); color: var(--gold-deep); }
@@ -9841,7 +9858,7 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
-  transition: all 0.16s var(--ease);
+  transition: background-color 0.16s var(--ease), border-color 0.16s var(--ease), color 0.16s var(--ease), transform 0.16s var(--ease), opacity 0.16s var(--ease);
 }
 .mdash-step:hover { border-color: var(--gold); color: var(--gold-deep); }
 .mdash-stock-input {
@@ -9875,7 +9892,7 @@ body.has-merchant-bar .ai-widget { bottom: calc(86px + env(safe-area-inset-botto
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.16s var(--ease);
+  transition: background-color 0.16s var(--ease), border-color 0.16s var(--ease), color 0.16s var(--ease), transform 0.16s var(--ease), opacity 0.16s var(--ease);
 }
 .mdash-btn:hover { border-color: var(--gold); color: var(--gold-deep); }
 .mdash-btn.is-gold { border-color: var(--gold); background: var(--gold); color: var(--color-void); }
@@ -9973,7 +9990,7 @@ textarea.mdash-input { resize: vertical; min-height: 64px; }
   font-size: 11px;
   cursor: pointer;
   opacity: 0.82;
-  transition: all 0.16s var(--ease);
+  transition: background-color 0.16s var(--ease), border-color 0.16s var(--ease), color 0.16s var(--ease), transform 0.16s var(--ease), opacity 0.16s var(--ease);
 }
 .mdash-tone:hover { opacity: 1; }
 .mdash-tone.is-active { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--gold); opacity: 1; }
@@ -11068,16 +11085,12 @@ textarea.mdash-input { resize: vertical; min-height: 64px; }
   background: var(--ds-faint);
   box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.06);
 }
-/* 只动 opacity / transform：符合本项目「动效只碰这两个属性」的纪律 */
+/* 只动 opacity / transform：符合本项目「动效只碰这两个属性」的纪律。
+   LIVE 点保持静态辉光：全局稳态 keyframes 预算只有 3 个（网格 / 状态栏呼吸 / Hero 扫描线），
+   这里不再常驻脉冲。 */
 .fs-dot.is-live {
   background: var(--ds-signal);
   box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14), 0 0 12px rgba(34, 211, 238, 0.6);
-  animation: fs-pulse 2.2s var(--ease) infinite;
-}
-
-@keyframes fs-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.42; transform: scale(0.82); }
 }
 
 .fs-proto {
@@ -11965,13 +11978,8 @@ time {
   border-radius: 50%;
   background: var(--color-cyan);
   box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
-  animation: hp-breath 2.4s ease-in-out infinite;
+  /* 静态辉光（不再呼吸）：稳态 keyframes 预算 3 个，Hero 的运动感交给环内扫描线 */
 }
-@keyframes hp-breath {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-
 .hp-title {
   margin: 16px 0 0;
   color: var(--color-text-primary);
@@ -12032,14 +12040,39 @@ time {
 /* 扫描环：2–3 圈细线 + 一条 60° 弧线，整体压到 26% 不透明度。
    它只做背景景深，不参与任何信息表达——所以 aria-hidden 且不发光。 */
 .hp-ring {
+  position: relative;
   justify-self: end;
   width: clamp(220px, 24vw, 320px);
   aspect-ratio: 1;
   color: var(--color-cyan);
   opacity: 0.26;
   pointer-events: none;
+  --ring-h: 320px; /* 扫描线的行程 = 环的边长，随断点更新 */
 }
 .hp-ring > svg { display: block; width: 100%; height: 100%; }
+
+/* 环内扫描线：全站仅此一处循环扫描。1px 渐变细线，5s 从上到下，
+   透明度 0.25（环自身 0.26 再压一层，实际约 0.065）——只扫环内空白，
+   不覆盖标题、读数与商品图。reduced-fx 下整体消失。 */
+.hp-ring::after {
+  content: "";
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-cyan-line), transparent);
+  opacity: 0.25;
+  animation: hp-scan-down 5s linear infinite;
+}
+@keyframes hp-scan-down {
+  from { transform: translateY(0); }
+  to { transform: translateY(var(--ring-h, 320px)); }
+}
+
+/* AI 面板打开期间暂停环内扫描线：给面板内自己的呼吸点让出预算，
+   保证「同时运行的装饰 keyframes ≤3」在任何组合下都成立 */
+body:has(.ai-widget.is-open) .hp-ring::after { animation-play-state: paused; }
 
 /* 弧线只扫一圈（一次性 1.4s，不循环）：交代「刚开机」，之后保持静止 */
 .hp-ring-arc {
@@ -12301,6 +12334,7 @@ time {
     top: 6px;
     width: 210px;
     opacity: 0.18;
+    --ring-h: 210px;
   }
   .hp-hero { position: relative; overflow: hidden; }
   .hp-readbar { padding-bottom: 26px; }
@@ -12369,4 +12403,37 @@ time {
     transition: none;
   }
   .hp-btn--primary:hover { transform: none; }
+}
+
+/* ===================== 全局性能开关（fx.js 驱动） =====================
+   html.reduced-fx：prefers-reduced-motion / 视口 <768px / 设备内存 <4GB
+   html.low-power ：电池 <20% 且未充电（只停纯装饰，不影响反馈动画）
+   两者之下：网格静止、扫描线消失、呼吸点停、backdrop-filter 全部换成不透明底。 */
+html.reduced-fx::before,
+html.low-power::before { animation: none; }
+
+html.reduced-fx .hp-ring::after { display: none; }
+
+html.reduced-fx .sysbar-dot,
+html.reduced-fx .ai-status-dot,
+html.reduced-fx .hp-dot {
+  animation: none;
+}
+
+/* backdrop-filter 是最大的常驻合成开销：一律关闭，玻璃面改为不透明底 */
+html.reduced-fx * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html.reduced-fx .sysbar,
+html.reduced-fx .topbar,
+html.reduced-fx .search,
+html.reduced-fx .cart-btn,
+html.reduced-fx .drawer,
+html.reduced-fx .overlay,
+html.reduced-fx .modal,
+html.reduced-fx .guide-drawer,
+html.reduced-fx .hero-product,
+html.reduced-fx .ai-fab {
+  background: var(--color-surface-1);
 }
