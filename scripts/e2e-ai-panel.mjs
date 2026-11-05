@@ -150,7 +150,10 @@ try {
   const statusText = (await d.locator('.ai-status-text').textContent()).trim();
   check('状态行文案 AI ASSISTANT / 在线', /AI ASSISTANT\s*\/\s*在线/.test(statusText), statusText);
   const closeBox = await d.locator('#ai-close').boundingBox();
-  check('关闭按钮热区 ≥44px', Boolean(closeBox) && closeBox.width >= 44 && closeBox.height >= 44,
+  // 0.01 级容差：浏览器返回的 boundingBox 是子像素值（实测出现过 43.98x43.98，
+  // 四舍五入显示成 44x44 却 `< 44`），CSS 写的就是 44px，不该被浮点误差判红。
+  const EPS = 0.01;
+  check('关闭按钮热区 ≥44px', Boolean(closeBox) && closeBox.width >= 44 - EPS && closeBox.height >= 44 - EPS,
     closeBox ? `${Math.round(closeBox.width)}x${Math.round(closeBox.height)}` : 'no box');
   check('状态行等宽 11px',
     (await style(d, '.ai-status-text', 'font-family')).toLowerCase().includes('mono')

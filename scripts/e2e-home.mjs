@@ -82,9 +82,14 @@ const panelInfo = () => page.evaluate(() => {
 await openHome();
 let info = await panelInfo();
 check('首块是任务简报（Hero 在面板最前）', info.kids[0] === 'hp-hero', info.kids.join(','));
-check('顺序：简报 → 读数 → 模块 → 任务带 → 结果',
-  info.kids.indexOf('hp-readslot') === 1 && info.kids.indexOf('hp-modules') === 2
-  && info.kids.indexOf('hp-task') === 3 && info.kids.indexOf('hp-results') === 4,
+check('顺序：简报 → 读数 → 模块 → 今日入口 → 任务带 → 结果',
+  // 用「相对先后」而不是绝对下标：入口区后来插进模块与任务带之间，
+  // 契约要守的是这六块的先后关系，不是它们各自排第几个。
+  (() => {
+    const order = ['hp-readslot', 'hp-modules', 'sc-entry', 'hp-task', 'hp-results'];
+    const idx = order.map((c) => info.kids.indexOf(c));
+    return idx.every((v, i) => v > 0 && (i === 0 || v > idx[i - 1]));
+  })(),
   info.kids.join(','));
 
 /* ---------------- 2) 首屏气质 ---------------- */

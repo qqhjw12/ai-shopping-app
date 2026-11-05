@@ -4207,5 +4207,306 @@ console.log('\n虚拟展厅与 AR 试穿断言（分区配置 / 取货 / 视图�
   }
 }
 
+/* ============================================================
+   场景 / 情绪 / 节日主题
+   配置在 sceneConfig / themeConfig（零依赖纯常量），取货规则在 sceneStore，
+   日期判定在 themeStore，渲染在 homeEntries / scenes / sceneArt。
+   这里实跑纯函数：配置结构、跨分类轮流取货、相关度压销量、文案数据推导、
+   全年无空天、跨年窗口、演示日期隔离、券不写死、氛围图确定性，再核对接线与样式纪律。
+   ============================================================ */
+console.log('\n场景 / 情绪 / 节日主题断言（三套配置 / 跨分类轮流取货 / 相关度压销量 / 文案数据推导 / 全年无空天 / 跨年窗口 / 演示日期隔离 / 券不写死 / 氛围图确定性 / 接线 / 样式纪律）');
+{
+  try {
+    const scCfg = await import(pathToFileURL(join(WEB_DIR, 'store/sceneConfig.js')).href);
+    const scStore = await import(pathToFileURL(join(WEB_DIR, 'store/sceneStore.js')).href);
+    const thCfg = await import(pathToFileURL(join(WEB_DIR, 'store/themeConfig.js')).href);
+    const thStore = await import(pathToFileURL(join(WEB_DIR, 'store/themeStore.js')).href);
+    const scArt = await import(pathToFileURL(join(WEB_DIR, 'sceneArt.js')).href);
+    const src = (f) => readFileSync(join(WEB_DIR, f), 'utf8');
+    const cssSrc = readFileSync(join(WEB_DIR, '..', 'styles.css'), 'utf8');
+
+    const as = (id) => localStorage.setItem('current_user', JSON.stringify({ id, nickname: id, identifier: id }));
+    localStorage.clear();
+
+    /* 1) 场景配置：8 个、id 唯一、每场景 3–5 个分类、文案与色调齐备 */
+    const scenes = scCfg.SCENES;
+    const sceneIds = scenes.map((s) => s.id);
+    const sceneOk = scenes.length === 8
+      && new Set(sceneIds).size === 8
+      && scenes.every((s) => s.name && s.eyebrow && s.desc && s.line && s.no && Number.isFinite(s.hue))
+      && scenes.every((s) => Array.isArray(s.cats) && s.cats.length >= 3 && s.cats.length <= 5)
+      && scenes.every((s) => Array.isArray(s.tags) && s.tags.length > 0)
+      && scCfg.SCENE_HOME_LIMIT >= 6 && scCfg.SCENE_HOME_LIMIT <= 8
+      && scCfg.homeScenes().length === scCfg.SCENE_HOME_LIMIT
+      && scCfg.homeScenes().length <= 8
+      && scCfg.sceneById(sceneIds[0]) === scenes[0]
+      && scCfg.sceneById('nope') === null
+      && scCfg.sceneHash(sceneIds[0]) === `#/scene/${sceneIds[0]}`;
+
+    /* 2) 情绪配置：6 个、id 唯一、每个都有取货类目与两套文案 */
+    const moods = scCfg.MOODS;
+    const moodIds = moods.map((m) => m.id);
+    const moodCfgOk = moods.length === 6
+      && new Set(moodIds).size === 6
+      && moods.every((m) => m.name && m.no && m.pickLead && m.note && Number.isFinite(m.hue))
+      && moods.every((m) => Array.isArray(m.cats) && m.cats.length > 0)
+      && moods.every((m) => Array.isArray(m.tags) && m.tags.length > 0)
+      && scCfg.MOOD_HOME_LIMIT >= 4 && scCfg.MOOD_HOME_LIMIT <= 6
+      && scCfg.homeMoods().length === scCfg.MOOD_HOME_LIMIT
+      && scCfg.moodById(moodIds[0]) === moods[0]
+      && scCfg.moodById('nope') === null
+      && scCfg.moodHash(moodIds[0]) === `#/mood/${moodIds[0]}`;
+
+    /* 3) 情绪那行说明由命中标签拼出，不是视图里的硬编码句子 */
+    const m0 = moods[0];
+    const lineHit = scStore.moodLine(m0, ['户外', '机能', '金属']);
+    const lineNone = scStore.moodLine(m0, []);
+    const lineCap = scStore.moodLine(m0, ['a1', 'b2', 'c3', 'd4', 'e5', 'f6']);
+    const lineOk = lineHit.startsWith(m0.pickLead)
+      && lineHit.includes('户外') && lineHit.includes('金属')
+      && lineNone === m0.note
+      && !lineCap.includes('e5') && !lineCap.includes('f6')   // 只取前 4 个命中标签
+      && scStore.moodLine(null, ['x']).length > 0
+      && !/为这种心情挑的/.test(src('scenes.js'));            // 视图不写死这句
+
+    /* 4) 跨分类轮流取货：配额均衡、确定性、非配置类目一件都不进 */
+    const mkPool = () => ([
+      ...Array.from({ length: 10 }, (_, i) => ({ id: `A${i}`, categoryId: 'cat-a', name: '降噪耳机', tags: ['降噪'], sales: i })),
+      { id: 'B0', categoryId: 'cat-b', name: '桌面台灯', tags: ['桌面'], sales: 5 },
+      { id: 'B1', categoryId: 'cat-b', name: '桌面收纳', tags: ['桌面'], sales: 3 },
+      { id: 'C0', categoryId: 'cat-c', name: '香薰蜡烛', tags: ['香薰'], sales: 2 },
+      { id: 'C1', categoryId: 'cat-c', name: '香薰机', tags: ['香薰'], sales: 1 },
+      { id: 'Z0', categoryId: 'cat-z', name: '降噪耳塞', tags: ['降噪'], sales: 999999 },
+    ]);
+    const rule = { cats: ['cat-a', 'cat-b', 'cat-c'], tags: ['降噪', '桌面', '香薰'] };
+    const r1 = scStore.pickByRule(rule, mkPool(), { limit: 6 });
+    const r2 = scStore.pickByRule(rule, mkPool(), { limit: 6 });
+    const idsOf = (r) => r.items.map((p) => p.id).join(',');
+    const crossOk = r1.items.length === 6
+      && idsOf(r1) === idsOf(r2)                                     // 确定性：刷新不重排
+      && !idsOf(r1).includes('Z0')                                   // 越界类目绝不混入
+      && Object.keys(r1.counts).length === 3
+      && ['cat-a', 'cat-b', 'cat-c'].every((c) => r1.counts[c] === 2) // 配额 ceil(6/3)=2，三类均衡
+      // 空类目不拖累总数：第二轮放开配额把 limit 补满
+      && scStore.pickByRule({ cats: ['cat-a', 'cat-gap'], tags: [] }, mkPool(), { limit: 6 }).counts['cat-a'] === 6
+      && scStore.pickByRule({ cats: [], tags: [] }, mkPool(), {}).items.length === 0
+      && scStore.pickByRule(null, mkPool(), {}).items.length === 0
+      && scStore.pickByRule(rule, null, {}).items.length === 0
+      && scStore.pickSceneProducts(null, mkPool(), 6).items.length === 0
+      && scStore.ruleCount({ cats: ['cat-a'], tags: [] }, mkPool()) === 10;
+
+    /* 5) 相关度压销量：低相关高销不能顶到第一屏，销量分封顶 6 */
+    const relevPool = [
+      { id: 'hi-sales', categoryId: 'cat-a', name: '普通耳塞', tags: ['隔音'], sales: 999999, rating: 5 },
+      { id: 'hi-hit', categoryId: 'cat-a', name: '降噪耳机 Pro', tags: ['降噪'], sales: 0, rating: 4 },
+    ];
+    const rv = scStore.pickByRule({ cats: ['cat-a'], tags: ['降噪'] }, relevPool, { limit: 1 });
+    const sHit = scStore.scoreProduct(relevPool[1], { tags: ['降噪'] });
+    const sSales = scStore.scoreProduct(relevPool[0], { tags: ['降噪'] });
+    const relevOk = rv.items.length === 1 && rv.items[0].id === 'hi-hit'
+      && sHit.hits === 1 && sHit.matched.join() === '降噪'
+      && sSales.hits === 0 && sSales.matched.length === 0
+      && sHit.score > sSales.score
+      && sSales.score <= 7                                           // 次数 6 + 评分 1，仅此而已
+      && scStore.scoreProduct({ id: 'x', sales: 1e9 }, { tags: [] }).score === 6
+      && scStore.scoreProduct(null, { tags: ['x'] }).score === 0;
+
+    /* 6) 真实池：8 场景 × 24 件、6 情绪 × 18 件，全部来自商品库且真跨分类 */
+    const { getProducts } = await import(pathToFileURL(join(WEB_DIR, 'views.js')).href);
+    const pool = await getProducts();
+    const poolIds = new Set(pool.map((p) => String(p.id)));
+    const sceneRuns = scenes.map((s) => scStore.pickSceneProducts(s, pool, scCfg.SCENE_LIMIT));
+    const moodRuns = moods.map((m) => scStore.pickMoodProducts(m, pool, scCfg.MOOD_LIMIT));
+    const realOk = pool.length > 0
+      && sceneRuns.every((r) => r.items.length >= 12)
+      && sceneRuns.every((r) => Object.keys(r.counts).length >= 3)
+      && sceneRuns.every((r, i) => r.items.every((p) => scenes[i].cats.includes(p.categoryId)))
+      && sceneRuns.every((r) => r.items.every((p) => poolIds.has(String(p.id))))
+      && moodRuns.every((r) => r.items.length >= 8)
+      && moodRuns.every((r) => r.matchedTags.length > 0)
+      && moodRuns.every((r, i) => r.items.every((p) => moods[i].cats.includes(p.categoryId)))
+      && moodRuns.every((r) => r.items.every((p) => poolIds.has(String(p.id))));
+
+    /* 7) 全年无空天：2026 每一天都命中一个主题，六个主题都出现过 */
+    const days = [];
+    for (let d = new Date(2026, 0, 1); d.getFullYear() === 2026; d.setDate(d.getDate() + 1)) {
+      days.push(thStore.dateStr(d));
+    }
+    const hitIds = new Set(days.map((md) => thStore.themeAt(md).id));
+    const yearOk = days.length === 365
+      && days.every((md) => !!thStore.themeAt(md))
+      && hitIds.size === thCfg.THEMES.length
+      && thStore.themeAt('2026-11-05').id === 'autumn-home'
+      && thStore.themeAt('2026-12-20').id === 'christmas-gift'
+      && thStore.themeAt('2026-12-31').id === 'new-year'
+      && thStore.themeAt('2026-01-20').id === 'new-year'
+      && thStore.themeAt('2026-02-28').id === 'new-year'
+      && thStore.themeAt('2026-03-01').id === 'spring-refresh'
+      && thStore.themeAt('2026-06-20').id === 'summer-outdoor'
+      && thStore.themeAt('2026-09-01').id === 'back-to-school';
+
+    /* 8) 跨年窗口与日期解析：start > end 视为跨年；本地时区，不用 toISOString */
+    const winOk = thStore.inWindow('01-15', '12-27', '02-28') === true
+      && thStore.inWindow('12-31', '12-27', '02-28') === true
+      && thStore.inWindow('06-01', '12-27', '02-28') === false
+      && thStore.inWindow('10-15', '10-01', '11-30') === true
+      && thStore.inWindow('12-01', '10-01', '11-30') === false
+      && thStore.inWindow('bad', '10-01', '11-30') === false;
+    const mdOk = thStore.mdOf('2026-10-15') === '10-15'
+      && thStore.mdOf('10-15') === '10-15'
+      && thStore.mdOf(new Date(2026, 9, 15)) === '10-15'
+      && thStore.mdOf('') === ''
+      && thStore.mdOf(null) === ''
+      && thStore.mdOf('abc') === ''
+      && thStore.mdOf('2026-13-01') === ''
+      && thStore.mdOf('2026-00-10') === ''
+      && thStore.dateStr(new Date(2026, 0, 1)) === '2026-01-01'      // UTC 会掉到 2025-12-31
+      && thStore.dateStr(new Date(2026, 11, 31)) === '2026-12-31'
+      && thStore.dateStr('bad') === thStore.dateStr(new Date())      // 非法输入回落今天
+      && thStore.themeAt('') !== null && thStore.themeAt('abc') !== null
+      && thCfg.fallbackTheme().id === thCfg.THEME_FALLBACK_ID;
+
+    /* 9) 演示日期：按 scope 隔离、切主题生效、切回即恢复，脏值不炸 */
+    const todayTheme = thStore.themeAt(thStore.dateStr(new Date())).id;
+    as('th-a');
+    const aBefore = thStore.mockDate();
+    thStore.setMockDate('2026-12-20');
+    const aXmas = thStore.currentTheme().id;
+    as('th-b');
+    const bNow = thStore.currentTheme().id;
+    const bMock = thStore.mockDate();
+    as('th-a');
+    const aBack = thStore.currentTheme().id;
+    localStorage.setItem(`${thCfg.THEME_MOCK_KEY}::u:th-a`, 'not-a-date');
+    const dirtyMock = thStore.mockDate();
+    const dirtyTheme = thStore.currentTheme().id;
+    thStore.clearMockDate();
+    const aCleared = thStore.currentTheme().id;
+    as('th-b');
+    thStore.clearMockDate();
+    const mockOk = aBefore === ''
+      && aXmas === 'christmas-gift'
+      && bNow === todayTheme && bMock === ''                          // 别人的演示日期不串过来
+      && aBack === 'christmas-gift'                                   // 切回仍在
+      && dirtyMock === '' && dirtyTheme === todayTheme                // 脏值收敛为「今天」
+      && aCleared === todayTheme;
+
+    /* 10) 主题券只写 id 不写面额；两套配置零依赖，不与 couponStore 互引 */
+    const couponOk = thCfg.THEMES.every((t) => typeof t.couponId === 'string' && t.couponId.length > 0)
+      && thCfg.THEMES.every((t) => !('couponValue' in t) && !('couponAmount' in t))
+      && thCfg.THEMES.every((t) => Array.isArray(t.scenes) && t.scenes.length > 0)
+      && thCfg.THEMES.every((t) => t.scenes.every((sid) => scCfg.sceneIds().includes(sid)))
+      && thCfg.THEMES.every((t) => t.name && t.desc && t.line && t.pitch && Number.isFinite(t.hue))
+      && thCfg.THEMES.every((t) => t.start && t.end)
+      && !/^\s*import\s/m.test(src('store/themeConfig.js'))
+      && !/^\s*import\s/m.test(src('store/sceneConfig.js'))
+      && !/from '\.\/couponStore\.js'/.test(src('store/themeConfig.js') + src('store/themeStore.js'))
+      && !/from '\.\.\/api\.js'|from '\.\.\/auth\.js'/.test(src('store/themeStore.js') + src('store/sceneStore.js'));
+
+    /* 11) 主题取货走同一套规则：真跨分类、全来自商品池 */
+    const thRun = thStore.pickThemeProducts(thCfg.THEMES[0], pool, thCfg.THEME_LIMIT);
+    const thPickOk = thRun.items.length >= 8
+      && Object.keys(thRun.counts).length >= 3
+      && thRun.items.every((p) => poolIds.has(String(p.id)))
+      && thStore.pickThemeProducts(null, pool).items.length === 0;
+
+    /* 12) 氛围图：确定性、互不相同、纯内联 SVG 无外链 */
+    const s0 = scenes[0];
+    const art1 = scArt.sceneArtSvg(s0);
+    const art2 = scArt.sceneArtSvg(s0);
+    const artOk = art1 === art2
+      && art1 !== scArt.sceneArtSvg(scenes[1])
+      && /viewBox="0 0 900 1180"/.test(art1)
+      && /viewBox="0 0 1400 720"/.test(scArt.sceneArtSvg(s0, { variant: 'hero' }))
+      && /viewBox="0 0 900 560"/.test(scArt.sceneArtSvg(s0, { variant: 'banner' }))
+      && /linearGradient|radialGradient/.test(art1)
+      && !/https?:\/\/(?!www\.w3\.org)/.test(art1)                    // 只放行 SVG 命名空间
+      && art1.includes(s0.name);
+
+    /* 13) 接线：四条路由 / 导航归桶 / 首页三块入口 / 视图零循环依赖 */
+    const appSrc = src('app.js');
+    const homeSrc = src('homeEntries.js');
+    const scenesSrc = src('scenes.js');
+    const wiringOk = appSrc.includes("import { renderMoodPage, renderScenePage, renderThemePage } from './scenes.js'")
+      && appSrc.includes("path.startsWith('/scene/')")
+      && appSrc.includes("path.startsWith('/mood/')")
+      && appSrc.includes("path === '/theme') renderThemePage(view, '')")
+      && appSrc.includes("path.startsWith('/theme/')")
+      && /path\.startsWith\('\/scene'\) \|\| path\.startsWith\('\/mood'\) \|\| path\.startsWith\('\/theme'\) \? 'products'/.test(appSrc)
+      && src('views.js').includes('homeEntryBlock()')
+      && homeSrc.includes('currentTheme()')                            // 横幅与主题页同源
+      && scenesSrc.includes('pickSceneProducts')
+      && scenesSrc.includes('pickMoodProducts')
+      && scenesSrc.includes('pickThemeProducts')
+      && scenesSrc.includes('moodLine(')
+      && scenesSrc.includes('THEME_MOCK_PRESETS');
+    const noCycleOk = !/from '\.\/views\.js'/.test(homeSrc)           // homeEntries 不能反向引 views
+      && /from '\.\/homeEntries\.js'/.test(src('views.js'));
+
+    /* 14) 样式纪律：不缩放、胶囊选中态、横幅无大色块、44px 热区、可降级 */
+    const cardCss = (cssSrc.match(/\n\.sc-card \{[\s\S]*?\}/) || [''])[0];
+    const cardHover = (cssSrc.match(/\.sc-card:hover \{[^}]*\}/) || [''])[0];
+    const railCss = (cssSrc.match(/\.sc-rail \{[\s\S]*?\}/) || [''])[0];
+    const pillCss = (cssSrc.match(/\n\.md-pill \{[\s\S]*?\}/) || [''])[0];
+    const pillActive = (cssSrc.match(/\.md-pill\.is-active \{[^}]*\}/) || [''])[0];
+    const bannerCss = (cssSrc.match(/\n\.td-banner \{[\s\S]*?\}/) || [''])[0];
+    const entryCss = (cssSrc.match(/\.sc-entry \{[^}]*\}/) || [''])[0];
+    const styleOk = /border-radius: var\(--r-card\)/.test(cardCss)
+      && /overflow: hidden/.test(cardCss)
+      && /opacity 160ms/.test(cardCss) && /border-color 160ms/.test(cardCss)
+      && !/scale|translate/.test(cardHover)                            // hover 不缩放
+      && /opacity: 0\.96/.test(cardHover)
+      && /border-color: var\(--color-cyan-line\)/.test(cardHover)
+      && /overflow-x: auto/.test(railCss) && /scroll-snap-type/.test(railCss)
+      && /min-height: 44px/.test(pillCss) && /border-radius: var\(--r-pill\)/.test(pillCss)
+      && /background: var\(--color-cyan-dim\)/.test(pillActive)
+      && /border-color: var\(--color-cyan\)/.test(pillActive)
+      && /background: var\(--color-surface-2\)/.test(bannerCss)
+      && /border: 1px solid var\(--color-hairline-dark\)/.test(bannerCss)
+      && !/background/.test(entryCss)                                  // 入口区不铺大色块
+      && /\.td-banner \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(cssSrc)  // 820px 单列
+      && /html\.reduced-fx \.sc-card/.test(cssSrc)
+      && /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,240}\.sc-card/.test(cssSrc)
+      && /\.td-mock-btn \{[^}]*min-height: 44px/.test(cssSrc)
+      && !/@import|url\(["']?https?:/.test(cssSrc);
+
+    /* 15) 本步不碰展厅 / AR：两侧零互引 */
+    const untouched = !/showroom|tryOn|arTryOn/.test(
+      homeSrc + scenesSrc + src('sceneArt.js') + src('store/sceneConfig.js')
+      + src('store/sceneStore.js') + src('store/themeConfig.js') + src('store/themeStore.js'),
+    )
+      && !/sceneConfig|sceneStore|themeConfig|themeStore|homeEntries|sc-card|md-pill|td-banner/.test(
+        src('showroom.js') + src('pdpTryOn.js') + src('arTryOn.js')
+        + src('store/showroomConfig.js') + src('store/showroomStore.js'),
+      );
+
+    localStorage.clear();
+
+    const table = [
+      ['八个场景、id 唯一、每场景 3–5 个分类；首页只取 6–8 个（不拥挤）', sceneOk],
+      ['六个情绪、id 唯一、每个都有取货类目与两套文案', moodCfgOk],
+      ['情绪说明由命中标签拼出（最多 4 个），视图不硬编码句子', lineOk],
+      ['跨分类轮流取货：配额均衡、确定性、越界类目零混入、空类目不拖累总数', crossOk],
+      ['相关度压销量：低相关高销上不了第一屏，销量分封顶 6 分', relevOk],
+      ['真实池里 8 场景 × ≥12 件 / ≥3 类目、6 情绪 × ≥8 件，全部命中商品库（不造商品）', realOk],
+      ['全年 365 天都有主题，六个主题全部出现，边界日期归属正确', yearOk],
+      ['跨年窗口（start>end）判定正确；mdOf 兼容两种入参与非法值；dateStr 用本地时区', winOk && mdOk],
+      ['演示日期按 scope 隔离、切主题生效、切回仍在、脏值收敛为今天', mockOk],
+      ['主题券只存 couponId 不存面额；两套配置零依赖、不与 couponStore 互引；场景 id 互校', couponOk],
+      ['主题取货与场景共用一套规则：真跨分类、全来自商品池', thPickOk],
+      ['氛围图确定性生成、互不相同、纯内联 SVG 无外链', artOk],
+      ['四条路由 / 导航归桶 / 首页三块入口 / 视图零循环依赖全部接线', wiringOk && noCycleOk],
+      ['样式：圆角 16px、hover 只改透明度与青边框（不缩放）、轨道原生横滑、胶囊浅青选中、横幅无大色块、44px 热区、可降级', styleOk],
+      ['不改展厅 / AR：两侧零互引', untouched],
+    ];
+    const bad = table.filter(([, ok]) => !ok).map(([l]) => l);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 场景 / 情绪 / 节日主题（${table.length} 条）${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 场景 / 情绪 / 节日主题: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);

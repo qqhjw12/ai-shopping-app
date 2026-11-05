@@ -1,10 +1,12 @@
-# 虚拟展厅 + AR 试穿/试妆 — 交付总览
+# 场景化 / 情绪化 / 节日化购物入口 — 交付总览
 
-> **本步范围**：新增「虚拟展厅」（`#/showroom`、`#/showroom/:id`，网格/展厅双视图）与
-> 「AR 试穿/试妆演示态」（分类门控入口 → 桌面提示 / 移动全屏演示层 → 静态示意降级）。
-> **明确不动**：拼团（`groupBuy*.js` / `wishlist*.js`）、商品对比（`compare.js` / `outfit.js`）、
-> AI 盲盒（`blindbox.js`）——源码零改动，两侧都有断言守着。
-> **设计语言**：沿用 Deep Space Command 深空令牌，未引入任何新色系、未引入任何 3D/AR 库。
+> **本步范围**：首页新增三块「今天为什么来逛」的入口 —— ①「今天想逛什么」8 个场景卡、
+> ②「按心情挑」6 个情绪胶囊、③「今日主题」节日/时令横幅；点击分别进入
+> `#/scene/:id`、`#/mood/:id`、`#/theme/:id` 三个结果页。
+> **明确不动**：虚拟展厅与 AR 试穿（`showroom*.js` / `pdpTryOn.js` / `arTryOn.js`）——
+> 源码零改动，两侧都有断言守着。
+> **设计语言**：沿用 Deep Space Command 深空令牌，未引入任何新色系、未新增任何假商品、
+> 未引入任何第三方库。
 
 ---
 
@@ -12,160 +14,156 @@
 
 | # | 决策 | 一句话理由 |
 |---|---|---|
-| 1 | 「AR 预览」与「AR 试穿」是**两个入口**：前者（上一步交付）看空间摆放、全类目可用；后者穿在身上/脸上，只对服饰/鞋靴/美妆/珠宝/钟表/眼镜出现 | 合并成一个按钮会让买手机的人看到「试穿手机」；分开后旧功能与旧断言都不动 |
-| 2 | 分区氛围图**程序化 SVG 现画**（`showroomArt.js`），不引外链摄影图 | 这站商品图本来就是确定性 SVG；外链大图在离线/图床抖动时一片破图 + 控制台报错，前几轮踩过 |
-| 3 | 展厅景深 = `perspective + rotateY + translateY + scale` 的**纯 CSS transform**，无 WebGL | 「3D 感」不需要 3D 库；`prefers-reduced-motion` 时整块 transform 一起收掉 |
-| 4 | 懒加载是**真懒**：`IntersectionObserver`（rootMargin 240px）进视口才构建贴图，骨架占位防跳动 | 商品图是 data-URI SVG 虽零请求，但 DOM 构建本身有开销；换成真图床时同一套机制直接生效 |
-| 5 | 类目门控 = **一级类目映射 + 关键词兜底**（`tryOnConfig.js`） | 商品池（16 老类目）与分类树（25 新类目）并存，写死任一套都会漏；「钟表眼镜」合并一级必须按关键词二次分叉，否则太阳镜会拿到「AR 试戴手表」 |
-| 6 | AR 演示层 `arTryOn.js` **只在点击入口后动态 import**；桌面端连 import 都不发生 | 规格硬性要求首屏零 AR 请求；e2e 在网络面板上盯这一条 |
-| 7 | 摄像头**默认不申请**：演示层用 CSS 模拟画面，「启用摄像头背景」需用户主动点击并授权，被拒/无设备静默回落 | 进页面就弹权限框是最快流失方式；拒绝授权必须优雅降级，不能看起来像 bug |
-| 8 | 展厅**不自动轮播**：横向轨道是原生 `overflow-x + scroll-snap`，JS 里没有任何定时器与程序化滚动 | 规格明确禁止；也让 reduced-motion 语义天然成立 |
-| 9 | 视图偏好（网格/展厅）按 `scopeId()` 分桶存 localStorage，脏值收敛到网格 | 换账号不串视野；localStorage 损坏不能白屏，回落默认视图即可 |
+| 1 | 配置、取货规则、渲染**三层三文件**：`sceneConfig/themeConfig`（零依赖纯常量）→ `sceneStore/themeStore`（纯函数 + 一层 localStorage）→ `homeEntries/scenes`（只画） | 规格要求「不写死在组件」；分层后同一套规则既能被 Node 直接断言，也能被首页/结果页/横幅三处复用 |
+| 2 | `sceneConfig.js` / `themeConfig.js` **一行 import 都没有** | 上一轮踩过：配置层一旦引到 `couponStore → api.js → auth.js`，Node 里读 `location` 直接崩。券目录由视图层传入，配置只存 `couponId` |
+| 3 | 主题券**只写 `couponId`，不写面额** | 面额是券域的事实，抄一份就必然有一天和券中心对不上；主题页复用 `catalogCoupon/claimCoupon/listWallet` |
+| 4 | 场景/情绪/主题**共用一套取货函数** `pickByRule(rule, pool, {limit})` | 三套入口的差别只在「类目集合 + 关键词」，规则实现没必要写三遍 |
+| 5 | 取货**按类目分桶 + 配额轮流取**（quota = ⌈limit ÷ 类目数⌉），取不满时第二轮放开配额 | 本站商品池里图书 1431 件、食品 913 件，纯按相关度排会被这两个类目吃掉整页；轮流取才是真·跨分类组合 |
+| 6 | 销量只做**微弱加权**（log10 压缩后封顶 6 分，一次关键词命中值 10 分） | 销量是「别人买过」的证据，不是「适合这个场景」的证据；不能让低相关的高销商品顶到第一屏 |
+| 7 | 节日窗口用 `MM-DD` + **支持跨年**（`start > end` 时判定改成「或」） | 「12-27 ~ 02-28」这种窗口用 `YYYY-MM-DD` 写死就只能演示一年；`MM-DD` 让六段窗口首尾相接覆盖全年 |
+| 8 | 「今天是哪个主题」是**纯函数** `themeAt(date)`，演示日期只是喂进去的另一个参数 | 真实今天自动落当期；`setMockDate('2026-12-20')` 立刻变圣诞——同一套函数，不是两套逻辑 |
+| 9 | 演示日期按 `scopeId()` 分桶存 localStorage | 它是个人演示偏好，换账号不该串；脏值一律收敛为「今天」 |
+| 10 | 首页横幅与主题页头图都读 `currentTheme()` | 两处永远同一个主题；切了演示日期之后首页横幅必须同步变，否则用户会以为没生效 |
+| 11 | 情绪页那行说明由 `moodLine(mood, matchedTags)` **用筛出来的命中标签拼** | 规格明令「不写死文案」；拼出来的句子会随商品池变化，也能反过来验证筛选是否生效 |
+| 12 | 首页只放 6–8 个场景（`SCENE_HOME_LIMIT = 8`），横向原生轨道 + `scroll-snap` | 8 个场景一次铺开会挤成两行半；轨道天然可横滑，且没有定时器、没有程序化滚动 |
+| 13 | 氛围图**程序化 SVG 现画**（`sceneArt.js`），确定性、零外链 | 离线/图床抖动时不会一片破图；同一 id 永远同一张图，截图与断言都稳定 |
+| 14 | `homeEntries.js` 故意**不 import `views.js`** | `views.js` 要 import 它来占位，反向引用就是循环依赖 |
+
+---
 
 ## 二、文件清单
 
-### 新增（7 个）
+### 新增（7 个前端模块 + 1 个验收脚本）
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `web/js/store/showroomConfig.js` | 116 | 5 个主题分区（类目映射/色调/文案）、视图模式与偏好键、`zoneById/zoneHash` |
-| `web/js/store/showroomStore.js` | 74 | 按 categoryId 取货（销量降序确定性）、上限、视图偏好按 scope 读写 |
-| `web/js/showroomArt.js` | 148 | 宽幅氛围图 SVG（渐变/地平线/展台/巨型编号），确定性、零外链 |
-| `web/js/showroom.js` | 297 | 大厅 + 分区详情：双视图切换、懒加载、加购/进详情、空分区兜底 |
-| `web/js/store/tryOnConfig.js` | 158 | 六类门控（类目映射 + 关键词规则）、文案、截图尺寸、色名词表、贴图落点 |
-| `web/js/pdpTryOn.js` | 87 | 入口按钮（不支持的类目返回 null）、桌面提示、能力检测、动态 import |
-| `web/js/arTryOn.js` | 380 | 全屏演示层：模拟画面/真实背景、拖动贴图、SKU 换色、canvas 截图、mock 分享 |
+| `web/js/store/sceneConfig.js` | 254 | 8 个场景 + 6 个情绪的唯一规则源：id / 名称 / 眉题 / 描述 / 场景文案 / 色调 / 类目映射 / 关键词 / 上限常量 / 文案表 |
+| `web/js/store/themeConfig.js` | 190 | 6 个节日时令主题：`MM-DD` 窗口、类目与关键词、`couponId`、关联场景、演示日期预设 |
+| `web/js/store/sceneStore.js` | 162 | `scoreProduct` / `pickByRule`（分桶轮流取）/ `pickSceneProducts` / `pickMoodProducts` / `moodLine` / `ruleCount` |
+| `web/js/store/themeStore.js` | 121 | `dateStr`（本地时区）/ `mdOf` / `inWindow`（跨年）/ `themeAt` / 演示日期读写 / `currentTheme` / `pickThemeProducts` |
+| `web/js/sceneArt.js` | 95 | 确定性氛围图 SVG：三档尺寸（card 900×1180 / hero 1400×720 / banner 900×560），渐变底 + 同色相光斑 + 景深细光线 |
+| `web/js/homeEntries.js` | 154 | 首页三块入口（场景轨道 / 情绪胶囊 / 主题横幅），纯静态、不发请求 |
+| `web/js/scenes.js` | 374 | 三个结果页：场景页、情绪结果页（含页内换心情）、主题页（主题券 + 商品池 + 场景入口 + 演示日期切换） |
+| `scripts/e2e-scene-mood-theme.mjs` | 237 | 36 条浏览器断言，覆盖规格「七、验收」全部条款 |
 
-### 改动（5 个）
+### 改动（3 个）
 
-| 文件 | 改动 |
-|---|---|
-| `web/js/app.js` | +2 import、`#/showroom` 两条路由、`/showroom` 归入 products 导航桶 |
-| `web/js/views.js` | +1 import、`.pdp-secondary-actions` 里插 `tryOnButton(p, 'ghost')`（其他类目为 null 不占位） |
-| `web/index.html` | 页脚「探索」列加 `<a href="#/showroom">虚拟展厅</a>` |
-| `web/styles.css` | +约 500 行 `.sr-*` / `.try-*`（含移动端与两套 reduced-motion 块） |
-| `scripts/check-web.mjs` | 新增「虚拟展厅与 AR 试穿」断言块 14 条 |
-
-## 三、关键代码
-
-**1) 分类门控的核心——「钟表眼镜」合并一级必须二次分叉：**
-
-```js
-export function tryOnKindOf(product) {
-  const cat = String(product.categoryId || '');
-  const base = TRYON_CATEGORY_KIND[cat] || null;      // 两套类目 id 的映射表
-  const hay = [product.subCategory, product.subCategoryId, product.category,
-    product.name, (product.tags || []).join(' ')].filter(Boolean).join(' ');
-  const hit = TRYON_RULES.find(([re]) => re.test(hay));
-  const byKeyword = hit ? hit[1] : null;
-  if (base === 'watch') {                              // watches 一级 = 钟表 + 眼镜
-    if (byKeyword === 'glasses') return TRYON_KIND.GLASSES;
-    return TRYON_KIND.WATCH;
-  }
-  if (base === 'apparel' && byKeyword === 'shoes') return TRYON_KIND.SHOES; // 老池「服饰鞋包」里混着鞋
-  return base || byKeyword;
-}
-```
-
-**2) 首屏零 AR 请求——只有入口在首屏，演示层在点击后：**
-
-```js
-// pdpTryOn.js（随首屏加载，但自己绝不 import arTryOn.js）
-if (!isCoarsePointer()) { openModal(...桌面提示...); return; }   // 桌面连 import 都不发生
-const mode = cameraSupported() ? 'camera' : 'static';           // 无 getUserMedia → 静态示意
-const { mountTryOn } = await import('./arTryOn.js');            // 此刻才请求演示层
-mountTryOn({ product, kind, mode });
-```
-
-**3) 展厅视图的景深全部是平面变换（无 3D 库）：**
-
-```css
-.sr-rail { perspective: 1400px; scroll-snap-type: x proximity; }
-.sr-hall-card {
-  transform: translateY(calc(var(--lift) * 1px)) rotateY(calc(var(--tilt) * 1deg)) scale(var(--scale));
-  transition: transform 320ms var(--ease), box-shadow 320ms var(--ease);
-}
-html.reduced-fx .sr-hall-card { transform: none; transition: none; }
-```
-
-**4) 懒加载：进视口才挂载，节点被路由摘掉就放弃：**
-
-```js
-const io = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (!entry.isIntersecting) return;
-    io.unobserve(entry.target);
-    if (!host.isConnected) return;          // 路由已切走：不再构建
-    host.appendChild(build());
-    host.classList.add('is-loaded');
-  });
-}, { rootMargin: '240px 0px' });
-```
-
-**5) SKU 换色：色名词表优先，哈希只做兜底**（「黑 / M」不该泛绿光）：
-
-```js
-export const TRYON_COLOR_WORDS = [
-  [/米白|燕麦|奶油|象牙|cream|ivory|oat/i, 'hsl(38 46% 84% / 0.5)'],
-  /* …14 组… */
-  [/黑|black/i, 'hsl(220 10% 10% / 0.6)'],
-];
-export function tryOnTintOf(spec) {
-  const hit = TRYON_COLOR_WORDS.find(([re]) => re.test(String(spec)));
-  return hit ? hit[1] : `hsl(${tryOnHueOf(spec)} 62% 58% / 0.34)`;
-}
-```
-
-## 四、访问路径
-
-| 路径 | 内容 |
-|---|---|
-| `#/showroom` | 展厅大厅：5 张大幅氛围图分区卡（春日衣橱 17 件 / 数码前线 49 件 / 香氛实验室 492 件 / 静境家居 32 件 / 雪线装备 32 件） |
-| `#/showroom/spring-wardrobe` 等 | 分区详情：网格 ↔ 展厅切换，展厅视图横向大卡 + CSS 景深，卡上加购/进详情 |
-| `#/product/p065`（服饰） | 详情页次要操作区「AR 试穿」；桌面点击 → 提示弹层（零脚本加载） |
-| `#/product/p135`（美妆） | 入口文案为「AR 试妆」 |
-| `#/product/p001`（手机） | 无 AR 试穿入口（门控生效） |
-| 移动端 PDP → AR 试穿 | 全屏演示层：模拟摄像头画面 + 商品贴图（可拖动）+ SKU 换色 + 截图/分享/退出 +「启用摄像头背景」（授权后才用真背景） |
-| 页脚「探索 → 虚拟展厅」 | 全站入口 |
-
-## 五、验收自检（对照规格第五节）
-
-| 验收项 | 结果 | 证据 |
+| 文件 | 改动 | 说明 |
 |---|---|---|
-| 展厅列表和详情可访问，商品可加购/看详情 | ✅ | e2e 1–3 节：5 分区卡、进详情、`shop_cart` 0→1、跳 `#/product/:id` |
-| 展厅/网格视图可切换 | ✅ | `aria-pressed` 互斥切换；**刷新后偏好保留**（scope 分桶落盘） |
-| 服饰美妆等分类有 AR 入口，桌面与移动端都有明确降级提示 | ✅ | 桌面：`请在移动设备上体验 AR 试穿`；移动无摄像头：`静态试穿示意`；拒绝授权：`摄像头未授权，已切回模拟画面` |
-| AR 演示层可切换 SKU、可关闭 | ✅ | 规格读数变化 + 选中态转移 + 贴图换色（色名词表）；`×`/Esc/退出按钮三种关法，关闭后解锁 `no-scroll` |
-| 首屏无 AR 相关脚本请求 | ✅ | e2e 在桌面与移动两个网络面板断言 `arTryOn.js` 请求数为 0，点击后才出现 |
-| 控制台无错误 | ✅ | 四个页面 context 全程零 console error / pageerror |
+| `web/js/views.js` | +4 | `import { homeEntryBlock }`；首页在功能模块之后 `panel.appendChild(homeEntryBlock())` |
+| `web/js/app.js` | +14 | 四条路由（`/scene/:id`、`/mood/:id`、`/theme`、`/theme/:id`）+ 导航归桶（三路径都归 `products`） |
+| `web/styles.css` | +484 | `.sc-*` / `.md-*` / `.td-*` 三段样式：卡片、轨道、胶囊、横幅、主题券、演示日期按钮，含 1024/820 两档断点与降级块 |
+| `scripts/check-web.mjs` | +约 250 | 新增「场景 / 情绪 / 节日主题」断言块 15 条 |
 
-规格第三节逐条：氛围图与商品贴图懒加载 ✅（IO + 骨架）；3D 感只用 CSS transform ✅（e2e 断言轨道 `perspective` 有值且无 three/glb 请求）；不支持/拒绝摄像头优雅降级不报错 ✅（两条独立 e2e 路径）；`prefers-reduced-motion` 关闭景深动效 ✅（`@media` 与 `html.reduced-fx` 双保险 + 断言）。
+---
 
-规格第四节逐条：首屏零 AR 脚本 ✅；无人脸识别（不调任何模型，真背景仅当背景、不上传）✅；无自动轮播 ✅（JS 零定时器、零程序化滚动，断言守着）；AR 不是假按钮——演示层全功能可用 ✅。
+## 三、核心实现要点
 
-## 六、验证与回归
+### 1. 配置三段式（`配置 → 规则 → 视图`）
 
-- `check-web.mjs`：83 → **90 模块**（+7）全绿；新增 14 条断言块（分区配置/取货确定性/视图偏好隔离/六类门控含钟表眼镜分叉/文案分型/能力探测/色名词表/氛围图确定性/懒加载与禁轮播/动态 import 唯一性/演示层纪律/接线/样式纪律/零互引）。
-- `e2e-showroom-ar.mjs`：**57/57** 通过（列表→详情→双视图→懒加载→偏好持久→加购→门控→桌面降级→移动演示层→SKU 换色→截图/分享→关闭→无摄像头降级→拒绝授权降级→移动端展厅→拼团对比不回归）。
-- 全量回归：34 套 e2e（含本地网关 `127.0.0.1:8080` 起来后跑的网关侧套件），结果见交付消息。
-- 断言脚本自身两处首轮错误已修：`zoneArtSvg` 含 `xmlns="http://www.w3.org/2000/svg"` 导致「无外链」断言误报（改为放行 w3.org 命名空间）；导航归桶正则漏写一个 `'`。
+```
+sceneConfig.js   ← 只读常量，零 import
+themeConfig.js   ← 只读常量，零 import（券只存 id）
+      ↓
+sceneStore.js    ← 纯函数：相关度打分 + 分桶轮流取货
+themeStore.js    ← 纯函数：MM-DD 窗口判定 + 演示日期（唯一碰 localStorage 的地方）
+      ↓
+homeEntries.js / scenes.js  ← 只负责画；券目录由它们从 couponStore 取出来传下去
+```
 
-## 七、已知限制
+### 2. 取货规则（`pickByRule`）
 
-1. 演示层的「摄像头画面」默认是 CSS 模拟；真实摄像头只在用户点「启用摄像头背景」并授权后作为背景使用，帧不上传、不做任何识别——所以没有人体/人脸追踪，贴图位置要手动拖。
-2. 试穿截图是 canvas 合成的占位图（底色 + 网格 + 商品线稿 + 规格），不是真实 AR 合成。
-3. 当前演示商品池没有珠宝/钟表/眼镜类目，这三类的入口在真实目录里不会出现——门控逻辑本身由纯函数断言覆盖（含太阳镜→试戴的二次分叉）。
-4. 分区 ↔ 类目映射写在 `showroomConfig.js` 配置表里，运营加分区要改配置文件（这是刻意的：分区是内容运营决策，不该藏在视图里）。
-5. 展厅视图偏好只存本机 localStorage（跨设备不同步，与全站其他偏好一致）。
-6. 展厅商品图是程序化 SVG 封面；接真实图床后 `productThumb` 已自带 `loading="lazy"` 与破图兜底，无需改展厅代码。
+```
+1) 只保留 categoryId ∈ rule.cats 的商品        ← 「场景结果必须与商品库相关」的边界
+2) 每个类目内：相关度 ↓ → 销量 ↓ → id ↑        ← 全程确定性，刷新不重排
+3) 配额 = ⌈limit ÷ 类目数⌉，各类目轮流取一件    ← 跨分类组合，不被大类别吃满
+4) 第二轮放开配额，把 limit 补满               ← 有空类目时不拖累总数
+```
 
-## 八、闸门快照
+相关度：`hits×10 + (hits ? 6 : 0) + min(6, log10(sales+1)×2) + (rating ≥ 4.8 ? 1 : 0)`。
 
-| 项 | 值 |
-|---|---|
-| 构建 | `node scripts/check-web.mjs` → 90 模块全绿，含 14 条新断言 |
-| 新 e2e | `node scripts/e2e-showroom-ar.mjs` → 57/57 |
-| 全量回归 | 34 套，详见交付消息 |
-| 提交 | `58fd697`，`main == origin/main` |
-| 首屏请求 | 桌面/移动 PDP 与展厅首屏均无 `arTryOn.js` / three / model-viewer / glb |
-| 控制台 | 全部页面 context 零 JS 错误 |
+### 3. 日期判定（`themeAt`）
+
+```js
+inWindow('01-15', '12-27', '02-28') // true  ← 跨年窗口（start > end 用「或」）
+inWindow('06-01', '12-27', '02-28') // false
+dateStr(new Date(2026, 0, 1))       // '2026-01-01'（本地时区；toISOString 会掉到 2025-12-31）
+```
+
+六个窗口首尾相接：`12-27~02-28` → `03-01~05-15` → `05-16~08-10` → `08-11~09-30` →
+`10-01~11-30` → `12-01~12-26` → 回到 `12-27`，**2026 全年 365 天 0 空天**。
+
+### 4. 三个结果页
+
+| 路由 | 顶部 | 主体 |
+|---|---|---|
+| `#/scene/:id` | 氛围图 hero + 场景文案 `scene.line` + 读数（件数 / 类目数 / 来源） | 商品网格，卡片带加购 / 收藏 / 加入对比 |
+| `#/mood/:id` | 氛围图 hero + `moodLine()` 拼出的一行说明 + 页内胶囊（可直接换心情） | 商品网格 |
+| `#/theme/:id` | 氛围图 hero + 主题文案 + 窗口 | 主题券（与券中心同一张）→ 主题商品池 → 主题场景入口 → 演示日期切换 |
+
+---
+
+## 四、验收自检（对应规格「七、验收」）
+
+| 验收条款 | 结果 | 证据 |
+|---|---|---|
+| 首页有「今天想逛什么」 | ✅ | 8 张场景卡一条横向轨道，卡片 `height:320px`、圆角 16px、底部渐变 |
+| 首页有情绪标签 | ✅ | 6 个胶囊（治愈/元气/松弛/专注/浪漫/酷感），`min-height:44px` |
+| 首页有节日主题横幅 | ✅ | `--color-surface-2` + 1px 细线，左衬线标题 + 窗口/券/演示三枚 chip，右氛围图 |
+| 场景页可访问、商品来自真实数据 | ✅ | e2e 把 DOM 上 `data-compare-id` 全部回查 `getProducts()`，8 场景 × 24 件全部命中，每个场景 4–5 个类目 |
+| 情绪结果页可访问、说明不写死 | ✅ | `moodLine` 用实际命中标签拼（示例：`为这种心情挑的：冲调 · 宠物 · 修护 · 保湿`） |
+| 主题页可访问 | ✅ | 主题券 `data-coupon` 与 `currentCatalog()` 同源校验通过，领券后进券包 |
+| 配置可切换当前主题 | ✅ | 演示日期切到 `2026-12-20` → 圣诞礼物；恢复今天 → 回到秋日暖居；**首页横幅同步变**（同源 `currentTheme()`） |
+| 移动端横向滚动不溢出 | ✅ | 390px 下 `scrollWidth - clientWidth === 0`，轨道自身可横滑 |
+| 热区达标 | ✅ | 胶囊 44px、演示日期按钮 44px、卡片整块可点 |
+| 控制台无错误 | ✅ | e2e 全流程 0 个 JS 错误（仅静态站既有的 `/api/*` 404 噪音已按既有口径过滤） |
+| 不新增假商品 | ✅ | 无任何商品字面量，全部 `pickByRule` 从 `getProducts()` 筛 |
+| 不改展厅 / AR | ✅ | 两侧源码零互引，`check-web` 有断言守着 |
+
+### 构建期断言（`node scripts/check-web.mjs`）
+
+```
+检查 97 个前端模块（真实 import，非仅语法解析）   ← 上一步 90 → 本步 97
+...
+  ok   虚拟展厅与 AR 试穿（14 条）
+  ok   场景 / 情绪 / 节日主题（15 条）
+✓ 前端自检通过
+```
+
+### 浏览器断言（`node scripts/e2e-scene-mood-theme.mjs`）
+
+```
+✓ 场景 / 情绪 / 主题验收全部通过      ← 36/36
+```
+
+---
+
+## 五、已知限制
+
+1. **节日主题是 mock 的时令日历，不是真实农历/公历节假日表**。六个窗口覆盖全年是为了「每天都有理由」，
+   不追求与真实节日日期完全对齐（春节、中秋每年浮动，需要接日历服务）。
+2. **演示日期只影响主题，不影响商品库存/价格**。它是「看看另一天的首页长什么样」的开关，
+   不做历史回放。
+3. **情绪 → 商品的映射靠关键词包含匹配**，商品文案里没写「治愈」这类词就不会命中；
+   补词表比补算法划算，词表集中在 `sceneConfig.MOODS[].tags` 一处。
+4. **首页场景卡固定取前 8 个**（`SCENE_HOME_LIMIT`）。第 9 个以后的场景目前没有入口，
+   要加就得改常量并决定是继续横滑还是换「全部场景」页。
+5. **氛围图是程序化 SVG**，风格统一但不等于摄影图。接真实图床时把 `sceneArt()` 换成
+   `<img>` 即可，尺寸契约（900×1180 / 1400×720 / 900×560）已经定好。
+
+---
+
+## 六、访问路径与命令
+
+```bash
+# 自检
+node scripts/check-web.mjs                 # 97 模块 + 全量断言（含本步 15 条）
+node scripts/e2e-scene-mood-theme.mjs      # 36 条浏览器验收（自带静态服 + 本机 Edge）
+
+# 手动看
+python -m http.server 8080 --directory .   # 或任意静态服
+#   http://127.0.0.1:8080/index.html#/            首页三块入口
+#   http://127.0.0.1:8080/index.html#/scene/camping
+#   http://127.0.0.1:8080/index.html#/mood/focus
+#   http://127.0.0.1:8080/index.html#/theme        当期主题（含演示日期切换）
+```

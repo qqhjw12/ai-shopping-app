@@ -13,6 +13,7 @@ import { renderCompare, mountCompareDock, compareToggle } from './compare.js';
 import { renderGroupBuyDetail, renderGroupBuyList } from './groupBuy.js';
 import { renderWishlist } from './wishlist.js';
 import { renderShowroomDetail, renderShowroomList } from './showroom.js';
+import { renderMoodPage, renderScenePage, renderThemePage } from './scenes.js';
 import { renderOrderDetail } from './orderDetail.js';
 import { renderCoupons } from './coupons.js';
 import { renderLogin } from './login.js';
@@ -127,6 +128,8 @@ function setActiveNav(path) {
   const key = path === '/' ? 'home'
     : path.startsWith('/categories') ? 'categories'
     : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') || path.startsWith('/blindbox') || path.startsWith('/compare') || path.startsWith('/group-buy') || path.startsWith('/showroom') ? 'products'
+    // 场景 / 情绪 / 主题都是「逛商品」的入口，归到甄选桶，不要另开一个导航项
+    : path.startsWith('/scene') || path.startsWith('/mood') || path.startsWith('/theme') ? 'products'
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
     : path.startsWith('/merchant') ? 'merchant'
@@ -209,6 +212,17 @@ function dispatch({ path, query }) {
   else if (path === '/showroom') renderShowroomList(view);
   else if (path.startsWith('/showroom/')) {
     renderShowroomDetail(view, decodeURIComponent(path.slice('/showroom/'.length)));
+  }
+  // 场景 / 情绪 / 主题：三个「推荐理由」落地页。主题不带 id 时落当期主题。
+  else if (path.startsWith('/scene/')) {
+    renderScenePage(view, decodeURIComponent(path.slice('/scene/'.length)));
+  }
+  else if (path.startsWith('/mood/')) {
+    renderMoodPage(view, decodeURIComponent(path.slice('/mood/'.length)));
+  }
+  else if (path === '/theme') renderThemePage(view, '');
+  else if (path.startsWith('/theme/')) {
+    renderThemePage(view, decodeURIComponent(path.slice('/theme/'.length)));
   }
   else if (path === '/orders') renderOrders(view);
   else if (path === '/favorites') renderFavorites(view);

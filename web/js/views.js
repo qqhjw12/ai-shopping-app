@@ -18,6 +18,8 @@ import { setDemoMode, isDemoMode } from './demo.js';
 import { listMerchantMallProducts } from './store/merchantShopStore.js';
 import { renderFlashSale, stopFlashSale } from './flashSale.js';
 import { renderHomeFortune } from './fortune.js';
+// 今天想逛什么 / 按心情挑 / 今日主题：三块入口纯静态，不等商品接口
+import { homeEntryBlock } from './homeEntries.js';
 import { compareToggle } from './compare.js';
 import { groupBuyButton } from './groupBuy.js';
 import { outfitPanel } from './outfit.js';
@@ -527,6 +529,9 @@ export async function renderHome(view) {
   const readSlot = el('div', { class: 'hp-readslot', style: '--i:1' });
   panel.appendChild(readSlot);
   panel.appendChild(homeModules());
+  // 入口区紧跟功能模块：用户先知道「有哪些能力」，再决定「今天从哪个理由进去」，
+  // 最后才看系统替你比出来的结果。任务带与结果流仍然相邻（它读的就是结果）。
+  panel.appendChild(homeEntryBlock());
 
   let products = [];
   try {
