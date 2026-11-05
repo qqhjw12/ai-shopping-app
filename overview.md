@@ -217,6 +217,20 @@ node scripts/e2e-compare.mjs    → 31/31，✓ 商品对比 / AI 搭配验收�
 
 ---
 
-## 八、全量回归
+## 八、全量回归（31 套串行实跑）
 
-31 套 e2e 串行实跑结果见提交说明与后续记录；本步新增 `e2e-compare` 已确认 31/31。
+`for f in scripts/e2e-*.mjs` 逐套串行执行，总耗时约 18 分钟。
+
+| 结果 | 套数 | 说明 |
+|---|---|---|
+| 通过 | **29** | 含本步新增 `e2e-compare`（31/31）、`e2e-ai-panel`（本轮绿，见下）、`e2e-blindbox`、`e2e-points` 全绿 |
+| 外部噪音 | 2 | `e2e-discovery` 45/46、`e2e-merchant` 26/27，各自只差「控制台无 JS 错误」1 条 |
+| 需网关 | 1 | `e2e-merchant-apply` 起 8080 网关后**补跑 42/42 全过** |
+
+**那 2 条失败的根因（已实测定位，非本步代码）**：写一次性探针监听 `requestfailed` 抓到 3 个 URL 全部 `net::ERR_CONNECTION_CLOSED` ——
+`images.openbeautyfacts.org/...jpg`、`images.openfoodfacts.org/...jpg`、`kolzsticks.github.io/Free-Ecommerce-Products-Api/.../handbag.jpg`。
+都是 mock 数据里引用的外部演示图，离线/被墙时拉不到。与本步的商品对比、AI 搭配代码零关系。
+
+**`e2e-ai-panel` 的跨轮表现**：上一轮 3 连跑稳定红（43.9998px），本轮绿。说明它是 0.0002px 级别的动画收敛时序抖动，
+不是稳定失败 —— 结论仍是「产品合规、断言缺容差」，正解是给 0.01 级容差或等父层 `transform: none`，而不是靠重跑碰运气。
+该脚本属上一轮步骤范围，按「不改范围外」本轮不动。
