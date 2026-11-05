@@ -61,23 +61,23 @@ const L1_BANDS = {
   'auto-parts': [39, 2999], pet: [20, 300], 'books-culture': [19, 399],
   stationery: [5, 299], music: [199, 9999],
 };
-/* 二级/三级名关键词窄化：保证点名类目价格口径精确 */
+/* 二级/三级名关键词窄化：点名口径锚到具体类目词，不再整级锁定；
+ * 并补齐配件/耗材低价带，避免「手机配件 6000 元」「笔记本电脑 57 元」这类失真。 */
 const NARROW_BANDS = [
   [/钻戒|翡翠|足银|机械表|名表/, [999, 29999]],
-  [/笔记本电脑|游戏本|一体机|台式机|工作站/, [2999, 12999]],
-  [/智能手机|旗舰手机|手机通讯|5G/, [800, 8000]],
-  [/手机配件|手机壳|数据线|充电器|贴膜|耳机/, [29, 599]],
-  [/香水|香氛|香薰/, [100, 2000]],
-  [/试香|小样|Q版/, [29, 299]],
-  [/猫粮|狗粮|宠物零食|猫砂|冻干|湿粮/, [20, 300]],
-  [/图书|读物|小说|期刊|字帖|本册|文具|笔/, [9, 199]],
+  // 规格点名口径：智能手机 800–8000 / 香水 100–2000 / 猫粮 20–300
+  [/智能手机|旗舰手机|中端手机|电竞手机|折叠屏|手机通讯|5G手机/, [800, 8000]],
+  [/女士香水|男士香水|香水|香氛|香薰/, [100, 2000]],
+  [/猫粮|狗粮|宠物零食|猫砂|冻干|湿粮|处方粮/, [20, 300]],
+  // 配件 / 耗材 / 小样：一律低价带（置于点名规则之后，不误伤整机与正装）
+  [/手机配件|手机壳膜|数据线|充电器|充电宝|存储卡|数码配件|电脑配件|乐器配件|琴弦|拨片|谱架|调音器|琴包|箱包配件|行李牌|防尘袋|内胆包|鞋靴配件|鞋垫|鞋带|鞋油|撑鞋器|运动配件|护膝护腕|运动手套|空顶帽|配件|耗材|小样|Q版|旅行装/, [19, 599]],
+  // 图书 / 文具：禁用单字「笔」——否则「笔记本（电脑）」会被压到 9–199 元
+  [/图书|读物|小说|期刊|字帖|画册|本册|纸品|文具|布书|黑胶唱片/, [9, 199]],
 ];
+const PC_LABEL = /笔记本|轻薄本|游戏本|商务本|创作者本|一体机|台式机|工作站|笔记本电脑/;
 function bandFor(l1Id, label) {
-  // 规格点名的三个一级整体锁定区间（手机 800–8000 / 香水 100–2000 / 宠物 20–300），
-  // 其内部细分（配件、试香小样等）不再下探到低价窄化规则。
-  if (l1Id === 'mobile' || l1Id === 'fragrance' || l1Id === 'pet') {
-    return L1_BANDS[l1Id];
-  }
+  // 电脑一级的「笔记本」是整机不是文具：先按一级 + 完整词锁定，避免窄化规则互相误伤。
+  if (l1Id === 'computer' && PC_LABEL.test(label)) return [2999, 12999];
   const hit = NARROW_BANDS.find(([re]) => re.test(label));
   return hit ? hit[1] : (L1_BANDS[l1Id] || [29, 999]);
 }
@@ -108,19 +108,30 @@ const ATTR_GROUPS = {
   digital: { 规格: ['标准版', 'Pro', 'Max', '套装', '单件'], 颜色: ['深空灰', '雾白', '青灰', '曜黑'] },
   book: { 装帧: ['平装', '精装', '函套', '活页'], 开本: ['32开', '16开', '大32开', '特规'] },
 };
-const GROUP_RULES = [
-  [/霜|乳|精华|面膜|防晒|口红|粉底|眼影|卸妆|香水|精油|蜡烛|喷雾|护肤|彩妆|香氛|洗护|美容|唇|眉/, 'beauty'],
-  [/粮|零食|食品|奶粉|辅食|茶|酒|饮料|水果|水产|肉|调味|糕点|糖果|坚果|蜜|罐头|湿粮|冻干|乳品|米面|生鲜|蔬菜|宠物/, 'food'],
-  [/书|小说|读物|文创|手账|本册|笔|纸|文具|字帖|期刊|画册|乐器|音响|唱片/, 'book'],
-  [/手机|电脑|耳机|相机|手表|平板|键盘|音箱|电器|冰箱|洗衣机|空调|灯|锁|摄像头|仪器|器材|机|器|设备|配件|膜|壳|线|电池|车|轮胎|健身|跑|球|帐篷|工具|插座|传感/, 'digital'],
-  [/裙|衣|裤|衫|鞋|袜|包|帽|外套|西装|泳装|内衣|家居服|配饰|项链|戒指|手镯|耳饰|眼镜|围巾|童装|玩具|布|针织/, 'apparel'],
+/** 一级类目 → 主属性组（默认语义；正则只用于少数明确跨组的例外）。 */
+export const ATTR_GROUP_BY_L1 = {
+  womenswear: 'apparel', menswear: 'apparel', lingerie: 'apparel', shoes: 'apparel',
+  bags: 'apparel', jewelry: 'digital', watches: 'digital',
+  beauty: 'beauty', fragrance: 'beauty',
+  digital: 'digital', mobile: 'digital', computer: 'digital',
+  appliance: 'digital', 'smart-home': 'digital', fitness: 'digital', 'auto-parts': 'digital',
+  food: 'food', 'wine-tea': 'food', 'mother-baby': 'food', pet: 'food',
+  'books-culture': 'book', stationery: 'book',
+  'kids-toys': 'digital', sports: 'apparel', music: 'digital',
+};
+/** 仅当类目语义明确跨主组时才覆盖；正则一律用完整词，禁用单字。
+ *  历史缺陷：「项链」命中单字「线」→ 数码组，「乳品饮料」命中「乳」→ 美妆组，
+ *  music 全级命中「乐器」→ 装帧/开本，服饰无兜底一律打到数码组。 */
+const GROUP_OVERRIDES = [
+  [/数码配件|电脑配件|手机配件|数据线|充电器|充电宝|存储卡|乐器配件|琴弦|拨片|谱架|调音器|琴包|箱包配件|行李牌|防尘袋|内胆包|鞋靴配件|鞋垫|鞋带|鞋油|撑鞋器|运动配件|护膝护腕|运动手套|空顶帽|标签机|点钞机|计算器|吸奶器|安全座椅|婴儿推车|配件|耗材/, 'digital'],
+  [/香水|香氛|香薰|面膜|口红|粉底|眼影|精华|防晒|护肤|彩妆|洗护|美容|精油|蜡烛|香波|护臀膏|面霜/, 'beauty'],
+  [/猫粮|狗粮|宠物零食|猫砂|冻干|湿粮|处方粮|奶粉|辅食|零食|乳品饮料|鲜牛奶|酸奶|奶酪|水果|糕点|糖果|坚果|营养补剂|左旋肉碱/, 'food'],
+  [/图书|读物|小说|期刊|字帖|画册|本册|纸品|文具|布书|黑胶唱片/, 'book'],
+  [/童装|连衣裙|衬衫|外套|内衣|文胸|套装|运动服饰|瑜伽服|骑行服|尿裤|拉拉裤|成长裤|湿巾|猫包|牵引|胸背|围巾/, 'apparel'],
 ];
 function attrGroup(l1Id, label) {
-  const hit = GROUP_RULES.find(([re]) => re.test(label));
-  if (hit) return hit[1];
-  const foodish = /food|wine-tea|mother-baby|pet/.test(l1Id);
-  const bookish = /books-culture|stationery/.test(l1Id);
-  return foodish ? 'food' : bookish ? 'book' : 'digital';
+  const hit = GROUP_OVERRIDES.find(([re]) => re.test(label));
+  return hit ? hit[1] : (ATTR_GROUP_BY_L1[l1Id] || 'digital');
 }
 function buildAttributes(seed, l1Id, label) {
   const tpl = ATTR_GROUPS[attrGroup(l1Id, label)];

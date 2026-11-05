@@ -89,6 +89,32 @@ try {
       searchEmpty: p.searchProducts('').length,
       countsOk: c.CATEGORY_TREE.every((x) => x.productCount === p.getCategoryProductCount(x.id)),
       totalCount: p.getCategoryProductCount(),
+      /* 验收复核补强：全树计数 / 25 个一级全覆盖 / 属性语义 / 细分配件价格带 */
+      allCountOk: (() => {
+        const a = [];
+        const w = (ns) => ns.forEach((n) => { a.push(n); w(n.children || []); });
+        w(c.CATEGORY_TREE);
+        return a.length === 1106 && a.every((n) => n.productCount === p.getCategoryProductCount(n.id));
+      })(),
+      l1SumOk: c.CATEGORY_TREE.every((x) => p.getProductsByCategory(x.id).length
+        === x.children.reduce((s, y) => s + p.getProductsByCategory(y.id).length, 0)),
+      accPriceOk: ['mobile_04', 'digital_06', 'music_08', 'bags_08', 'shoes_09', 'sports_02']
+        .every((id) => p.getProductsByCategory(id).every((x) => x.price >= 19 && x.price <= 599))
+        && p.getProductsByCategory('computer_01').every((x) => x.price >= 2999 && x.price <= 12999),
+      groupOk: (() => {
+        const MK = {
+          apparel: '颜色/尺码', beauty: '规格/香型', food: '规格/口味',
+          digital: '规格/颜色', book: '装帧/开本',
+        };
+        const g = (x) => Object.keys(x.attributes).join('/');
+        return c.CATEGORY_TREE.every((x) => {
+          const ps = p.getProductsByCategory(x.id);
+          return ps.filter((y) => g(y) === MK[p.ATTR_GROUP_BY_L1[x.id]]).length / ps.length >= 0.6;
+        }) && P.every((x) => {
+          const main = p.ATTR_GROUP_BY_L1[c.getCategoryPath(x.categoryId)[0].id];
+          return !(g(x) === '装帧/开本' && (main === 'apparel' || main === 'digital'));
+        });
+      })(),
       imgPrefix: P.every((x) => /^data:image\/svg\+xml/.test(x.images[0])),
       imgSame: P.every((x) => x.images[0] === p.PLACEHOLDER_IMAGE),
       placeholder: P[0].images[0],
@@ -108,6 +134,10 @@ try {
   check('getProductById / searchProducts 可用（搜「猫粮」=5、空词=0）',
     info.byId && info.searchCat === 5 && info.searchEmpty === 0);
   check('getCategoryProductCount 与 25 个一级 productCount 一致', info.countsOk);
+  check('全树 1106 个节点计数与真实数据一致（含二级/三级）', info.allCountOk);
+  check('25 个一级查询结果 = 各自二级子孙之和', info.l1SumOk);
+  check('属性组按一级语义匹配（服饰/数码不得落「装帧/开本」）', info.groupOk);
+  check('细分配件 19–599 / 电脑整机 2999–12999（价格不失真）', info.accPriceOk);
   check(`全站计数一致（${info.totalCount} = ${info.total}）`, info.totalCount === info.total);
   check('images 统一 data-URI SVG 占位', info.imgPrefix && info.imgSame);
 

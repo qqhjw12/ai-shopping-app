@@ -2724,6 +2724,32 @@ if (failed === 0) {
         && /viewBox="0 0 300 400"/.test(decodeURIComponent(x.images[0])));
       const countOk = cm.CATEGORY_TREE.every((c) => c.productCount === pm.getCategoryProductCount(c.id))
         && pm.getCategoryProductCount() === P.length;
+      /* 验收复核补强：全树计数 / 25 个一级全覆盖 / 属性语义 / 细分配件价格带 */
+      const allNodes = [];
+      const walkNodes = (ns) => ns.forEach((n) => { allNodes.push(n); walkNodes(n.children || []); });
+      walkNodes(cm.CATEGORY_TREE);
+      const allCountOk = allNodes.length === 1106
+        && allNodes.every((n) => n.productCount === pm.getCategoryProductCount(n.id));
+      const l1SumOk = cm.CATEGORY_TREE.every((c) => pm.getProductsByCategory(c.id).length
+        === c.children.reduce((s, y) => s + pm.getProductsByCategory(y.id).length, 0));
+      const MAIN_KEYS = {
+        apparel: '颜色/尺码', beauty: '规格/香型', food: '规格/口味',
+        digital: '规格/颜色', book: '装帧/开本',
+      };
+      const groupOf = (x) => Object.keys(x.attributes).join('/');
+      const groupOk = cm.CATEGORY_TREE.every((c) => {
+        const ps = pm.getProductsByCategory(c.id);
+        const main = MAIN_KEYS[pm.ATTR_GROUP_BY_L1[c.id]];
+        return ps.filter((x) => groupOf(x) === main).length / ps.length >= 0.6;
+      }) && P.every((x) => {
+        const l1 = cm.getCategoryPath(x.categoryId)[0].id;
+        const main = pm.ATTR_GROUP_BY_L1[l1];
+        return !(groupOf(x) === '装帧/开本' && (main === 'apparel' || main === 'digital'));
+      });
+      const ACC_IDS = ['mobile_04', 'digital_06', 'music_08', 'bags_08', 'shoes_09', 'sports_02'];
+      const accessoryOk = ACC_IDS.every((id) => pm.getProductsByCategory(id)
+        .every((x) => x.price >= 19 && x.price <= 599))
+        && pm.getProductsByCategory('computer_01').every((x) => x.price >= 2999 && x.price <= 12999);
       const prodCases = [
         [`全站 ≥600 款（实际 ${P.length}）`, P.length >= 600 && new Set(P.map((x) => x.id)).size === P.length],
         [`每个二级 4–8 款（${Math.min(...perL2)}–${Math.max(...perL2)}）`,
@@ -2742,6 +2768,10 @@ if (failed === 0) {
           pm.getProductById(P[0].id) === P[0] && pm.searchProducts('猫粮').length === 5
           && pm.searchProducts('').length === 0],
         ['getCategoryProductCount 与真实数据一致（25 个一级 productCount 回填 + 全站总数）', countOk],
+        [`全树 ${allNodes.length} 个节点 productCount 与真实数据一致（含二级/三级）`, allCountOk],
+        ['25 个一级查询结果 = 各自全部二级子孙之和（子孙查询全覆盖）', l1SumOk],
+        ['属性组按一级语义匹配（主组占比 ≥60%，服饰/数码不得落「装帧/开本」）', groupOk],
+        ['细分配件 19–599 / 电脑整机 2999–12999（不失真，点名口径不被整级锁定破坏）', accessoryOk],
         ['分类页总览计数走真实数据源（introCount 不再写假数字）',
           readFileSync(dir('categories.js'), 'utf8').includes('getCategoryProductCount()')],
         ['4 个页面商品源未被替换（views.js 仍走 getProducts()）',
