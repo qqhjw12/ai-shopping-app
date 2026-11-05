@@ -136,8 +136,16 @@ globalThis.fetch = async () => ({
   text: async () => '{"error":"not found"}',
 });
 
-/* ---------------- 逐个真实加载 ---------------- */
-const files = readdirSync(WEB_DIR).filter((f) => f.endsWith('.js')).sort();
+/* ---------------- 逐个真实加载 ----------------
+ * 递归收集子目录：store/ 下按功能分层的模块（含分类树数据层）同样属于前端产物，
+ * 只扫顶层会漏掉它们——CI 发布的是整个 web/，构建检查也必须覆盖整个 web/js。 */
+const collectModules = (dir, prefix = '') => readdirSync(dir, { withFileTypes: true })
+  .filter((e) => e.isDirectory() || e.name.endsWith('.js'))
+  .flatMap((e) => e.isDirectory()
+    ? collectModules(join(dir, e.name), `${prefix}${e.name}/`)
+    : [`${prefix}${e.name}`])
+  .sort();
+const files = collectModules(WEB_DIR);
 let failed = 0;
 console.log(`检查 ${files.length} 个前端模块（真实 import，非仅语法解析）\n`);
 for (const f of files) {
@@ -2636,6 +2644,21 @@ if (failed === 0) {
       }
       const desc = ct.getDescendantIds('mobile');
       const probe = { categoryId: 'phone', subCategoryId: 'phone_smart' };
+      function* ALL_NODEScollect(nodes) {
+        for (const n of nodes) {
+          yield n;
+          if (n.children.length) yield* ALL_NODEScollect(n.children);
+        }
+      }
+      const allNodes = [...ALL_NODEScollect(tree)];
+      // 真实演示商品（2951 款）的旧二级类目必须全部有兼容映射，
+      // 否则按二级/三级查询会查不到任何真实商品（只靠一级别名硬命中）。
+      const realMod = await import(pathToFileURL(dir('demo-real-data.js')).href);
+      const realProducts = realMod.demoRealProducts || [];
+      const legacySubs = [...new Set(realProducts.map((p) => p.subCategoryId).filter(Boolean))];
+      const unmapped = legacySubs.filter((s) => !Object.prototype.hasOwnProperty.call(ct.LEGACY_SUBCATEGORY_ALIASES || {}, s));
+      const l2Hit = ct.filterProductsByCategory(realProducts, 'beauty_01').length;
+      const ancestorHit = ct.filterProductsByCategory(realProducts, 'beauty').length;
       const catCases = [
         ['一级分类 = 25 个（清单全覆盖）', l1 === 25 && tree.every((c) => c.id && c.name && c.icon && c.slug)],
         ['每个一级下 6–12 个二级', subsOk, subsOk ? '' : tree.map((c) => `${c.id}:${c.children.length}`).join(',')],
@@ -2643,8 +2666,12 @@ if (failed === 0) {
         ['全树 id 英文且唯一（禁中文 id）', idOk && new Set([...INDEX_IDcollect(tree)]).size === l1 + l2s.length + l2s.reduce((a, s) => a + s.children.length, 0)],
         ['Category 模型字段齐全（id/name/slug/parentId/level/icon/description/productCount/sort/children）',
           ['id', 'name', 'slug', 'parentId', 'level', 'icon', 'description', 'productCount', 'sort', 'children'].every((k) => k in tree[0])],
+        ['全树 id/slug 均无中文（禁中文 id，URL 标识同口径）',
+          allNodes.every((n) => !/[\u4e00-\u9fff]/.test(n.id + n.slug))],
         ['productCount 为子级汇总占位（一级 = Σ二级，非假常数）',
           tree[0].productCount === tree[0].children.reduce((a, c) => a + c.productCount, 0) && tree[0].productCount > 0],
+        ['构建扫描覆盖 store/ 子目录（新增数据层进入真实 import 清单）',
+          readFileSync(join(__dirname, 'check-web.mjs'), 'utf8').includes('collectModules')],
         ['getDescendantIds 返回一级下全部子孙 id', desc.length > 20 && desc.includes('mobile_01') && desc.includes('mobile_01_t1')],
         ['getCategoryById / getChildren / getAncestors / getCategoryPath 可用',
           ct.getCategoryById('womenswear')?.name === '女装'
@@ -2656,11 +2683,18 @@ if (failed === 0) {
           ct.productInCategory(probe, 'mobile') && ct.productInCategory(probe, 'digital')
           && !ct.productInCategory(probe, 'pet')
           && ct.productInCategory({ categoryId: 'computer' }, 'computer')],
+        ['真实商品旧二级类目全映射：按二级/一级查询均能命中子孙商品',
+          legacySubs.length > 0 && unmapped.length === 0 && l2Hit > 0 && ancestorHit >= l2Hit
+          && ct.filterProductsByCategory(realProducts, 'books-culture_01').length > 0],
+        ['filterProductsByCategory 批量查询（含子孙、不误判）',
+          typeof ct.filterProductsByCategory === 'function'
+          && ct.filterProductsByCategory([probe], 'mobile').length === 1
+          && ct.filterProductsByCategory([probe], 'pet').length === 0],
         ['页面未直接 import 裸数组（分类页仍走 deriveCategoryTree，UI 零改动）',
           !viewsSrc.includes('categoryTree') && !readFileSync(dir('categories.js'), 'utf8').includes('categoryTree')],
       ];
       const badCat = catCases.filter(([, ok]) => !ok).map(([label]) => label);
-      console.log(`  ${badCat.length === 0 ? 'ok  ' : 'FAIL'} 分类树数据层（25 一级/${l2s.length} 二级/三级覆盖 ${(thirdRatio * 100).toFixed(1)}% + 6 工具函数）${badCat.length ? ` → 缺失: ${badCat.join('、')}` : ''}`);
+      console.log(`  ${badCat.length === 0 ? 'ok  ' : 'FAIL'} 分类树数据层（25 一级/${l2s.length} 二级/三级覆盖 ${(thirdRatio * 100).toFixed(1)}% + 工具函数/兼容桥/构建覆盖）${badCat.length ? ` → 缺失: ${badCat.join('、')}` : ''}`);
       if (badCat.length) failed++;
     } catch (e) {
       failed++;

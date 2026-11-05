@@ -5,7 +5,7 @@
  * 模型沿用既有 Category：{ id, name, slug, parentId, level, icon, description,
  *                          productCount, sort, children }
  *   - id/slug 全英文（禁中文 id）；二级/三级 id 由「父 id + 序号」确定性生成；
- *   - productCount：叶子节点用确定性哈希占位（12–480），父级 = 直接子级汇总
+ *   - productCount：叶子节点用确定性哈希占位（6–60），父级 = 直接子级汇总
  *     —— 后续步骤会用真实商品数据回填，届时只需替换 leafCount 一个函数；
  *   - icon：一级类目的细线风格占位图标名（emoji 字符，不使用实拍图片）。
  *
@@ -442,10 +442,13 @@ export function getCategoryAndDescendantIds(id) {
 }
 
 /* ---------------- 与既有商品数据的兼容桥 ----------------
- * 旧种子商品只有 16 个一级类目（phone/computer/audio/…）。
+ * 旧种子商品只有 16 个一级类目（phone/computer/audio/…）与 17 个二级类目
+ * （beauty_skincare、book_read、food_snack …），这些 id 在新树里都不存在。
  * 新树是 25 个一级，这里把旧 id 映射到新树节点（过渡方案）：
- *   - 语义重合的一级直接继承旧 id（computer/appliance/food/sports/pet/stationery）；
- *   - 其余映射到最贴近的新树一级（如 phone→手机通讯、audio→数码电子）。
+ *   - 一级：语义重合的直接继承旧 id（computer/appliance/food/sports/pet/stationery），
+ *     其余映射到最贴近的新树一级（如 phone→手机通讯、audio→数码电子）；
+ *   - 二级：映射到新树的二级/三级节点，让真实商品真正「挂在子孙分类上」，
+ *     而不只是靠一级别名硬命中——否则按二级/三级查询会查不到任何真实商品。
  * 后续真实商品数据回填时，商品将直接携带新树 categoryId，本表可整体下线。
  */
 export const LEGACY_CATEGORY_ALIASES = {
@@ -466,16 +469,63 @@ export const LEGACY_CATEGORY_ALIASES = {
   sports: ['sports'],
 };
 
+/** 旧二级类目 → 新树子孙节点（真实演示商品 17 个 subCategoryId 全覆盖）。
+ *  一二级语义不完全等价时取最贴近节点，可映射到多个节点。 */
+export const LEGACY_SUBCATEGORY_ALIASES = {
+  // 图书文创（旧 book）
+  book_read: ['books-culture_01'],          // 阅读 → 文学小说
+  book_hobby: ['books-culture_06'],         // 兴趣爱好 → 文创手账
+  book_instrument: ['music', 'music_01'],   // 乐器 → 乐器音响 / 键盘乐器
+  // 食品生鲜（旧 food）
+  food_drink: ['food_09'],                  // 饮品 → 乳品饮料
+  food_grain: ['food_06'],                  // 粮油 → 粮油调味
+  food_snack: ['food_01'],                  // 零食 → 休闲零食
+  // 美妆护肤（旧 beauty）
+  beauty_personal: ['beauty_01', 'beauty_10'], // 个护 → 面部护肤 / 美容工具
+  beauty_skincare: ['beauty_01'],           // 护肤 → 面部护肤
+  beauty_makeup: ['beauty_07'],             // 彩妆 → 彩妆
+  // 宠物用品（旧 pet）
+  pet_cat: ['pet_01', 'pet_04'],            // 猫 → 猫粮 / 猫砂
+  pet_dog: ['pet_02'],                      // 狗 → 狗粮
+  pet_accessory: ['pet_05', 'pet_06'],      // 配件 → 玩具 / 服饰
+  // 母婴用品（旧 baby）
+  baby_care: ['mother-baby_05'],            // 护理 → 洗护用品
+  baby_milk: ['mother-baby_01'],            // 奶粉 → 奶粉
+  // 健康（25 一级中无保健类，暂归美妆个护一级；真实回填后下线）
+  health_supplement: ['beauty'],
+  // 数码（旧 phone）
+  phone_wear: ['digital_04'],               // 穿戴 → 智能穿戴
+  // 服饰（旧 apparel，鞋类实属鞋靴一级）
+  apparel_shoe: ['shoes_01'],               // 鞋 → 运动鞋
+};
+
+/** 商品归属的新树 id 集合：自身类目 ∪ 一级别名 ∪ 二级别名。 */
+function ownedCategoryIds(product) {
+  return new Set(
+    [
+      product.categoryId,
+      product.subCategoryId,
+      ...(LEGACY_CATEGORY_ALIASES[product.categoryId] || []),
+      ...(LEGACY_SUBCATEGORY_ALIASES[product.subCategoryId] || []),
+    ].filter(Boolean),
+  );
+}
+
 /**
  * 商品是否属于某分类（含全部子孙）。
- * 匹配面 = 商品自身类目 id（categoryId/subCategoryId）∪ 旧类目经 LEGACY 映射的新树 id，
- * 命中「目标节点自身 ∪ 全部子孙」即视为属于该分类。
+ * 命中面 = 商品归属 id 集合 ∩「目标节点自身 ∪ 全部子孙」，
+ * 因此按一级查询会自动包含挂在任意二级/三级分类下的商品。
  */
 export function productInCategory(product, catId) {
   if (!product || !INDEX.has(catId)) return false;
-  const owned = new Set(
-    [product.categoryId, product.subCategoryId, ...(LEGACY_CATEGORY_ALIASES[product.categoryId] || [])]
-      .filter(Boolean),
-  );
+  const owned = ownedCategoryIds(product);
   return getCategoryAndDescendantIds(catId).some((id) => owned.has(id));
+}
+
+/** 按一级（或任意节点）批量查询商品，自动包含全部子孙分类商品。
+ *  页面接入分类筛选时应走这里，而不是自己遍历一维数组。 */
+export function filterProductsByCategory(products, catId) {
+  const list = Array.isArray(products) ? products : [];
+  if (!INDEX.has(catId)) return [];
+  return list.filter((p) => productInCategory(p, catId));
 }

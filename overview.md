@@ -1,5 +1,31 @@
 # 分类树数据层扩充（25 一级，纯数据不改 UI）— 交付总览
 
+## 验收复核与修复（实际运行构建后）
+
+按验收清单逐项独立复核 + 实跑构建，发现并修复 2 项本步骤范围内缺陷，另有 1 项为验收脚本口径误报：
+
+| 发现 | 性质 | 原因 | 修复 |
+|---|---|---|---|
+| 新增数据层未进入构建检查 | **真缺陷** | `check-web.mjs` 只 `readdirSync` 顶层 `web/js/*.js`（44 个），`store/` 下 16 个模块（含本步骤新增 `categoryTree.js`）从未被真实 import；且分类断言组包在 `if (failed === 0)` 内，前置失败即整组跳过 | 改为 `collectModules()` 递归收集，构建清单 44→**62 个模块**全部真实 import 通过；新增持久断言防止回退 |
+| 真实商品按二级/三级查询恒为空 | **真缺陷** | 旧商品 17 个 `subCategoryId`（`beauty_skincare`/`book_read`/`food_snack`…）在新树不存在，原兼容桥只映射一级 id，商品只能靠一级别名硬命中，未真正「挂在子孙分类上」 | 新增 `LEGACY_SUBCATEGORY_ALIASES` 覆盖全部 17 个旧二级 id → 新树子孙节点；`productInCategory` 归属集合加入二级别名；新增 `filterProductsByCategory()` 批量查询入口 |
+| 独立脚本报 1081 个非法 id | 误报 | 验收正则 `/^[a-z0-9-]+$/` 不允许下划线，而内部 id 是 `womenswear_01_t1` 形式；实测含中文 0、含斜杠 0 | 口径修正为 `/^[a-z0-9_-]+$/` 并单独断言「无中文 id/slug」，重跑 7/7 全过 |
+
+复核后构建与验收：
+- `node scripts/check-web.mjs` → **0 失败**，62 个模块全绿，分类断言组 15 条全过
+- CI build 等价产物检查 → `web/` 作为 Pages artifact：62 个 js、202 条 import 边、**0 条未解析**，`store/categoryTree.js` 在产物内
+- 独立验收 7/7：25 一级清单全覆盖 / 每级 7–11 二级 / 100% 二级带 3–6 三级 / 1106 节点零中文、字段齐全、计数汇总一致 / `getDescendantIds` 25 个一级全一致 / 真实 2951 款商品按二级命中 `beauty_01=387`、`books-culture_01=809`、`food_01=208`、`pet_01=119`、`mother-baby_01=5` / 6 工具函数全可用
+- `e2e-category-tree` 11 断言全过，分类页仍 16 卡、UI 零回归、控制台零错误
+
+### 全量回归结论（29 套）
+
+- **27 套通过**；`e2e-merchant-apply` 按惯例需独立 8080 网关，补跑 **42/42 通过**。
+- `e2e-discovery`（45/46）与 `e2e-merchant`（26/27）**仅「控制台零 JS 错误」一条失败**：3 个外部商品图片 URL
+  （`images.openbeautyfacts.org` / `images.openfoodfacts.org` / `kolzsticks.github.io`）在当前网络
+  `net::ERR_CONNECTION_CLOSED`，被浏览器记为 console error。`web/js/demo-real-data.js` 本步骤完全未改动，
+  本步骤仅有的 2 个改动文件也都不被页面加载，故属**环境网络噪音、非代码回归**（其余 71 条功能断言全过）。
+- 修复方案（**属范围外，本步未执行**）：① e2e 控制台噪音过滤把 `ERR_CONNECTION_CLOSED` 与既有 `404` 同口径处理；
+  ② 或把演示商品 `pic` 外部图换成本地 data-URI 占位；③ 或恢复外网/代理白名单。
+
 > 只扩充分类树数据与工具函数，不新增页面、不改任何页面 UI。
 > 一级 10→25 个（本步前实际派生 16 个），二级/三级同步补齐。
 
