@@ -101,6 +101,8 @@ export function renderBlindbox(view) {
       p
         ? productCard(p, {
           className: 'bb-pcard',
+          // 盲盒结果卡保持原样：本步不动盲盒，卡片不带对比开关
+          comparable: false,
           onDetail: (x) => openProductDetail(x, 'blindbox'),
           onAddCart: (x) => doAdd(x, 'blindbox'),
         })

@@ -147,11 +147,22 @@ function cardFavorite(p, onFavorite) {
 }
 
 /**
+ * 对比开关的插槽：由 compare.js 在启动时注册进来。
+ * 用「注册回调」而不是直接 import，避免 ui ↔ compare 的循环依赖，
+ * 也让商品卡在不需要对比的场景（如后台）可以完全不渲染该按钮。
+ */
+let compareSlot = null;
+
+export function setCompareSlot(fn) {
+  compareSlot = typeof fn === 'function' ? fn : null;
+}
+
+/**
  * 复用型商品卡片
  * @param {object} p 商品
- * @param {{onDetail?:Function, onAddCart?:Function, onFavorite?:Function, extra?:Function, className?:string, aiPick?:boolean}} handlers
+ * @param {{onDetail?:Function, onAddCart?:Function, onFavorite?:Function, extra?:Function, className?:string, aiPick?:boolean, comparable?:boolean}} handlers
  */
-export function productCard(p, { onDetail, onAddCart, onFavorite, extra, className = '', aiPick = false } = {}) {
+export function productCard(p, { onDetail, onAddCart, onFavorite, extra, className = '', aiPick = false, comparable = true } = {}) {
   const off = discountText(p);
   const hasRating = Number(p.rating) > 0;
   return el('article', { class: `pcard ${className}`.trim() }, [
@@ -196,6 +207,8 @@ export function productCard(p, { onDetail, onAddCart, onFavorite, extra, classNa
             : null,
         ]),
         el('div', { class: 'actions' }, [
+          // 对比开关由 compare.js 注册；未注册或显式 comparable:false 时不占位
+          comparable && compareSlot ? compareSlot(p) : null,
           el('button', { type: 'button', class: 'ghost', onclick: () => onDetail && onDetail(p) }, '查看'),
           el('button', { type: 'button', onclick: () => onAddCart && onAddCart(p) }, '加入购物袋'),
         ]),

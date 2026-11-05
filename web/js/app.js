@@ -1,5 +1,5 @@
 // 应用入口：装配路由、顶栏交互、AI 助手、购物车。
-import { el, updateCartBadge } from './ui.js';
+import { el, updateCartBadge, setCompareSlot } from './ui.js';
 import { renderHome, renderProducts, renderSearch, renderCartDrawer, renderProductDetail, openProductDetail } from './views.js';
 import { renderCategories } from './categories.js';
 import { renderCheckout } from './checkout.js';
@@ -9,6 +9,7 @@ import { renderOrders, renderFavorites } from './account.js';
 import { renderAccount } from './accountCenter.js';
 import { renderPoints } from './points.js';
 import { renderBlindbox } from './blindbox.js';
+import { renderCompare, mountCompareDock, compareToggle } from './compare.js';
 import { renderOrderDetail } from './orderDetail.js';
 import { renderCoupons } from './coupons.js';
 import { renderLogin } from './login.js';
@@ -122,7 +123,7 @@ onUserChange((user) => {
 function setActiveNav(path) {
   const key = path === '/' ? 'home'
     : path.startsWith('/categories') ? 'categories'
-    : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') || path.startsWith('/blindbox') ? 'products'
+    : path.startsWith('/products') || path.startsWith('/search') || path.startsWith('/product/') || path.startsWith('/blindbox') || path.startsWith('/compare') ? 'products'
     : path.startsWith('/analytics') ? 'analytics'
     : path.startsWith('/tools') ? 'tools'
     : path.startsWith('/merchant') ? 'merchant'
@@ -143,6 +144,8 @@ function dispatch({ path, query }) {
   document.body.classList.toggle('has-merchant-bar', path === '/merchant/join');
   // 工作台在移动端有底部标签栏：让 AI 浮窗抬上去，别和导航叠在一起
   document.body.classList.toggle('has-dash-bar', path === '/merchant/dashboard');
+  // 详情页移动端有吸底操作栏：对比悬浮条要抬到它上面，且给页面补足底部留白
+  document.body.classList.toggle('has-pdp-bar', path.startsWith('/product/'));
   window.scrollTo(0, 0);
   syncSearchInput(path === '/search' ? query.q : '');
   if (path === '/' || path === '') renderHome(view);
@@ -152,6 +155,7 @@ function dispatch({ path, query }) {
   else if (path === '/coupons') renderCoupons(view);
   else if (path === '/points') renderPoints(view);
   else if (path === '/blindbox') renderBlindbox(view);
+  else if (path === '/compare') renderCompare(view);
   else if (path.startsWith('/account/order/')) {
     renderOrderDetail(view, decodeURIComponent(path.slice('/account/order/'.length)));
   }
@@ -211,6 +215,10 @@ export function renderNotFound(v) {
 }
 
 /* ---------------- 启动 ---------------- */
+// 商品卡上的「加入对比」由 compare.js 注入（避免 ui ↔ compare 循环依赖），
+// 底部对比悬浮条也在同一处挂载一次，全站共用。
+setCompareSlot((p) => compareToggle(p, { className: 'ghost cmp-in-card' }));
+mountCompareDock();
 initHud();
 initAssistant();
 // 运营配置（运费/配送/券规则）先拉一次：不阻塞首屏（缓存里已有上次的值），

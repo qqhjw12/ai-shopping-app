@@ -3429,5 +3429,265 @@ if (failed === 0) {
   }
 }
 
+/* ============================================================
+   商品对比擂台 + AI 搭配（决策辅助层）
+   规则全部在 compareConfig / compareStore / outfitConfig / outfitStore，
+   这里用纯函数实跑断言，不依赖浏览器。
+   ============================================================ */
+console.log('\n商品对比与 AI 搭配断言（维度定义 / 最优判定 / 差异过滤 / 上限与隔离 / 搭配策略 / 套装价 / 接线 / 样式纪律）');
+{
+  try {
+    const cmpCfg = await import(pathToFileURL(join(WEB_DIR, 'store/compareConfig.js')).href);
+    const cmp = await import(pathToFileURL(join(WEB_DIR, 'store/compareStore.js')).href);
+    const otCfg = await import(pathToFileURL(join(WEB_DIR, 'store/outfitConfig.js')).href);
+    const ot = await import(pathToFileURL(join(WEB_DIR, 'store/outfitStore.js')).href);
+    const pm = await import(pathToFileURL(join(WEB_DIR, 'store/products.js')).href);
+    const cm = await import(pathToFileURL(join(WEB_DIR, 'store/categoryTree.js')).href);
+    const dm = await import(pathToFileURL(join(WEB_DIR, 'demo-data.js')).href);
+    const src = (f) => readFileSync(join(WEB_DIR, f), 'utf8');
+    const cssSrc = readFileSync(join(WEB_DIR, '..', 'styles.css'), 'utf8');
+    const indexSrc = readFileSync(join(WEB_DIR, '..', 'index.html'), 'utf8');
+
+    const pool = [...dm.demoProducts, ...pm.products];
+    const mockOf = (l1) => pm.products.filter((p) => String(p.categoryId).startsWith(l1));
+    const labels = (products) => cmp.buildDimensions(products).map((d) => d.label);
+
+    /* 1) 维度与权重配置抽离 */
+    const weightsSum = Object.values(cmpCfg.AI_INDEX_WEIGHTS).reduce((s, n) => s + n, 0);
+    const configOk = cmpCfg.COMPARE_MAX === 4
+      && cmpCfg.NUMERIC_DIMENSIONS.length === 4
+      && cmpCfg.NUMERIC_DIMENSIONS.find((d) => d.key === 'price').better === 'lower'
+      && ['rating', 'sales', 'stock'].every((k) => cmpCfg.NUMERIC_DIMENSIONS.find((d) => d.key === k).better === 'higher')
+      && cmpCfg.TEXT_DIMENSIONS.some((d) => d.key === 'aftersale')
+      && Object.keys(cmpCfg.CORE_ATTR_BY_GROUP).length === 5
+      && Math.abs(weightsSum - 1) < 1e-9;
+
+    /* 2) 核心属性键必须与 mock 商品 attributes 的真实键一致（不凭空造字段） */
+    const attrKeys = new Set(Object.values(pm.ATTR_GROUP_BY_L1));
+    const realAttrKeys = new Set();
+    pm.products.forEach((p) => Object.keys(p.attributes || {}).forEach((k) => realAttrKeys.add(k)));
+    const attrKeyOk = Object.values(cmpCfg.CORE_ATTR_BY_GROUP)
+      .every((g) => g.keys.every((k) => realAttrKeys.has(k)))
+      && Object.keys(cmpCfg.CORE_ATTR_BY_GROUP).sort().join(',') === [...attrKeys].sort().join(',');
+
+    /* 3) 搭配规则与策略覆盖 */
+    const missingStrategy = cm.CATEGORY_TREE.filter((n) => !otCfg.OUTFIT_STRATEGY_BY_L1[n.id]);
+    const targetIds = new Set(cm.CATEGORY_TREE.map((n) => n.id));
+    const badTargets = Object.entries(otCfg.OUTFIT_STRATEGY_BY_L1)
+      .filter(([, s]) => s.targets.some((t) => !targetIds.has(t)));
+    const outfitCfgOk = otCfg.OUTFIT_RULES.minMates === 2 && otCfg.OUTFIT_RULES.maxMates === 4
+      && otCfg.OUTFIT_RULES.discount === 0.95
+      && otCfg.OUTFIT_REASONS.length >= 6
+      && missingStrategy.length === 0 && badTargets.length === 0;
+
+    /* 4) 三类语义：服饰搭鞋包配饰 / 数码搭配件 / 家居搭软装 */
+    const sceneOk = ['shoes', 'bags', 'jewelry'].every((t) => otCfg.OUTFIT_STRATEGY_BY_L1.womenswear.targets.includes(t))
+      && otCfg.OUTFIT_STRATEGY_BY_L1.mobile.targets.includes('digital')
+      && otCfg.OUTFIT_STRATEGY_BY_L1.computer.targets.includes('digital')
+      && otCfg.OUTFIT_STRATEGY_BY_L1.appliance.targets.includes('smart-home');
+
+    /* 5) 上限：第 5 件被拒、重复被拒、空 id 被拒 */
+    let st = cmp.createState('u:cmp');
+    const adds = [];
+    pool.slice(0, 5).forEach((p) => {
+      const r = cmp.addId(st, p.id);   // 必须串行：每次都要吃上一次返回的 state
+      st = r.state;
+      adds.push(r);
+    });
+    const capOk = adds.slice(0, 4).every((r) => r.result.ok)
+      && adds[4].result.reason === 'full' && st.ids.length === 4
+      && cmp.addId(st, pool[0].id).result.reason === 'duplicate'
+      && cmp.addId(st, '').result.reason === 'invalid';
+
+    /* 6) 脏数据规整：超长截断、重复去重、非数组兜底 */
+    const dirty = cmp.normalizeState({ ids: ['a', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] }, 'u:x');
+    const dirtyOk = dirty.ids.length === 4 && dirty.ids[0] === 'a'
+      && cmp.normalizeState({ ids: 'nope' }, 'u:x').ids.length === 0
+      && cmp.normalizeState(null, 'u:x').ids.length === 0;
+
+    /* 7) 最优项方向：价格取最低，评分/销量/库存/AI 指数取最高；全同或单件不标 */
+    const four = mockOf('womenswear').slice(0, 4);
+    const table = cmp.buildTable(four);
+    const byKey = (k) => table.rows.find((r) => r.key === k);
+    const priceRow = byKey('price');
+    const minPrice = Math.min(...priceRow.values);
+    const bestOk = priceRow.best.every((i) => priceRow.values[i] === minPrice)
+      && priceRow.best.length >= 1
+      && ['rating', 'sales', 'stock', 'aiIndex'].every((k) => {
+        const row = byKey(k);
+        const max = Math.max(...row.values);
+        return row.best.length >= 1 && row.best.every((i) => row.values[i] === max);
+      })
+      && cmp.bestIndexes(priceRow, [four[0]]).length === 0;
+
+    /* 8) 全同 → 没有最优项也没有差异项 */
+    const samePair = [four[0], { ...four[0] }];
+    const sameTable = cmp.buildTable(samePair);
+    const sameOk = sameTable.rows.every((r) => r.best.length === 0 && r.different === false);
+
+    /* 9) 差异判定：有差别 true，无差别 false */
+    const diffOk = byKey('price').different === true || byKey('rating').different === true
+      ? table.rows.some((r) => r.different) && sameTable.rows.every((r) => !r.different)
+      : false;
+
+    /* 10) 核心属性随品类切换（同组 2 行、混合封顶 3 行、无属性回落分类/品牌） */
+    const attrOk = labels(mockOf('womenswear').slice(0, 2)).join(',') === '价格,评分,销量,库存,颜色,尺码,售后权益,AI 推荐指数'
+      && labels(mockOf('beauty').slice(0, 2)).join(',').includes('规格,香型')
+      && labels(mockOf('food').slice(0, 2)).join(',').includes('规格,口味')
+      && labels([dm.demoProducts[0], dm.demoProducts[1]]).join(',').includes('分类,品牌')
+      && labels([mockOf('womenswear')[0], mockOf('beauty')[0], dm.demoProducts[0]]).join(',').includes('颜色,尺码,规格');
+
+    /* 11) AI 推荐指数：0–100、满分与零分边界、与「跟谁比」无关 */
+    const full = cmp.aiIndex({ rating: 5, sales: cmpCfg.AI_INDEX_CAPS.sales, reviewCount: cmpCfg.AI_INDEX_CAPS.reviews });
+    const zero = cmp.aiIndex({ rating: 0, sales: 0, reviewCount: 0 });
+    const idxStable = four.every((p, i) => cmp.aiIndex(p) === byKey('aiIndex').values[i] && cmp.aiIndex(p) >= 0 && cmp.aiIndex(p) <= 100);
+    const aiOk = full === 100 && zero === 0 && idxStable;
+
+    /* 12) 搭配结果：2–4 件、全部来自商品库、不含主商品、落在目标一级、且确定性 */
+    const main = mockOf('womenswear')[0];
+    const mates = ot.pickMates(pool, main);
+    const strategy = ot.strategyFor(main);
+    const pickOk = mates.length >= otCfg.OUTFIT_RULES.minMates && mates.length <= otCfg.OUTFIT_RULES.maxMates
+      && mates.every((m) => pool.includes(m) && m.id !== main.id && strategy.targets.includes(cmp.l1Of(m)))
+      && new Set(mates.map((m) => m.id)).size === mates.length
+      && ot.pickMates(pool, main).map((m) => m.id).join(',') === mates.map((m) => m.id).join(',');
+
+    /* 13) 「重新搭配」换批：至少有一个商品能换出不同组合 */
+    const variants = pool.slice(0, 12).filter((p) => {
+      const a = ot.pickMates(pool, p).map((m) => m.id).join(',');
+      const b = ot.pickMates(pool, p, { variant: 1 }).map((m) => m.id).join(',');
+      return a !== b;
+    });
+    const variantOk = variants.length > 0;
+
+    /* 14) 理由候选必须真实成立：同色才有同色句、同品牌才有成套句、价差大不写「同价位」 */
+    const mk = (id, over = {}) => ({
+      id, name: id, price: 100, rating: 4.5, sales: 100, totalStock: 9, stock: 9,
+      categoryId: 'womenswear_01_t1', brand: 'B1', attributes: { 颜色: '雾白', 尺码: 'M' }, ...over,
+    });
+    const sameColorIds = ot.reasonCandidates(mk('a'), mk('b')).map((r) => r.id);
+    const diffColorIds = ot.reasonCandidates(mk('a'), mk('b', { attributes: { 颜色: '墨黑', 尺码: 'M' } })).map((r) => r.id);
+    const sameBrandIds = ot.reasonCandidates(mk('a'), mk('b')).map((r) => r.id);
+    const farPriceIds = ot.reasonCandidates(mk('a'), mk('b', { price: 1000 })).map((r) => r.id);
+    const nearPriceIds = ot.reasonCandidates(mk('a'), mk('b', { price: 110 })).map((r) => r.id);
+    const crossIds = ot.reasonCandidates(mk('a'), mk('b', { categoryId: 'beauty_01' })).map((r) => r.id);
+    const truthOk = sameColorIds.includes('same-color') && !diffColorIds.includes('same-color')
+      && sameBrandIds.includes('same-brand')
+      && farPriceIds.includes('price-ladder') && !farPriceIds.includes('near-price')
+      && nearPriceIds.includes('near-price')
+      && crossIds.includes('category-pair');
+
+    /* 15) 理由文本：无残留占位符，同一套装内尽量不重复（有替代就不复用） */
+    const reasons = ot.reasonList(main, mates, strategy);
+    const reasonIds = reasons.map((r) => r.id);
+    const reasonOk = reasons.length === mates.length
+      && reasons.every((r) => r.text && !/[{}]/.test(r.text) && r.text.length <= 40)
+      && new Set(reasonIds).size >= Math.min(2, reasons.length)
+      && reasons.every((r, i) => i === 0 || reasonIds.slice(0, i).indexOf(r.id) === -1
+        || ot.reasonCandidates(main, mates[i], strategy).length <= 1);
+
+    /* 16) 套装价：折后 = 原价 × 0.95（到分），原价 = 折后 + 省 */
+    const totals = ot.outfitTotals(main, mates);
+    const subtotal = Math.round((cmp.priceOf(main) + mates.reduce((s, m) => s + cmp.priceOf(m), 0)) * 100) / 100;
+    const totalOk = totals.subtotal === subtotal
+      && totals.total === Math.round(subtotal * otCfg.OUTFIT_RULES.discount * 100) / 100
+      && Math.round((totals.total + totals.saving) * 100) / 100 === totals.subtotal
+      && totals.saving > 0 && totals.saving < totals.subtotal;
+
+    /* 17) 单个替换：换到不同商品、不撞套装内其它件、无替代时如实失败 */
+    const rp = ot.replaceMate(pool, main, mates, 0);
+    const rp2 = ot.replaceMate(pool, main, mates, 0);
+    const replaceOk = rp.ok && rp.product.id !== mates[0].id
+      && rp.mates[0].id === rp.product.id
+      && rp.mates.slice(1).every((m, i) => m.id === mates[i + 1].id)
+      && new Set(rp.mates.map((m) => m.id)).size === rp.mates.length
+      && rp2.product.id === rp.product.id
+      && !ot.replaceMate([main], main, [main], 0).ok;   // 池里没有替代 → 如实失败
+
+    /* 18) 按 scopeId() 分桶：两个用户互不可见 */
+    const keyA = cmp.storageKey('u:a');
+    const keyB = cmp.storageKey('u:b');
+    cmp.save({ scope: 'u:a', ids: ['p1', 'p2'], updatedAt: 'x' });
+    cmp.save({ scope: 'u:b', ids: ['p9'], updatedAt: 'x' });
+    const rawA = JSON.parse(localStorage.getItem(keyA) || '{}');
+    const rawB = JSON.parse(localStorage.getItem(keyB) || '{}');
+    const isoOk = keyA !== keyB && rawA.ids.join(',') === 'p1,p2' && rawB.ids.join(',') === 'p9';
+
+    /* 19) 损坏读盘：非法 JSON / 越界 ids 都不抛，收敛到合法状态 */
+    localStorage.setItem(cmp.storageKey(), '{not json');
+    const brokenLoad = cmp.load();
+    const corruptOk = Array.isArray(brokenLoad.ids) && brokenLoad.ids.length === 0;
+    localStorage.clear();
+
+    /* 20) 结果一定来自商品库：库里没有的 id 自动跳过 */
+    const inPool = cmp.resolveProducts(pool, [pool[0].id, 'not-exist', pool[1].id]);
+    const resolveOk = inPool.length === 2 && inPool[0].id === pool[0].id;
+
+    /* 21) 接线：路由 / 导航高亮 / 悬浮条挂载 / 商品卡插槽 / 详情页 / 页脚 */
+    const appSrc = src('app.js');
+    const viewsSrc = src('views.js');
+    const uiSrc = src('ui.js');
+    const cmpSrc = src('compare.js');
+    const wiring = appSrc.includes("path === '/compare') renderCompare(view)")
+      && appSrc.includes('mountCompareDock()') && appSrc.includes('setCompareSlot(')
+      && appSrc.includes("path.startsWith('/compare') ? 'products'")
+      && appSrc.includes("classList.toggle('has-pdp-bar'")
+      && uiSrc.includes('compareSlot ? compareSlot(p) : null')
+      && viewsSrc.includes('compareToggle(p') && viewsSrc.includes('outfitPanel(p)')
+      && cmpSrc.includes('href: \'#/compare\'')
+      && indexSrc.includes('href="#/compare"');
+
+    /* 22) 样式纪律：最优项 = 1px 青线 + 浅青底，不用红绿；移动端卡片固定宽；悬浮条让开吸底栏 */
+    const bestCss = (cssSrc.match(/\.cmp-val\.is-best\s*\{[^}]*\}/) || [''])[0];
+    const styleOk = /--color-cyan-dim/.test(bestCss)
+      && /box-shadow:\s*inset 0 0 0 1px var\(--color-cyan-line\)/.test(bestCss)
+      && !/#f00|#e74c3c|#2ecc71|red|green/i.test(bestCss)
+      && /flex:\s*0 0 248px/.test(cssSrc) && /width:\s*248px/.test(cssSrc)
+      && /\.cmp-table\s*\{\s*display:\s*none/.test(cssSrc)
+      && /body\.has-pdp-bar \.cmp-dock \{ bottom: calc\(80px/.test(cssSrc)
+      && /\.cmp-dock[\s\S]{0,220}z-index: 68/.test(cssSrc)
+      && !/cmp-[a-z-]+[^}]*infinite/.test(cssSrc);
+
+    /* 23) 不改盲盒与积分：只用 comparable:false 保持盲盒卡片原样，两条功能互不引用 */
+    const bbSrc = src('blindbox.js');
+    const ptsSrc = src('points.js');
+    const untouched = bbSrc.includes('comparable: false')
+      && !/from '\.\/compare|from '\.\/outfit|compareStore|outfitStore/.test(bbSrc + ptsSrc + src('store/pointsStore.js'))
+      && !/compare\.js|outfit\.js/.test(src('store/pointsStore.js') + src('store/pointsConfig.js'));
+
+    const cases = [
+      ['维度 / 核心属性 / AI 指数权重全部抽到 compareConfig.js', configOk],
+      ['核心属性键与 mock 商品 attributes 真实键一致，不凭空造字段', attrKeyOk],
+      ['25 个一级类目全部有搭配策略，targets 全是真类目', outfitCfgOk],
+      ['服饰搭鞋包配饰 / 数码搭配件 / 家居搭软装', sceneOk],
+      ['对比上限 4：第 5 件 full、重复 duplicate、空 id invalid', capOk],
+      ['脏数据规整：超长截断到 4、重复去重、非数组兜底', dirtyOk],
+      ['最优项方向正确（price 低者优，其余高者优），单件不判优', bestOk],
+      ['全同商品：没有最优项也没有差异项', sameOk],
+      ['差异判定与「只看差异项」过滤源一致', diffOk],
+      ['核心属性随品类切换，混合品类封顶 3 行，无属性回落分类/品牌', attrOk],
+      ['AI 推荐指数 0–100、边界正确、与对比集合无关', aiOk],
+      ['搭配 2–4 件、全来自商品库、不含主件、落在目标一级且确定', pickOk],
+      ['「重新搭配」能换出不同组合', variantOk],
+      ['理由只在关系真实成立时出现（同色/同品牌/同价位/跨类目）', truthOk],
+      ['理由无残留占位符且同一套装内不重复', reasonOk],
+      ['套装价 = 原价 × 95 折（到分），省下的钱加和校验正确', totalOk],
+      ['单个替换换到不同件、不撞套装、无替代时如实失败', replaceOk],
+      ['按 scopeId() 分桶，两个用户对比列表互不可见', isoOk],
+      ['非法 JSON 读盘不抛、收敛为空列表', corruptOk],
+      ['库里不存在的 id 自动跳过（结果不脱库）', resolveOk],
+      ['路由/导航/悬浮条/商品卡插槽/详情页/页脚全部接线', wiring],
+      ['最优项 1px 青线 + 浅青底且无红绿；移动端 248px 固定宽卡片；悬浮条让开吸底栏', styleOk],
+      ['不改盲盒与积分：盲盒卡片 comparable:false，两条功能零互引', untouched],
+    ];
+    const bad = cases.filter(([, ok]) => !ok).map(([l]) => l);
+    console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 商品对比与 AI 搭配（${cases.length} 条）${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
+    if (bad.length) failed++;
+  } catch (e) {
+    failed++;
+    console.log(`  FAIL 商品对比与 AI 搭配: ${String(e.message).split('\n')[0]}`);
+  }
+}
+
 console.log(failed === 0 ? '\n✓ 前端自检通过' : `\n✗ 失败 ${failed} 项`);
 process.exit(failed === 0 ? 0 : 1);
