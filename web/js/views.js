@@ -17,6 +17,7 @@ import { setDemoMode, isDemoMode } from './demo.js';
 import { listMerchantMallProducts } from './store/merchantShopStore.js';
 import { renderFlashSale, stopFlashSale } from './flashSale.js';
 import { trackEvent, fetchProductStats } from './track.js';
+import { createGalleryModes } from './pdpImmersive.js';
 import {
   SORTS, PRICE_BANDS, bandById, bandLabel,
   applyFilters, facetCounts, hotSearches,
@@ -1752,7 +1753,7 @@ function buildDetailPage(p, from, presetRelated = []) {
     ]),
   ]);
 
-  const gallery = el('section', { class: 'pdp-gallery', 'aria-label': '商品图片画廊' }, [mainButton, thumbs]);
+  const gallery = createGalleryModes(p, galleryImages, mainButton, thumbs);
   const detailHead = el('div', { class: 'detail-head pdp-head' }, [gallery, info]);
   page.appendChild(detailHead);
 

@@ -3599,6 +3599,195 @@ textarea { resize: vertical; }
 
 /* 画廊：--r-btn 12px 圆角，图片 4/5 比例 */
 .pdp-gallery { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+/* ---- 3D/360° + AR 入口（最轻方案：零 WebGL，重型能力按需加载）---- */
+.pdp-viewbar { display: flex; align-items: center; gap: 6px; }
+.pdp-viewbar-gap { flex: 1; }
+.pdp-mode-btn {
+  padding: 7px 12px;
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.pdp-mode-btn:hover { border-color: var(--color-cyan-line); color: var(--color-text-primary); }
+.pdp-mode-btn.is-active {
+  border-color: var(--color-cyan);
+  color: var(--color-cyan);
+  background: rgba(34, 211, 238, 0.06);
+}
+.pdp-ar-note {
+  padding: 8px 12px;
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: 8px;
+  background: var(--color-surface-1);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+/* 360° 舞台：与主图同规格（4/5、同圆角同描边），拖拽横向手势 */
+.spin-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  background: var(--color-surface-2);
+  cursor: grab;
+  touch-action: pan-y;
+  outline: none;
+}
+.spin-stage.is-dragging { cursor: grabbing; }
+.spin-stage:focus-visible { border-color: var(--color-cyan); }
+.spin-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.spin-demo-tag,
+.spin-hint,
+.spin-counter {
+  position: absolute;
+  padding: 5px 9px;
+  border: 1px solid rgba(139, 149, 163, 0.14);
+  border-radius: var(--r-pill);
+  background: rgba(7, 9, 12, 0.68);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.spin-demo-tag { left: 12px; top: 12px; color: var(--color-cyan); }
+.spin-hint { left: 50%; bottom: 12px; transform: translateX(-50%); color: var(--color-text-muted); }
+.spin-counter { right: 12px; bottom: 12px; }
+/* 加载进度：1px 青色细线，scaleX 表达（只动 transform） */
+.spin-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: rgba(34, 211, 238, 0.15);
+  pointer-events: none;
+}
+.spin-progress i {
+  display: block;
+  height: 1px;
+  background: var(--color-cyan);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s ease;
+}
+.spin-progress.is-done { opacity: 0; transition: opacity 0.3s ease 0.3s; }
+.spin-progress.is-error { display: none; }
+/* 失败兜底层 */
+.spin-fail {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(7, 9, 12, 0.82);
+}
+.spin-fail-text { color: var(--color-text-primary); font-size: 12.5px; }
+.spin-fail .spin-fail-back { height: 40px; padding: 0 18px; font-size: 11.5px; }
+/* 桌面 AR 提示弹层 */
+.pdp-ar-prompt { max-width: 320px; padding: 4px 2px; }
+.pdp-ar-prompt h3 { margin: 0 0 8px; color: var(--ink); font-family: var(--sans); font-size: 17px; font-weight: 500; }
+.pdp-ar-prompt p { margin: 0 0 16px; color: var(--body); font-size: 12px; line-height: 1.7; }
+.pdp-ar-prompt-ok { height: 40px; padding: 0 18px; font-size: 11.5px; }
+/* 移动端 AR 演示层（按需 import 的 arPreview.js 渲染） */
+.ar-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 200; /* 高于内容与浮窗，低于系统 UI */
+  display: flex;
+  flex-direction: column;
+  background: rgba(7, 9, 12, 0.94);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+.ar-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(10px + env(safe-area-inset-top)) 10px 8px 16px;
+}
+.ar-status-text {
+  color: var(--color-cyan);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+.ar-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 24px;
+  font-weight: 300;
+}
+.ar-close:hover { color: var(--color-text-primary); }
+.ar-stage {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.ar-frame {
+  position: relative;
+  width: min(78vw, 340px);
+  aspect-ratio: 4 / 5;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(34, 211, 238, 0.45);
+  border-radius: 12px;
+}
+.ar-object { max-width: 88%; max-height: 88%; object-fit: contain; }
+.ar-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-cyan);
+}
+.ar-corner.ar-tl { left: -1px; top: -1px; border-right: none; border-bottom: none; }
+.ar-corner.ar-tr { right: -1px; top: -1px; border-left: none; border-bottom: none; }
+.ar-corner.ar-bl { left: -1px; bottom: -1px; border-right: none; border-top: none; }
+.ar-corner.ar-br { right: -1px; bottom: -1px; border-left: none; border-top: none; }
+.ar-note {
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.7;
+  text-align: center;
+}
+/* reduced-motion：切换与进度只保留瞬时状态，无过渡 */
+@media (prefers-reduced-motion: reduce) {
+  .pdp-mode-btn,
+  .spin-stage,
+  .spin-progress i,
+  .spin-progress { transition: none; }
+}
+
 .pdp-main-image {
   position: relative;
   width: 100%;

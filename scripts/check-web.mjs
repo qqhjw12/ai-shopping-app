@@ -2535,6 +2535,47 @@ if (failed === 0) {
     console.log(`  ${badAi.length === 0 ? 'ok  ' : 'FAIL'} AI 助手升级（触发器/面板/扫描反馈/MATCH 卡）${badAi.length ? ` → 缺失: ${badAi.join('、')}` : ''}`);
     if (badAi.length) failed++;
 
+    /* ---- 详情页 3D/360° + AR（最轻方案，必须可降级）----
+     * 360° = 图片序列切帧（拖拽映射 + 惯性阻尼 + 回绕 + 方向键 + 演示标注），
+     * AR = 渐进增强入口（桌面提示 / WebXR 支持才动态 import 演示层 / 不支持降级说明），
+     * 零重型依赖（无 Three.js/model-viewer），失败兜底 + 泄漏防护 + reduced-motion。 */
+    const imSrc = readFileSync(dir('pdpImmersive.js'), 'utf8');
+    const arSrc = readFileSync(dir('arPreview.js'), 'utf8');
+    const immersiveCases = [
+      ['模块接线：views.js 画廊交给 createGalleryModes（其他区域未动）',
+        viewsSrc.includes("import { createGalleryModes } from './pdpImmersive.js'")
+        && viewsSrc.includes('createGalleryModes(p, galleryImages, mainButton, thumbs)')],
+      ['零重型依赖：不引 Three.js / model-viewer（首屏零 3D 请求）',
+        !/(from ['"]three|import\(['"]three|<model-viewer|customElements\.define\(['"]model-viewer|['"][^'"]*\.glb)/i.test(imSrc + arSrc)
+        && !/new THREE/.test(imSrc + arSrc)],
+      ['360° 懒初始化：首次进入 360° 才建舞台（图片模式默认）',
+        imSrc.includes('if (next === \'spin\' && !spinStage)') && imSrc.includes('spinStage = buildSpinStage()')],
+      ['拖拽映射帧索引 + 惯性阻尼 + 首尾回绕',
+        imSrc.includes('DRAG_PX_PER_FRAME') && imSrc.includes('INERTIA_DECAY')
+        && imSrc.includes('((Math.round(frameIndex) % n) + n) % n')],
+      ['键盘左右方向键切帧（stage 可聚焦）',
+        imSrc.includes("'ArrowRight'") && imSrc.includes("'ArrowLeft'") && imSrc.includes("tabindex: '0'")],
+      ['无真实序列 → 同图占位 + 「演示」标注（交互骨架完整）',
+        imSrc.includes('data-demo') && imSrc.includes("'演示'") && imSrc.includes('spin-counter')],
+      ['加载进度 1px 青色细线 + 失败兜底「3D 预览暂不可用」+ 切回图片',
+        cssSrc.includes('.spin-progress i {') && cssSrc.includes('transform: scaleX(0);')
+        && imSrc.includes('3D 预览暂不可用') && imSrc.includes('切回图片')],
+      ['AR 渐进增强：桌面提示 / 不支持降级说明 / WebXR 支持才动态 import 演示层',
+        imSrc.includes('请在移动设备上使用 AR 预览') && imSrc.includes('当前设备不支持 AR 预览')
+        && imSrc.includes("await import('./arPreview.js')") && imSrc.includes("(pointer: coarse)")],
+      ['AR 演示层诚实标注演示模式 + 可关闭 + 44px 热区',
+        arSrc.includes('演示模式') && arSrc.includes('真实会话需接入 model-viewer / WebXR')
+        && arSrc.includes("'aria-label': '关闭 AR 预览'") && /\.ar-close \{[^}]*width: 44px;[^}]*height: 44px/.test(cssSrc)],
+      ['泄漏防护：isConnected 自停 + AbortController + cancelAnimationFrame',
+        imSrc.includes('isConnected') && imSrc.includes('new AbortController()') && imSrc.includes('cancelAnimationFrame')],
+      ['reduced-motion：无惯性 + CSS 过渡全停',
+        imSrc.includes('if (reducedMotion()) return;')
+        && /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.pdp-mode-btn,\n  \.spin-stage,/.test(cssSrc)],
+    ];
+    const badIm = immersiveCases.filter(([, ok]) => !ok).map(([label]) => label);
+    console.log(`  ${badIm.length === 0 ? 'ok  ' : 'FAIL'} 详情页 3D/360° + AR（轻量切帧/渐进增强/降级兜底）${badIm.length ? ` → 缺失: ${badIm.join('、')}` : ''}`);
+    if (badIm.length) failed++;
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);
