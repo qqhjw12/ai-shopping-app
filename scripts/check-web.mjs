@@ -2619,6 +2619,54 @@ if (failed === 0) {
     console.log(`  ${badAm.length === 0 ? 'ok  ' : 'FAIL'} 氛围动效与全局性能开关（网格漂移/扫描线限量/hover 信号/reduced-fx）${badAm.length ? ` → 缺失: ${badAm.join('、')}` : ''}`);
     if (badAm.length) failed++;
 
+    /* ---- 分类树数据层（25 一级 / 6–12 二级 / ≥70% 三级，纯数据不改 UI）---- */
+    try {
+      const ct = await import(pathToFileURL(join(WEB_DIR, 'store', 'categoryTree.js')).href);
+      const tree = ct.CATEGORY_TREE;
+      const l1 = tree.length;
+      const l2s = tree.flatMap((c) => c.children);
+      const subsOk = tree.every((c) => c.children.length >= 6 && c.children.length <= 12);
+      const thirdRatio = l2s.filter((s) => s.children.length >= 3).length / l2s.length;
+      const idOk = [...INDEX_IDcollect(tree)].every((x) => /^[a-z0-9_-]+$/i.test(x));
+      function* INDEX_IDcollect(nodes) {
+        for (const n of nodes) {
+          yield n.id;
+          if (n.children.length) yield* INDEX_IDcollect(n.children);
+        }
+      }
+      const desc = ct.getDescendantIds('mobile');
+      const probe = { categoryId: 'phone', subCategoryId: 'phone_smart' };
+      const catCases = [
+        ['一级分类 = 25 个（清单全覆盖）', l1 === 25 && tree.every((c) => c.id && c.name && c.icon && c.slug)],
+        ['每个一级下 6–12 个二级', subsOk, subsOk ? '' : tree.map((c) => `${c.id}:${c.children.length}`).join(',')],
+        [`≥70% 二级带 3–8 个三级（实际 ${(thirdRatio * 100).toFixed(1)}%）`, thirdRatio >= 0.7 && l2s.every((s) => !s.children.length || (s.children.length >= 3 && s.children.length <= 8))],
+        ['全树 id 英文且唯一（禁中文 id）', idOk && new Set([...INDEX_IDcollect(tree)]).size === l1 + l2s.length + l2s.reduce((a, s) => a + s.children.length, 0)],
+        ['Category 模型字段齐全（id/name/slug/parentId/level/icon/description/productCount/sort/children）',
+          ['id', 'name', 'slug', 'parentId', 'level', 'icon', 'description', 'productCount', 'sort', 'children'].every((k) => k in tree[0])],
+        ['productCount 为子级汇总占位（一级 = Σ二级，非假常数）',
+          tree[0].productCount === tree[0].children.reduce((a, c) => a + c.productCount, 0) && tree[0].productCount > 0],
+        ['getDescendantIds 返回一级下全部子孙 id', desc.length > 20 && desc.includes('mobile_01') && desc.includes('mobile_01_t1')],
+        ['getCategoryById / getChildren / getAncestors / getCategoryPath 可用',
+          ct.getCategoryById('womenswear')?.name === '女装'
+          && ct.getCategoryById('womenswear').children.length === 11
+          && ct.getAncestors('womenswear_01_t1').map((n) => n.id).join(',') === 'womenswear_01,womenswear'
+          && ct.getCategoryPath('womenswear_01_t1').length === 3],
+        ['searchCategories 关键词命中（含三级）', ct.searchCategories('连衣裙').length >= 3],
+        ['按一级查商品含子孙分类：productInCategory 经 LEGACY 映射命中',
+          ct.productInCategory(probe, 'mobile') && ct.productInCategory(probe, 'digital')
+          && !ct.productInCategory(probe, 'pet')
+          && ct.productInCategory({ categoryId: 'computer' }, 'computer')],
+        ['页面未直接 import 裸数组（分类页仍走 deriveCategoryTree，UI 零改动）',
+          !viewsSrc.includes('categoryTree') && !readFileSync(dir('categories.js'), 'utf8').includes('categoryTree')],
+      ];
+      const badCat = catCases.filter(([, ok]) => !ok).map(([label]) => label);
+      console.log(`  ${badCat.length === 0 ? 'ok  ' : 'FAIL'} 分类树数据层（25 一级/${l2s.length} 二级/三级覆盖 ${(thirdRatio * 100).toFixed(1)}% + 6 工具函数）${badCat.length ? ` → 缺失: ${badCat.join('、')}` : ''}`);
+      if (badCat.length) failed++;
+    } catch (e) {
+      failed++;
+      console.log(`  FAIL 分类树数据层: ${String(e.message).split('\n')[0]}`);
+    }
+
   } catch (e) {
     failed++;
     console.log(`  FAIL 商家入驻断言异常: ${String(e.message).split('\n')[0]}`);

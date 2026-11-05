@@ -1034,6 +1034,7 @@ node scripts/e2e-hud.mjs # HUD 框架层：状态栏构造/吸顶不散架/不�
 node scripts/e2e-ai-panel.mjs # AI 助手：触发器规格（48/44px 圆形、距边 20px、层级）、面板上浮与一次性扫线、状态行与 44px 关闭热区、扫描系统消息 600–900ms 三行 + 指示器只转一轮、MATCH 卡加购真实进购物袋、滚动锁与 Esc 关闭、移动端抽屉让位吸底栏、控制台零错（真网关）
 node scripts/e2e-pdp-immersive.mjs # 详情页 3D/360° + AR：首屏零 3D 请求、拖拽切帧/惯性/回绕/方向键、演示标注、桌面 AR 提示零脚本、移动不支持降级说明、WebXR 桩演示层按需 import、帧预载失败兜底、reduced-motion 无惯性（静态站即可）
 node scripts/e2e-ambient.mjs # 氛围动效与性能开关：网格 30s 漂移、Hero 环内扫描线 ≤0.25 且面板打开时暂停、稳态无限 keyframes ≤3、卡片 hover 只留边框信号、reduced-motion / <768px / <4GB → .reduced-fx 全停 + 玻璃换不透明、低电量 .low-power 单独静止（静态站即可）
+node scripts/e2e-category-tree.mjs # 分类树数据层：25 一级/220 二级/三级 100% 覆盖、6 工具函数（含 getDescendantIds 子孙查询与 LEGACY 旧类目映射）、分类页 UI 零回归、控制台零错（静态站即可）
 node scripts/shot-hud.mjs # HUD 框架层视觉验收截图（桌面 7 页 + 滚动吸顶 + 移动 3 页 + reduced-motion 探针）
 node scripts/shot-dark.mjs # 深空令牌视觉验收截图（桌面 8 页 + 移动 2 页 + 焦点环 + 底色/网格/卡片色探针）
 node scripts/e2e-flash.mjs # 首页秒杀：顶部位置（Hero 之前）、倒计时每秒走、秒杀价入购物袋与进度实时累加、立即抢购直达结算、后台口令门与保存即开抢、跨标签页免刷新联动、暂停/结束态、主流程不破坏、移动端无横滚（静态站即可）
