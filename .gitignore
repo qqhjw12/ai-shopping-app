@@ -38,4 +38,6 @@ __pycache__/
 .devtools/
 
 # 浏览器实测截图（本地产物）
+# scripts/shot-*.mjs 统一输出到 shots/；.shots/ 是早期叫法，两者都忽略。
 .shots/
+shots/
