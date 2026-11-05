@@ -12,7 +12,7 @@ import {
   PREF_DIMENSIONS, MAX_PREFERENCES, BLINDBOX_RULES as R, BB_COPY,
 } from './store/blindboxConfig.js';
 import {
-  getSnapshot, subscribe, doOpenBox, doSwap,
+  getSnapshot, subscribe, doOpenBox, doSwap, doSetPrefs,
   resolveProduct, swapQuota, canonicalPrefs, prefsLabel,
 } from './store/blindboxStore.js';
 import { bbToast } from './fortune.js';
@@ -23,10 +23,21 @@ export function renderBlindbox(view) {
   view.appendChild(page);
 
   let pool = [];
-  let selected = {};      // 当前选中的偏好，重绘不丢
+  // 偏好是「刷新后状态保持」的一部分：数据层把 box.prefs 落盘了，这里必须读回来。
+  // 否则刷新后 UI 回到「不设限」，点「换一个」还会用空偏好把已存的 box.prefs 抹掉。
+  const initial = getSnapshot();
+  let selected = canonicalPrefs(
+    Object.keys(initial.box.prefs || {}).length ? initial.box.prefs
+      : ((initial.box.current && initial.box.current.prefs) || {}),
+  );
   let animateNext = false; // 每次成功抽取播一次 300ms 一次性开盒动效
 
   /* ---------------- 偏好选择 ---------------- */
+  function commitPrefs() {
+    // doSetPrefs 内部 notify → 订阅重绘；save 失败时没有通知，用一次显式 paint 兜底
+    if (!doSetPrefs(selected)) paint();
+  }
+
   function onChip(dim, opt) {
     const next = { ...selected };
     if (next[dim.key] === opt.id) delete next[dim.key];
@@ -38,10 +49,10 @@ export function renderBlindbox(view) {
       next[dim.key] = opt.id;
     }
     selected = canonicalPrefs(next);
-    paint();
+    commitPrefs();
   }
 
-  function prefsBlock() {
+  function prefsBlock(st) {
     const chosen = Object.keys(selected).length;
     return el('div', { class: 'bb-prefs' }, [
       el('div', { class: 'bb-prefs-head' }, [
@@ -59,11 +70,12 @@ export function renderBlindbox(view) {
         }, opt.label))),
       ])),
       el('div', { class: 'bb-prefs-foot' }, [
-        el('span', { class: 'bb-prefs-summary' }, `${prefsLabel(selected)}${chosen ? ' · 下次开盒生效' : ''}`),
+        el('span', { class: 'bb-prefs-summary' },
+          `${prefsLabel(selected)}${chosen ? (st.box.opened ? ' · 换一个时生效' : ' · 开盒时生效') : ''}`),
         chosen
           ? el('button', {
             type: 'button', class: 'bb-text-btn', id: 'bb-prefs-clear',
-            onclick: () => { selected = {}; paint(); },
+            onclick: () => { selected = {}; commitPrefs(); },
           }, '清空偏好')
           : null,
       ]),
@@ -72,6 +84,13 @@ export function renderBlindbox(view) {
 
   /* ---------------- 结果区 ---------------- */
   function resultBlock(st) {
+    // 首屏 paint 是同步的，而 getProducts() 是异步的：池还没到位时 pool=[]，
+    // 不能把 resolveProduct([]) === null 当成「商品下架」，否则每次刷新都会先闪一帧错误文案。
+    if (!pool.length) {
+      return el('div', { class: 'bb-result' }, [
+        el('div', { class: 'bb-empty' }, BB_COPY.emptyPick),
+      ]);
+    }
     const p = resolveProduct(pool, st.box.current && st.box.current.productId);
     const q = swapQuota(st);
     const balance = pointsSnapshot().account.points;
@@ -169,7 +188,7 @@ export function renderBlindbox(view) {
       el('p', {}, BB_COPY.boxHint),
     ]));
     page.appendChild(el('div', { class: 'bb-panel' }, [
-      prefsBlock(),
+      prefsBlock(st),
       el('div', { class: 'bb-stage', id: 'bb-stage' },
         st.box.opened && st.box.current ? resultBlock(st) : closedBlock(st)),
     ]));

@@ -211,6 +211,20 @@ try {
 
   /* ---------------- 3) 盲盒页结构与偏好 ---------------- */
   await boxPage();
+  // 未开盒时两条「换一个」路径都应被拒（不能绕过首次开盒直接抽）
+  const notOpenedEdge = await page.evaluate(async () => {
+    const S = await import('/js/store/blindboxStore.js');
+    const V = await import('/js/views.js');
+    const list = await V.getProducts();
+    return {
+      free: S.swapBox(S.getSnapshot(), list, {}, undefined, false).result,
+      via: S.swapBox(S.getSnapshot(), list, {}, undefined, true).result,
+    };
+  });
+  check('未开盒时「换一个」免费与积分两条路径都被拒',
+    notOpenedEdge.free.ok === false && notOpenedEdge.free.reason === 'limit'
+    && notOpenedEdge.via.ok === false && notOpenedEdge.via.reason === 'limit',
+    JSON.stringify(notOpenedEdge));
   const panel = await page.evaluate(() => {
     const n = document.querySelector('.bb-panel');
     const s = n && getComputedStyle(n);
@@ -234,6 +248,21 @@ try {
     && await page.locator('.bb-chip[data-pref="s1"]').getAttribute('aria-pressed') === 'true'
     && await page.locator('.bb-chip[data-pref="m1"]').getAttribute('aria-pressed') === 'false'
     && (await bbState()).box.opened === false);
+  const prefsSaved = (await bbState()).box.prefs;
+  check('选中的偏好即时落盘（未开盒也保持，且不消耗次数）',
+    prefsSaved.budget === 'b1' && prefsSaved.scene === 's1'
+    && !Object.prototype.hasOwnProperty.call(prefsSaved, 'mood')
+    && (await bbState()).box.draws === 0, JSON.stringify(prefsSaved));
+  check('未开盒时偏好摘要写「开盒时生效」',
+    (await page.locator('.bb-prefs-summary').textContent()).includes('开盒时生效'));
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('.bb-pref-row', { timeout: 30000 });
+  const chipsAfterReload = await page.evaluate(
+    () => [...document.querySelectorAll('.bb-chip.is-active')].map((n) => n.dataset.pref),
+  );
+  check('刷新后偏好选中态与 box.prefs 都恢复（不回到「不设限」）',
+    chipsAfterReload.includes('b1') && chipsAfterReload.includes('s1')
+    && (await bbState()).box.prefs.budget === 'b1', JSON.stringify(chipsAfterReload));
   await page.locator('#bb-prefs-clear').click();
   await page.waitForTimeout(150);
   check('可清空偏好回到「不设限」', (await page.locator('.bb-prefs-summary').textContent()).includes('不设限'));
@@ -283,6 +312,18 @@ try {
   }, openState.box.current.productId);
   check('开出的商品 id 能在真实商品库中找到（结果与商品库有关）', inCatalog,
     openState.box.current.productId);
+  const budgetHit = await page.evaluate(async (id) => {
+    const V = await import('/js/views.js');
+    const p = (await V.getProducts()).find((x) => String(x.id) === String(id));
+    return p ? Number(p.price) : null;
+  }, openState.box.current.productId);
+  check('按「300 元以内」偏好开出的商品价格真的 < 300（过滤不失真）',
+    budgetHit !== null && budgetHit < 300, String(budgetHit));
+  check('推荐理由结合偏好且无残留占位符',
+    (cardInfo.reason || '').includes('300 元以内') && !/[{}…]/.test(cardInfo.reason || ''),
+    cardInfo.reason);
+  check('已开盒后偏好摘要改为「换一个时生效」',
+    (await page.locator('.bb-prefs-summary').textContent()).includes('换一个时生效'));
 
   /* ---------------- 5) 收藏 / 加购 / 详情 ---------------- */
   const pid = openState.box.current.productId;
@@ -312,6 +353,28 @@ try {
     afterRefresh.box.opened && afterRefresh.box.current.productId === pid
     && afterRefresh.box.current.reason === cardInfo.reason && afterRefresh.box.draws === 1,
     JSON.stringify({ pid: afterRefresh.box.current.productId, draws: afterRefresh.box.draws }));
+  const chipsAfterOpen = await page.evaluate(
+    () => [...document.querySelectorAll('.bb-chip.is-active')].map((n) => n.dataset.pref),
+  );
+  check('刷新后偏好仍选中且 box.prefs 未被抹成空对象',
+    chipsAfterOpen.includes('b1') && chipsAfterOpen.includes('s1')
+    && afterRefresh.box.prefs.budget === 'b1', JSON.stringify(afterRefresh.box.prefs));
+
+  // 人为拖慢商品池，抓「已开盒 + 池未到位」的刷新首屏
+  await page.route('**/api/products', async (route) => {
+    await new Promise((r) => setTimeout(r, 700));
+    await route.abort();
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  const firstFrame = await page.evaluate(() => ({
+    empty: document.querySelector('.bb-empty')?.textContent || null,
+    hasCard: Boolean(document.querySelector('.bb-pcard')),
+  }));
+  check('已开盒刷新首屏不误报「商品下架」，只显示准备中占位',
+    !/不在目录里/.test(firstFrame.empty || '')
+    && /正在准备今日推荐池/.test(firstFrame.empty || ''), JSON.stringify(firstFrame));
+  await page.unroute('**/api/products');
+  await boxPage(); // 恢复正常网络，等商品池到位后继续后续断言
 
   const swapIds = [pid];
   const swapReasons = [cardInfo.reason];
@@ -328,6 +391,10 @@ try {
     && new Set(swapIds).size === 4
     && swapReasons.every((r, i) => i === 0 || r !== swapReasons[i - 1]),
     JSON.stringify({ ids: swapIds, swaps: q3.box.swaps, reasons: swapReasons }));
+  check('刷新后「换一个」仍沿用已保存偏好，理由不再变成「不设限」',
+    swapReasons.slice(1).every((r) => r.includes('300 元以内'))
+    && q3.box.prefs.budget === 'b1',
+    JSON.stringify({ reasons: swapReasons.slice(1), prefs: q3.box.prefs }));
 
   await grantPoints(100);
   await boxPage();
@@ -433,6 +500,23 @@ try {
   });
   check('移动端首页盲盒入口跨整行且呼吸动画降级',
     homeEntry.anim === 'none' && homeEntry.col !== 'auto', JSON.stringify(homeEntry));
+
+  await mobile.waitForSelector('.ft-card', { timeout: 30000 });
+  const ftMobile = await mobile.evaluate(() => {
+    const c = document.querySelector('.ft-card');
+    const btns = [...c.querySelectorAll('.bb-btn')];
+    const q = c.querySelector('.ft-quote');
+    return {
+      heights: btns.map((b) => b.getBoundingClientRect().height),
+      quoteSize: q && parseFloat(getComputedStyle(q).fontSize),
+      dateMono: /mono|Menlo|Consolas/i.test(getComputedStyle(c.querySelector('.ft-date')).fontFamily),
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  check('移动端「今日一签」按钮 ≥44px、签文 18px、等宽日期、无横向滚动',
+    ftMobile.heights.length === 2 && ftMobile.heights.every((h) => h >= 44)
+    && ftMobile.quoteSize === 18 && ftMobile.dateMono && ftMobile.overflow <= 1,
+    JSON.stringify(ftMobile));
 
   check('控制台零 JS 错误（过滤外部图与 /api 噪音）', consoleErrors.length === 0, consoleErrors.join(' | '));
   await mobile.close();

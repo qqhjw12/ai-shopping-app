@@ -3192,6 +3192,197 @@ if (failed === 0) {
       && src('fortune.js').includes('addFavorite(p)')
       && indexSrc.includes('href="#/blindbox"');
 
+    /* ---- 复核补强：以下 9 组针对首轮 15 条断言的覆盖缺口 ---- */
+    const { scopeId: bbScopeId } = await import(pathToFileURL(join(WEB_DIR, 'store/userScope.js')).href);
+
+    /* 16) 模板 / 签文 / 偏好配置的文本层纪律 */
+    const ctxKeys = ['prefs', 'name', 'category', 'brand', 'price', 'tag'];
+    const filledCtx = {
+      prefs: '不设限', name: '商品', category: '类目', brand: '品牌', price: '¥100', tag: '标签',
+    };
+    const templateOk = bbCfg.REASON_TEMPLATES.every((t) => {
+      const ph = [...t.text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+      const filled = bb.fillReason(t.text, filledCtx);
+      return ph.length > 0 && ph.every((k) => ctxKeys.includes(k))
+        && !/[{}…]/.test(filled) && filled.length > 10;
+    }) && new Set(bbCfg.REASON_TEMPLATES.map((t) => t.text)).size === bbCfg.REASON_TEMPLATES.length
+      && new Set(bbCfg.FORTUNE_QUOTES).size === bbCfg.FORTUNE_QUOTES.length
+      && bbCfg.FORTUNE_QUOTES.every((q) => q.length >= 8 && q.length <= 40)
+      && bbCfg.PREF_DIMENSIONS.flatMap((d) => d.options)
+        .every((o) => !o.match || !o.match.flags.includes('g'))
+      && (() => {
+        const bs = bbCfg.PREF_DIMENSIONS[0].options;
+        return bs[0].min === 0 && bs[bs.length - 1].max === Infinity
+          && bs.slice(1).every((o, i) => o.min === bs[i].max);
+      })()
+      && (() => {
+        const ids = bbCfg.PREF_DIMENSIONS.flatMap((d) => d.options.map((o) => o.id));
+        return new Set(ids).size === ids.length;
+      })();
+
+    /* 17) 真实商品库（演示 256 + mock 1100）下偏好过滤不失真、结果不脱库 */
+    const demo = await import(pathToFileURL(join(WEB_DIR, 'demo-data.js')).href);
+    const mock = await import(pathToFileURL(join(WEB_DIR, 'store/products.js')).href);
+    const realPool = [...demo.demoProducts, ...mock.products];
+    const budgetOpts = bbCfg.PREF_DIMENSIONS[0].options;
+    const realBudgetOk = realPool.length > 1000 && budgetOpts.every((opt) => {
+      const r = bb.filterByPreferences(realPool, { budget: opt.id });
+      return r.items.length > 0 && !r.relaxed
+        && r.items.every((p) => Number(p.price) >= opt.min && Number(p.price) < opt.max);
+    });
+    const s1Opt = bbCfg.PREF_DIMENSIONS[1].options.find((o) => o.id === 's1');
+    const realCombo = bb.filterByPreferences(realPool, { budget: 'b1', scene: 's1' });
+    const realComboOk = realCombo.items.length > 0 && !realCombo.relaxed
+      && realCombo.items.every((p) => p.price < 300 && s1Opt.match.test(bb.textOf(p)))
+      && bb.textOf({ name: 'a', tags: '居家' }).includes('a')
+      && bb.textOf(null) === '';
+
+    /* 18) 配额边界：未开盒换一个 / 免费未用尽强走积分 / 同日开盒幂等 / 30 天长序列 */
+    const neverOpened = bb.createState('u:q0', T);
+    const quotaEdgeOk = !bb.swapBox(neverOpened, pool, {}, T, false).result.ok
+      && !bb.swapBox(neverOpened, pool, {}, T, true).result.ok
+      && (() => {
+        const o = bb.openBox(bb.createState('u:q1', T), pool, {}, T);
+        const again = bb.openBox(o.state, pool, {}, T);
+        return bb.swapQuota(o.state).canFree
+          && !bb.swapBox(o.state, pool, {}, T, true).result.ok
+          && !again.result.ok && again.result.reason === 'already' && again.state.box.draws === 1;
+      })()
+      && (() => {
+        let s = bb.createState('u:q2', '2026-01-01');
+        for (let d = 0; d < 30; d += 1) {
+          const key = pts.dateKey(new Date(2026, 0, 1 + d));
+          const o = bb.openBox(s, pool, {}, key); s = o.state;
+          if (!o.result.ok || s.box.draws !== 1) return false;
+          for (let i = 0; i < R.freeSwaps; i += 1) {
+            const r = bb.swapBox(s, pool, {}, key, false); s = r.state;
+            if (!r.result.ok) return false;
+          }
+          for (let i = 0; i < R.maxPointSwaps; i += 1) {
+            const r = bb.swapBox(s, pool, {}, key, true); s = r.state;
+            if (!r.result.ok) return false;
+          }
+          if (s.box.draws !== R.maxDrawsPerDay || bb.swapBox(s, pool, {}, key, true).result.ok) return false;
+        }
+        return ['2026-12-01', '2027-01-01', '2028-02-29'].every((d) => {
+          const n = bb.normalizeState(s, 'u:q2', d);
+          return n.box.draws === 0 && !n.box.opened && n.box.current === null && n.fortune.date === '';
+        });
+      })();
+
+    /* 19) 读盘容错：空 productId 不算已开盒；损坏 JSON 不抛异常 */
+    const corrupt = bb.normalizeState({
+      date: T, box: { opened: true, draws: 1, current: { productId: '' } },
+    }, 'u:q3', T);
+    const corruptOk = !corrupt.box.opened && corrupt.box.current === null
+      && (() => {
+        localStorage.setItem(bb.storageKey('u:q3'), '{broken');
+        try { return bb.load(T).box.draws === 0; } catch { return false; }
+      })();
+    localStorage.clear();
+
+    /* 20) 一签：好物来自当日推荐池、无池不生成且可重试、再抽后收下状态重置 */
+    const fortuneEdgeOk = (() => {
+      const f = bb.openFortune(bb.createState('u:q4', T), pool, T);
+      const dp = bb.dailyPool(pool, 'u:q4', T);
+      const empty = bb.openFortune(bb.createState('u:q5', T), [], T);
+      const retry = bb.openFortune(empty.state, pool, T);
+      if (!dp.some((p) => p.id === f.result.product.id) || empty.result.ok
+        || empty.result.reason !== 'empty-pool' || !retry.result.ok) return false;
+      let s = bb.openFortune(bb.createState('u:q6', T), pool, T).state;
+      s = bb.acceptFortune(s, T).state;
+      const r = bb.rerollFortune(s, pool, T); s = r.state;
+      return r.result.ok && r.result.quoteId !== f.result.quoteId && !s.fortune.accepted
+        && bb.acceptFortune(s, T).result.ok
+        && bb.normalizeState(s, 'u:q6', T2).fortune.accepted === false;
+    })();
+
+    /* 21) 偏好写入不消耗次数，且 load/save 往返保持 */
+    localStorage.clear();
+    const setPrefsOk = (() => {
+      const scope = bbScopeId();
+      bb.save(bb.createState(scope, T));
+      const ok = bb.doSetPrefs({ budget: 'b1', scene: 's1' });
+      const back = bb.load(T);
+      return ok && back.box.draws === 0 && !back.box.opened
+        && back.box.prefs.budget === 'b1' && back.box.prefs.scene === 's1'
+        && Object.keys(bb.canonicalPrefs({ budget: 'b1', scene: 's1', mood: 'm1' })).length === 2;
+    })();
+    localStorage.clear();
+
+    /* 22) 积分消费失败边界：余额不足不改状态；save 失败时冲正已扣积分 */
+    const spendEdgeOk = (() => {
+      /* 子场景 1：余额 0，积分不足时状态与余额都不变 */
+      localStorage.clear();
+      const acc = pts.getSnapshot();
+      acc.account.points = 0;
+      pts.save(acc);
+      bb.save(bb.createState(bbScopeId(), T));
+      bb.doOpenBox(pool, {});
+      for (let i = 0; i < R.freeSwaps; i += 1) bb.doSwap(pool, {});
+      const before = JSON.stringify(bb.getSnapshot());
+      const bal = pts.getSnapshot().account.points;
+      const noMoney = bb.doSwap(pool, {});
+      const intact = !noMoney.ok && noMoney.reason === 'insufficient'
+        && JSON.stringify(bb.getSnapshot()) === before && pts.getSnapshot().account.points === bal;
+      bb.doFortune(pool); // 先生成当日一签，否则再抽会先被「未生成」拦下
+      const beforeFortune = JSON.stringify(bb.getSnapshot());
+      const noMoneyFortune = bb.doRerollFortune(pool);
+      const fortuneIntact = !noMoneyFortune.ok && noMoneyFortune.reason === 'insufficient'
+        && JSON.stringify(bb.getSnapshot()) === beforeFortune;
+
+      /* 子场景 2：全新起点，让盲盒状态落盘抛异常，验证积分冲正 */
+      localStorage.clear();
+      const acc2 = pts.getSnapshot();
+      acc2.account.points = 100;
+      pts.save(acc2);
+      bb.save(bb.createState(bbScopeId(), T));
+      bb.doOpenBox(pool, {});
+      for (let i = 0; i < R.freeSwaps; i += 1) bb.doSwap(pool, {});
+      const realSet = localStorage.setItem.bind(localStorage);
+      let calls = 0;
+      localStorage.setItem = (k, v) => {
+        calls += 1;
+        // 只让盲盒状态的落盘失败（积分扣分已成功写盘）
+        if (String(k).startsWith(bbCfg.BB_STORAGE_PREFIX)) throw new Error('quota');
+        return realSet(k, v);
+      };
+      let swapResult = null;
+      try {
+        swapResult = bb.doSwap(pool, {});
+      } finally {
+        localStorage.setItem = realSet;
+      }
+      const afterPts = pts.getSnapshot();
+      const rollback = Boolean(swapResult) && swapResult.reason === 'storage'
+        && afterPts.account.points === 100
+        && !afterPts.ledger.some((x) => x.description === bbCfg.BB_LEDGER_DESC.swap)
+        && calls > 0;
+      localStorage.clear();
+      return intact && fortuneIntact && rollback
+        && !spend.spendPoints(0, 'x').ok && !spend.spendPoints(1.5, 'x').ok
+        && !spend.refundPoints(null).ok;
+    })();
+
+    /* 23) 视图层：偏好从状态恢复、池未就绪不误报下架、文案随开盒状态变化 */
+    const viewRecoveryOk = /box\.prefs/.test(boxSrc)
+      && /canonicalPrefs\(/.test(boxSrc)
+      && /doSetPrefs\(/.test(boxSrc)
+      && /function resultBlock[\s\S]{0,400}if \(!pool\.length\)[\s\S]{0,200}BB_COPY\.emptyPick/.test(boxSrc)
+      && !/下次开盒生效/.test(boxSrc)
+      && /换一个时生效/.test(boxSrc) && /开盒时生效/.test(boxSrc)
+      && /refundPoints\(paid\.entry\)/.test(src('store/blindboxStore.js'))
+      && src('store/blindboxStore.js').includes('if (!save(state))')
+      && /export function refundPoints/.test(src('store/pointsSpend.js'));
+
+    /* 24) 样式细节：结果小字等宽、一签移动端整行按钮、呼吸只改 opacity */
+    const detailCssOk = /\.bb-result-tag \{[^}]*var\(--font-mono\)/s.test(cssSrc)
+      && /\.ft-date \{[^}]*var\(--font-mono\)/s.test(cssSrc)
+      && /\.ft-actions \.bb-btn \{ flex: 1 1 100%;/.test(cssSrc)
+      && /\.bb-pref-row \{ grid-template-columns: 1fr;/.test(cssSrc)
+      && !/@keyframes bb-breathe \{[\s\S]{0,160}(transform|box-shadow|background)/.test(cssSrc)
+      && /\.bb-chip \{[^}]*min-height: 44px/s.test(cssSrc);
+
     /* 15) 动效纪律：300ms 一次性开盒、有限次仅 opacity 呼吸、可降级、无音效、无无限循环 */
     const fxOk = /@keyframes bb-open/.test(cssSrc)
       && /animation: bb-open 300ms/.test(cssSrc)
@@ -3219,6 +3410,15 @@ if (failed === 0) {
       ['既有签到/任务三文件零改动，盲盒页不设登录门禁', untouched],
       ['路由 / 首页模块卡 / 一签卡 / 加购 / 商品池 / 商品卡 / 页脚全部接线', wiring],
       ['300ms 一次性开盒、有限次仅 opacity 呼吸、reduced-fx 降级、无音效、44px 热区', fxOk],
+      ['模板占位符全在 ctx 内且无残留、文案去重、正则无 g、预算区间无缝、option id 唯一', templateOk],
+      ['真实 1356 款商品下四个预算档与双维度组合均命中且不越界 / 不脱库', realBudgetOk && realComboOk],
+      ['未开盒换一个 / 免费未用尽强走积分 / 同日开盒幂等 / 30 天长序列 + 跨月跨年闰日重置', quotaEdgeOk],
+      ['空 productId 不算已开盒、损坏 JSON 读盘不抛异常', corruptOk],
+      ['一签好物来自当日推荐池、无池可重试、再抽后收下状态重置、跨天 accepted 清空', fortuneEdgeOk],
+      ['偏好写入不消耗次数且 load/save 往返保持（刷新不丢）', setPrefsOk],
+      ['积分不足不改状态；save 失败时冲正已扣积分、不写兑换流水；非法金额与空 entry 被拦', spendEdgeOk],
+      ['视图层恢复偏好 / 池未就绪不误报下架 / 文案随开盒状态变化 / 退款接线', viewRecoveryOk],
+      ['结果小字等宽、一签移动端整行按钮、呼吸只改 opacity、chip 44px 热区', detailCssOk],
     ];
     const bad = cases.filter(([, ok]) => !ok).map(([l]) => l);
     console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} AI 盲盒与每日一签（${cases.length} 条）${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);

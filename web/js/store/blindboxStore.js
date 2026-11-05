@@ -21,7 +21,7 @@ import {
 } from './blindboxConfig.js';
 import { scopeId } from './userScope.js';
 import { dateKey } from './pointsStore.js';
-import { spendPoints } from './pointsSpend.js';
+import { spendPoints, refundPoints } from './pointsSpend.js';
 
 /* ==================== 纯函数：确定性随机 ==================== */
 
@@ -197,9 +197,11 @@ export function normalizeState(raw, scope = scopeId(), today = dateKey()) {
 
   const rb = (raw.box && typeof raw.box === 'object') ? raw.box : {};
   const rf = (raw.fortune && typeof raw.fortune === 'object') ? raw.fortune : {};
-  const current = rb.current && typeof rb.current === 'object'
+  // productId 为空的 current 是损坏数据：不能算「已开盒」，否则结果区会误报
+  // 「商品下架」并继续允许换一个，把一次脏读变成看起来的正常状态。
+  const current = rb.current && typeof rb.current === 'object' && String(rb.current.productId || '')
     ? {
-      productId: String(rb.current.productId || ''),
+      productId: String(rb.current.productId),
       reason: String(rb.current.reason || ''),
       reasonId: String(rb.current.reasonId || ''),
       prefs: canonicalPrefs(rb.current.prefs),
@@ -424,17 +426,34 @@ function notify(detail) {
 
 export function getSnapshot() { return load(); }
 
+/**
+ * 记住本次选中的偏好（不消耗任何次数）。
+ * 偏好属于「刷新后状态保持」的一部分：选了但还没开盒就刷新，也不能丢。
+ */
+export function doSetPrefs(prefs = {}) {
+  const st = load();
+  const clean = canonicalPrefs(prefs);
+  st.box.prefs = clean;
+  st.updatedAt = new Date().toISOString();
+  if (!save(st)) return false;
+  notify({ kind: 'prefs', prefs: clean });
+  return true;
+}
+
 /** 首次进入自动生成当日一签；已生成则原样返回（幂等） */
 export function doFortune(pool) {
   const st = load();
   const { state, result } = openFortune(st, pool);
-  if (result.ok) { save(state); notify({ kind: 'fortune', result }); }
+  if (!result.ok) return result;
+  if (!save(state)) return { ok: false, reason: 'storage' };
+  notify({ kind: 'fortune', result });
   return result;
 }
 
 /**
- * 一签再抽：先在内存里算出新签（纯函数），成功后才真实扣积分、最后落盘。
- * 顺序保证「抽不成就一分不扣」，不需要任何退款补偿逻辑。
+ * 一签再抽：先在内存里算出新签（纯函数），再真实扣积分，最后落盘。
+ * 顺序保证「抽不成就一分不扣」；若玩法状态落盘失败，冲正刚扣的积分，
+ * 不留「扣了分但没抽成」的窗口。
  */
 export function doRerollFortune(pool) {
   const st = load();
@@ -443,7 +462,10 @@ export function doRerollFortune(pool) {
   if (!result.ok) return { ok: false, reason: result.reason };
   const paid = spendPoints(R.fortuneRerollCost, BB_LEDGER_DESC.fortune);
   if (!paid.ok) return { ok: false, reason: paid.reason };
-  save(state);
+  if (!save(state)) {
+    refundPoints(paid.entry);
+    return { ok: false, reason: 'storage' };
+  }
   notify({ kind: 'fortune-reroll', result });
   return result;
 }
@@ -451,14 +473,18 @@ export function doRerollFortune(pool) {
 export function doAcceptFortune() {
   const st = load();
   const { state, result } = acceptFortune(st);
-  if (result.ok) { save(state); notify({ kind: 'fortune-accept', result }); }
+  if (!result.ok) return result;
+  if (!save(state)) return { ok: false, reason: 'storage' };
+  notify({ kind: 'fortune-accept', result });
   return result;
 }
 
 export function doOpenBox(pool, prefs = {}) {
   const st = load();
   const { state, result } = openBox(st, pool, prefs);
-  if (result.ok) { save(state); notify({ kind: 'box-open', result }); }
+  if (!result.ok) return result;
+  if (!save(state)) return { ok: false, reason: 'storage' };
+  notify({ kind: 'box-open', result });
   return result;
 }
 
@@ -470,11 +496,12 @@ export function doSwap(pool, prefs = {}) {
   if (!q.canFree && !q.canPoints) return { ok: false, reason: 'limit' };
   const { state, result } = swapBox(st, pool, prefs, dateKey(), viaPoints);
   if (!result.ok) return { ok: false, reason: result.reason };
-  if (viaPoints) {
-    const paid = spendPoints(R.pointsPerSwap, BB_LEDGER_DESC.swap);
-    if (!paid.ok) return { ok: false, reason: paid.reason };
+  const paid = viaPoints ? spendPoints(R.pointsPerSwap, BB_LEDGER_DESC.swap) : null;
+  if (viaPoints && !paid.ok) return { ok: false, reason: paid.reason };
+  if (!save(state)) {
+    if (paid) refundPoints(paid.entry);
+    return { ok: false, reason: 'storage' };
   }
-  save(state);
   notify({ kind: 'box-swap', result });
   return result;
 }

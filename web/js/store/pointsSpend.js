@@ -60,6 +60,36 @@ export function spendPoints(amount, description) {
   return { ok: true, balance: st.account.points, entry };
 }
 
+/**
+ * 冲正一次已成功的 spendPoints：把余额加回并移除对应的「兑换」流水。
+ * 只在下游玩法状态落盘失败时调用，避免留下「扣了积分但次数/结果没变」的窗口。
+ * 不写一条新的正额流水（流水是用户可见的账本，冲正应当让这次消费像没发生过）。
+ * @param {object} entry spendPoints 成功时返回的流水条目
+ */
+export function refundPoints(entry) {
+  if (!entry || !entry.id || !Number.isFinite(entry.amount) || entry.amount >= 0) {
+    return { ok: false, reason: 'invalid' };
+  }
+  const st = load();
+  const at = st.ledger.findIndex((x) => x && x.id === entry.id);
+  if (at < 0) return { ok: false, reason: 'not-found' };
+
+  st.account.points -= entry.amount; // amount 为负，减负即加回
+  st.ledger.splice(at, 1);
+  st.updatedAt = new Date().toISOString();
+  if (!save(st)) return { ok: false, reason: 'storage' };
+
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function'
+    && typeof CustomEvent !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('points:changed', {
+        detail: { kind: 'refund', amount: -entry.amount, entry },
+      }));
+    } catch { /* 事件派发失败不影响已落盘的冲正 */ }
+  }
+  return { ok: true, balance: st.account.points };
+}
+
 /** 只读余额，供按钮禁用态使用 */
 export function pointsBalance() {
   return load().account.points;
