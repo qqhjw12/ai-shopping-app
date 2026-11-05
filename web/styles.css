@@ -12519,6 +12519,10 @@ html.reduced-fx .ai-fab {
 .pt-entry-body { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .pt-entry-points { font-size: 34px; margin: 4px 0 6px; }
 .pt-entry-signin { flex: 0 0 auto; }
+.pt-entry-level { margin-top: 4px; }
+/* 个人中心入口：进度条与日历跟独立页同一套令牌，仅收紧间距 */
+.pt-entry-cal { margin: 8px 0 0; }
+.pt-entry-cal .pt-day { min-height: 44px; }
 
 /* 轻量 toast：pointer-events:none，不遮挡任何操作 */
 .pt-toast {

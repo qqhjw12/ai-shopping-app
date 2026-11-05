@@ -186,10 +186,21 @@ export function signIn(state, today = dateKey()) {
   };
 }
 
+/**
+ * 行为白名单：只认由 TASK_DEFS 派生的自有键。
+ * BEHAVIOR_TASKS 是普通对象，直接索引 `constructor` / `toString` / `__proto__`
+ * 会取到原型上的函数或对象，后续 forEach 即抛 TypeError，所以两层入口都走这里。
+ */
+function behaviorTaskIds(behavior) {
+  return Object.prototype.hasOwnProperty.call(BEHAVIOR_TASKS, behavior)
+    && Array.isArray(BEHAVIOR_TASKS[behavior])
+    ? BEHAVIOR_TASKS[behavior] : [];
+}
+
 /** 累加真实行为进度。view_product 按当日不同商品 id 去重，避免刷新同一页刷进度 */
 export function applyBehavior(state, behavior, meta = {}, today = dateKey()) {
   const st = normalizeState(state, state.userId, today);
-  const ids = BEHAVIOR_TASKS[behavior] || [];
+  const ids = behaviorTaskIds(behavior);
   if (!ids.length) return { state: st, changed: [] };
 
   let dedupeHit = false;
@@ -280,7 +291,7 @@ function notify(detail) {
 
 /** 真实行为埋点入口：白名单校验 → 累加进度 → 落盘 → 通知 */
 export function recordBehavior(behavior, meta = {}) {
-  if (!Object.prototype.hasOwnProperty.call(BEHAVIOR_TASKS, behavior)) return null;
+  if (!behaviorTaskIds(behavior).length) return null;
   const st = load();
   const { state, changed } = applyBehavior(st, behavior, meta);
   save(state);

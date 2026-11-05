@@ -1,3 +1,71 @@
+# 积分步骤验收复核（实跑构建 + 独立证伪式全量核验）
+
+> 本轮范围：**只复核并修复「积分 / 每日签到 / 任务中心」步骤内的问题，不改范围外页面**。
+> 基线：`node scripts/check-web.mjs` → 66 个 ESM 真实 import 通过、积分底座 12 条断言全绿；
+> `node scripts/e2e-points.mjs` → 31/31 全绿。但「全绿」不等于覆盖充分，另写 45 项独立核验
+> （A 签到 / B 等级 / C 任务周期 / D 数据模型与隔离 / E 源码纪律）逐条证伪，不接受既有断言自证。
+
+## 未通过项、原因与修复方案
+
+| # | 未通过项 | 性质 | 原因 | 修复方案 | 结果 |
+|---|---|---|---|---|---|
+| 1 | `applyBehavior('constructor')` 抛 `TypeError: ids.forEach is not a function` | 真实缺陷（数据层） | `BEHAVIOR_TASKS` 是普通 `{}`，直接索引 `constructor` / `toString` / `__proto__` 会取到原型上的函数或对象；`recordBehavior` 有 `hasOwnProperty` 保护，但导出的纯函数 `applyBehavior` 没有 | 抽 `behaviorTaskIds()`：`hasOwnProperty` + `Array.isArray` 双保险，两层入口共用 | ✅ 已修 |
+| 2 | AI 空回复仍被计为「完成 1 次 AI 对话」 | 真实缺陷（假进度） | `assistant.streamRun()` 在 `if (!wrap) typing.remove()`（注释即「流结束但无内容」）之后无条件埋点；「没抛异常」被当成「完成对话」 | 改为 `if (!wrap) { 移除 typing } else { recordBehavior('ai_chat') }`，埋点锚到有真实回复内容 | ✅ 已修 |
+| 3 | 个人中心没有等级进度条 | 真实缺陷（规格未达标） | `renderPointsEntry()` 算出了 `levelProgress()` 却只用于文案，未渲染 1px 青色细线 | 抽 `levelTrack(lp)` 共用组件，独立页与个人中心都渲染 | ✅ 已修 |
+| 4 | 个人中心没有最近 7 天签到日历 | 真实缺陷（规格未达标） | 精简卡只有积分、等级文字与签到按钮，缺日历状态 | 抽 `calendarRow(st, today)` 共用组件；已签青色实心点 / 未签细线空心点 | ✅ 已修 |
+| 5 | 验收断言覆盖不足（假阴性风险） | 覆盖缺口 | 原 12 条只测 7 天签到序列、5 个等级阈值、daily + once 重置（且 once 那条断言本身是弱断言：任务本来就是「进行中」）；未覆盖 30 天里程碑（第 21 天不叠加）、跨年断签、13 个阈值边界、weekly 跨周、原型链白名单、读盘容错、`LEDGER_MAX` 截断、个人中心入口、移动端领取按钮实测热区、`reduced-fx` 实测 | `check-web.mjs` 12 → **22 条**，`e2e-points.mjs` 31 → **37 条**，把上述全部固化为持久断言 | ✅ 已补 |
+
+> 核验脚本自身的 1 项误报：E8 用宽泛正则 `!/catch[\s\S]{0,400}recordBehavior/` 把无关代码块里的 `catch`
+> 误判成「埋点在失败分支」。回源码确认评价埋点在 `publishReviewApi` 成功之后、浏览埋点在 `recordVisit(p)`
+> 之后、下单埋点只在 `finish()` 成功收尾，产品无误；该断言已改为锚定「成功动作 → 埋点」相邻片段的精确匹配。
+
+## 修复后验收结果表（按本步骤验收清单逐项）
+
+| 验收项 | 结果 | 证据 |
+|---|---|---|
+| 每日签到可签 / 连续签到有加成 / 断签重置 | ✅ | 独立核验 30 天序列 `10/10/30/10/10/30/60…` 与硬编码期望完全一致；第 21 天只发 7 天档 +50、不叠加 3 天档；跨年 12-31 → 01-01 续接第 3 天 +30，隔 3 天断签重置第 1 天 +10；同日重复拦截 |
+| 任务进度由真实行为驱动，领取后积分入账并写流水 | ✅ | 浏览按当日不同商品 id 去重、跨天重新可计；收藏/分享走真实 UI，AI 对话/下单/评价走事件入口；空回复不再计入；领取 +5 写 `type='任务'` 流水，重复领取拦截；六处埋点均在真实成功分支 |
+| 等级进度随积分变化 | ✅ | 13 个阈值边界全部正确；满级 `ratio=1` 不越界；**真实领取任务**后进度条 `100/200 → 105/200`（50% → 52.5%），不再只靠改 localStorage 验证 |
+| 刷新后状态不丢且按用户隔离 | ✅ | 登录 A / 登录 B / 匿名三者分桶；A 的流水 `userId` 只属于 A；刷新前后账户/签到/等级/任务一致；切回恢复 |
+| 移动端可用 | ✅ | 单列、无横向滚动；签到按钮与**任务「领取」按钮实测热区均 ≥44×44px**；任务行折行；`reduced-fx` 下积分上浮动效确认为 `animationName: none` |
+| 控制台无错误 | ✅ | `e2e-points` 零 JS 错误（过滤外部图与 `/api` 噪音） |
+| 禁止项（弹窗 / 无限循环 / 规则写死 / 共享积分） | ✅ | 无 dialog/alert；300ms 一次性上浮；规则全在 `pointsConfig.js`；按 `scopeId()` 分桶 |
+| 个人中心与积分页显示等级进度条 + 7 天日历 | ✅ | 新增浏览器断言：个人中心 `trackH=1px`、`fillColor=rgb(34,211,238)`、7 天 / 7 点；入口签到 +10 并重绘进度条；匿名可直接访问 `#/points` |
+
+实跑复核：`node scripts/check-web.mjs` → **66 模块真实 import + 22 条积分断言全过**，`✓ 前端自检通过`；
+`node scripts/e2e-points.mjs` → **37/37 全过**；独立核验 45 项 → **全部通过**。
+
+### 全量回归（30 套 e2e 串行实跑）
+
+**27 套通过**，3 套失败均非本次改动引入：
+
+- `e2e-merchant-apply`：网关未启动（`fetch failed`）；按惯例启动独立 8080 网关 + 临时库后补跑 **42/42 通过**，随后停止网关。
+- `e2e-discovery`（45/46）与 `e2e-merchant`（26/27）：均只失败「控制台无 JS 错误」一条，原因是 3 张外部商品图 `net::ERR_CONNECTION_CLOSED`（`demo-real-data.js` 本轮未改动），属环境网络噪音，不是 JS 异常。
+- 本步改动直接影响的 `e2e-ai-panel`（AI 埋点所在文件）、`e2e-points`（37/37）、`e2e-products`（27/27）、`e2e-home`、`e2e-pdp` 全部通过，**零新增回归**。
+
+## 改动文件列表（本轮复核）
+
+| 文件 | 改动 |
+|---|---|
+| `web/js/store/pointsStore.js` | +15 行：`behaviorTaskIds()` 白名单双保险，`applyBehavior` / `recordBehavior` 两层入口共用 |
+| `web/js/assistant.js` | 埋点由「try 末尾无条件」改为 `if (!wrap) … else { recordBehavior('ai_chat') }` |
+| `web/js/points.js` | +46 行：抽 `calendarRow()` / `levelTrack()` 共用组件；`signInCard` / `levelCard` / `renderPointsEntry` 复用；个人中心补进度条与日历 |
+| `web/styles.css` | +4 行：`.pt-entry-level` / `.pt-entry-cal` 间距，日历热区 44px |
+| `scripts/check-web.mjs` | +100 行：积分断言组 12 → 22 条（长序列/跨年/边界/三种周期/原型链/容错/流水截断/入口/埋点分支） |
+| `scripts/e2e-points.mjs` | +75 行：31 → 37 条（真实领取驱动进度条、个人中心进度条+日历+联动、匿名访问、移动端领取按钮实测、reduced-fx 实测） |
+| `README.md` | 更新 `e2e-points`（37 断言）与 `check-web`（22 条积分断言）说明 |
+| `overview.md` | 本复核章节 |
+| `.workbuddy/memory/2026-11-05.md` | 第 19 轮经验 31–34（被 `.gitignore` 忽略，不入版本控制） |
+
+## 遗留问题
+
+- **范围外、按用户约束未修**：`check-web.mjs` 全部 15 个断言组都包在 `if (failed === 0)` 内（全局既有约定，前置失败会跳过后续组）；仓库无 mega menu / 总览页、四页仍读旧演示商品源、商品卡二级分类标签未改；外部商品图 `ERR_CONNECTION_CLOSED` 网络噪音。
+- **本步骤已知限制**：积分目前只做「赚取 + 流水」，兑换 / 下单消费未接（`LEDGER_TYPES` 已预留）；任务周期按本地日期未与服务端校准；无跨标签实时同步（刷新可见）；数据仅在本机 localStorage。
+- **体验口径（非规格未通过）**：签到按钮文案固定 `签到 +10`，连续签到当天实际到账 +30 / +60 时按钮不预告加成；分享按「用户发起分享」计数，与既有 `trackEvent({event:'share'})` 同口径，剪贴板降级不影响计数。
+- 验收脚本中「AI 对话 / 下单 / 评价」三条链路仍用数据层事件入口直调验证累加与领取，真实触发点由 `check-web` 源码断言覆盖，避免 e2e 依赖登录态、网关与表单提交。
+
+---
+
 # 积分 / 每日签到 / 任务中心（奖励底座）— 交付总览
 
 > 本步范围：**新增奖励底座，不改商品数据、不改已有业务逻辑**。

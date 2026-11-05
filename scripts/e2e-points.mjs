@@ -288,6 +288,9 @@ try {
     JSON.stringify([s.tasks.ai1, s.tasks.order1, s.tasks.review1]));
 
   /* ---------------- 7) 领取入账与流水 ---------------- */
+  // 把累计积分放到 Lv2 区间中点，观察「真实领取 → 进度条变化」，而非只靠改 localStorage
+  await patchAccount({ totalEarned: 100, points: 100 });
+  const barBefore = await page.locator('.pt-level-fill').getAttribute('style');
   const claimBefore = await state();
   await page.locator('[data-claim="browse3"]').click();
   await page.waitForTimeout(250);
@@ -306,6 +309,11 @@ try {
   });
   check('重复领取被拦截，积分不重复入账',
     reClaim.ok === false && (await state()).account.points === claimAfter.account.points);
+  const barAfter = await page.locator('.pt-level-fill').getAttribute('style');
+  check('真实领取后等级进度条随累计积分变化（100/200 → 105/200）',
+    parseFloat(String(barBefore).match(/[\d.]+/)[0]) === 50
+    && parseFloat(String(barAfter).match(/[\d.]+/)[0]) === 52.5,
+    `${barBefore} → ${barAfter}`);
 
   /* ---------------- 8) 按用户隔离 ---------------- */
   const ownPoints = (await state()).account.points;
@@ -331,6 +339,30 @@ try {
   await page.goto(`${APP}#/account`, { waitUntil: 'load' });
   await page.waitForTimeout(800);
   check('个人中心渲染精简签到卡入口', (await page.locator('.pt-entry-card').count()) === 1);
+  const entry = await page.evaluate(() => {
+    const card = document.querySelector('.pt-entry-card');
+    const track = card && card.querySelector('.pt-level-track');
+    const fill = card && card.querySelector('.pt-level-fill');
+    return {
+      trackH: track && getComputedStyle(track).height,
+      fillColor: fill && getComputedStyle(fill).backgroundColor,
+      days: card ? card.querySelectorAll('.pt-cal .pt-day').length : 0,
+      dots: card ? card.querySelectorAll('.pt-dot').length : 0,
+      btnH: card && parseFloat(getComputedStyle(card.querySelector('.pt-entry-signin')).minHeight),
+    };
+  });
+  check('个人中心入口含 1px 青色等级进度条 + 最近 7 天签到日历',
+    entry.trackH === '1px' && entry.fillColor === 'rgb(34, 211, 238)'
+    && entry.days === 7 && entry.dots === 7 && entry.btnH >= 44,
+    JSON.stringify(entry));
+  const entryBefore = await state();
+  await page.locator('.pt-entry-signin').click();
+  await page.waitForTimeout(220);
+  const entryAfter = await state();
+  check('个人中心入口签到与独立页共用数据层（+10 入账并重绘进度条）',
+    entryAfter.account.points - entryBefore.account.points === 10
+    && (await page.locator('.pt-entry-card .pt-level-fill').count()) === 1,
+    `${entryBefore.account.points} → ${entryAfter.account.points}`);
   await page.evaluate(() => localStorage.removeItem('current_user'));
 
   const mobile = await browser.newPage({
@@ -339,15 +371,46 @@ try {
   attachErrors(mobile);
   await mobile.goto(`${APP}#/points`, { waitUntil: 'load' });
   await mobile.waitForTimeout(600);
-  const m = await mobile.evaluate(() => ({
-    cols: getComputedStyle(document.querySelector('.pt-grid')).gridTemplateColumns,
-    btn: parseFloat(getComputedStyle(document.querySelector('.pt-signin-btn')).minHeight),
-    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    signin: Boolean(document.querySelector('#pt-signin-btn')),
-  }));
+  check('未登录（匿名）可直接访问 #/points 且渲染完整',
+    await mobile.evaluate(() => !localStorage.getItem('current_user')
+      && Boolean(document.querySelector('#pt-signin-btn'))
+      && document.querySelectorAll('.pt-task').length === 6));
+  // 让一个任务进入「可领取」，才能实测移动端领取按钮的真实热区
+  await mobile.evaluate(async () => {
+    const S = await import('/js/store/pointsStore.js');
+    S.recordBehavior('favorite');
+  });
+  await mobile.reload({ waitUntil: 'load' });
+  await mobile.waitForTimeout(500);
+  const m = await mobile.evaluate(() => {
+    const claim = document.querySelector('.pt-task .pt-btn');
+    const r = claim && claim.getBoundingClientRect();
+    return {
+      cols: getComputedStyle(document.querySelector('.pt-grid')).gridTemplateColumns,
+      btn: parseFloat(getComputedStyle(document.querySelector('.pt-signin-btn')).minHeight),
+      claimW: r ? r.width : 0,
+      claimH: r ? r.height : 0,
+      taskWrap: getComputedStyle(document.querySelector('.pt-task')).flexWrap,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      signin: Boolean(document.querySelector('#pt-signin-btn')),
+    };
+  });
   check('移动端单列、签到按钮 ≥44px、无横向滚动',
     m.cols.split(' ').length === 1 && m.btn >= 44 && m.overflow <= 1 && m.signin,
     JSON.stringify(m));
+  check('移动端任务「领取」按钮实测 ≥44×44px 且任务行单列折行',
+    m.claimW >= 44 && m.claimH >= 44 && m.taskWrap === 'wrap', JSON.stringify(m));
+  const reduced = await mobile.evaluate(() => {
+    const html = document.documentElement;
+    const node = document.querySelector('.pt-points-value');
+    html.classList.add('reduced-fx');
+    node.classList.add('is-bump');
+    const name = getComputedStyle(node).animationName;
+    node.classList.remove('is-bump');
+    html.classList.remove('reduced-fx');
+    return name;
+  });
+  check('reduced-fx 降级时积分上浮动效关闭', reduced === 'none', reduced);
   check('控制台零 JS 错误（过滤外部图与 /api 噪音）', consoleErrors.length === 0, consoleErrors.join(' | '));
   await mobile.close();
 } catch (e) {

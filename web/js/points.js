@@ -72,18 +72,28 @@ function pageHeader() {
   ]);
 }
 
+/** 最近 7 天签到日历：已签青色实心点、未签细线空心点（独立页与个人中心共用） */
+function calendarRow(st, today, extraClass = '') {
+  return el('div', { class: `pt-cal${extraClass ? ` ${extraClass}` : ''}` },
+    calendarDays(today).map((key) => {
+      const signed = st.account.signInDates.includes(key);
+      return el('div', { class: `pt-day${key === today ? ' is-today' : ''}`, 'data-date': key }, [
+        el('span', { class: `pt-dot${signed ? ' is-signed' : ''}`, 'data-signed': signed ? '1' : '0' }),
+        el('span', { class: 'pt-day-label' }, key.slice(5).replace('-', '/')),
+      ]);
+    }));
+}
+
+/** 等级进度条：1px 青色细线（独立页与个人中心共用） */
+function levelTrack(lp) {
+  return el('div', { class: 'pt-level-track' }, [
+    el('div', { class: 'pt-level-fill', style: `width:${(lp.ratio * 100).toFixed(1)}%` }),
+  ]);
+}
+
 function signInCard(st) {
   const today = dateKey();
   const signedToday = st.account.lastSignInDate === today;
-  const days = calendarDays(today);
-  const cal = el('div', { class: 'pt-cal' }, days.map((key) => {
-    const signed = st.account.signInDates.includes(key);
-    return el('div', { class: `pt-day${key === today ? ' is-today' : ''}`, 'data-date': key }, [
-      el('span', { class: `pt-dot${signed ? ' is-signed' : ''}`, 'data-signed': signed ? '1' : '0' }),
-      el('span', { class: 'pt-day-label' }, key.slice(5).replace('-', '/')),
-    ]);
-  }));
-
   return el('div', { class: 'pt-card pt-signin-card' }, [
     el('div', { class: 'pt-card-head' }, [
       el('span', { class: 'pt-card-title' }, '每日签到'),
@@ -91,7 +101,7 @@ function signInCard(st) {
     ]),
     el('div', { class: 'pt-label' }, '当前积分'),
     el('div', { class: 'pt-points-value', id: 'pt-points-value' }, st.account.points),
-    cal,
+    calendarRow(st, today),
     el('button', {
       type: 'button',
       class: 'pt-btn pt-signin-btn',
@@ -112,9 +122,7 @@ function levelCard(st) {
     ]),
     el('div', { class: 'pt-label' }, '累计获得'),
     el('div', { class: 'pt-total-earned' }, st.account.totalEarned),
-    el('div', { class: 'pt-level-track' }, [
-      el('div', { class: 'pt-level-fill', style: `width:${(lp.ratio * 100).toFixed(1)}%` }),
-    ]),
+    levelTrack(lp),
     el('div', { class: 'pt-hint' }, lp.next
       ? `距 Lv${lp.next.level} ${lp.next.name} 还差 ${lp.remain} 分`
       : '已达最高等级 · Lv5 收藏家'),
@@ -206,7 +214,8 @@ export function renderPointsEntry() {
   const paint = () => {
     const st = getSnapshot();
     const lp = levelProgress(st.account.totalEarned);
-    const signedToday = st.account.lastSignInDate === dateKey();
+    const today = dateKey();
+    const signedToday = st.account.lastSignInDate === today;
     root.innerHTML = '';
     root.appendChild(el('div', { class: 'pt-entry-head' }, [
       el('span', { class: 'eyebrow' }, 'REWARD BASE'),
@@ -224,6 +233,15 @@ export function renderPointsEntry() {
         onclick: handleSignIn,
       }, signedToday ? '今日已签到' : `签到 +${SIGNIN_RULES.base}`),
     ]));
+    // 规格要求：个人中心与积分页都要显示 1px 青色等级进度条
+    root.appendChild(el('div', { class: 'pt-entry-level' }, [
+      levelTrack(lp),
+      el('div', { class: 'pt-hint' }, lp.next
+        ? `距 Lv${lp.next.level} ${lp.next.name} 还差 ${lp.remain} 分`
+        : '已达最高等级 · Lv5 收藏家'),
+    ]));
+    // 规格要求：签到卡展示最近 7 天状态（青色实心点 / 细线空心点）
+    root.appendChild(calendarRow(st, today, 'pt-entry-cal'));
   };
   const off = subscribe(() => {
     if (!root.isConnected) { off(); return; }

@@ -174,9 +174,12 @@ async function streamRun(toTab, { path, body, makeWrap, onEvent }) {
       onEvent(wrap, ev);
       if (toTab === tab) scrollBottom();
     });
-    if (!wrap) typing.remove(); // 流结束但无内容
-    // 积分任务埋点：三个 tab 的流式回复成功结束都算完成一轮 AI 对话
-    recordBehavior('ai_chat');
+    if (!wrap) {
+      typing.remove(); // 流结束但无内容：不算完成一轮对话，不计任务进度
+    } else {
+      // 积分任务埋点：三个 tab 都必须有真实回复内容，才算完成一轮 AI 对话
+      recordBehavior('ai_chat');
+    }
   } catch (e) {
     typing.remove();
     if (wrap) wrap.remove();

@@ -2903,6 +2903,96 @@ if (failed === 0) {
       && /animation: pt-bump 300ms/.test(cssSrc)
       && !/pt-bump[^}]*infinite/.test(cssSrc);
 
+    /* 9) 验收复核补强：长序列 / 跨年 / 边界 / 三种周期 / 原型链 / 容错 / 入口 / 埋点分支 */
+    const seqExpected = [10, 10, 30, 10, 10, 30, 60, 10, 30, 10, 10, 30, 10, 60, 30,
+      10, 10, 30, 10, 10, 60, 10, 10, 30, 10, 10, 30, 60, 10, 30];
+    let seqSt = pts.createState('u:seq', '2026-11-01');
+    const seq = [];
+    for (let i = 0; i < 30; i += 1) {
+      const r = pts.signIn(seqSt, pts.offsetDateKey('2026-11-01', i));
+      seqSt = r.state;
+      seq.push(r.result.amount);
+    }
+    const longOk = JSON.stringify(seq) === JSON.stringify(seqExpected)
+      && seq[20] === 60 && seqSt.ledger.length === 30
+      && seqSt.account.signInDates.length === cfg.SIGNIN_HISTORY_MAX;
+
+    let yr = pts.createState('u:yr', '2026-12-30');
+    yr = pts.signIn(yr, '2026-12-30').state;
+    yr = pts.signIn(yr, '2026-12-31').state;
+    const yr3 = pts.signIn(yr, '2027-01-01');
+    const yrGap = pts.signIn(yr3.state, '2027-01-04');
+    const yrCal = pts.calendarDays('2027-01-02', 7);
+    const dateOk = yr3.result.streak === 3 && yr3.result.amount === 30
+      && yrGap.result.streak === 1 && yrGap.result.amount === 10
+      && yrCal[0] === '2026-12-27' && yrCal[6] === '2027-01-02';
+
+    const bounds = [[-1, 1], [0, 1], [1, 1], [199, 1], [200, 2], [201, 2], [799, 2],
+      [800, 3], [1999, 3], [2000, 4], [4999, 4], [5000, 5], [99999, 5]];
+    const levelEdgeOk = bounds.every(([v, lv]) => pts.levelOf(v).level === lv)
+      && pts.levelProgress(5000).ratio === 1 && pts.levelProgress(99999).ratio === 1
+      && Math.abs(pts.levelProgress(300).ratio - 1 / 6) < 1e-9;
+
+    let wk = pts.createState('u:week', today);
+    wk = pts.applyBehavior(wk, 'order_success', {}, today).state;
+    wk = pts.claimTask(wk, 'order1', today).state;
+    const wkNext = pts.normalizeState(wk, 'u:week', '2026-11-09');
+    const weeklyOk = pts.normalizeState(wk, 'u:week', '2026-11-08').tasks.order1.status === cfg.TASK_STATUS.DONE
+      && wkNext.tasks.order1.status === cfg.TASK_STATUS.ACTIVE
+      && wkNext.account.points === wk.account.points;
+
+    let oc = pts.createState('u:once', today);
+    oc = pts.applyBehavior(oc, 'review', {}, today).state;
+    oc = pts.claimTask(oc, 'review1', today).state;
+    const onceOk = pts.normalizeState(oc, 'u:once', '2027-03-18').tasks.review1.status === cfg.TASK_STATUS.DONE;
+
+    let protoOk = true;
+    try {
+      ['not_a_behavior', '__proto__', 'constructor', 'toString'].forEach((b) => {
+        if (pts.applyBehavior(pts.createState('u:proto', today), b, {}, today).changed.length) protoOk = false;
+      });
+    } catch { protoOk = false; }
+
+    let dirtyOk = false;
+    try {
+      const dirty = pts.normalizeState({ account: 'bad', ledger: 'x', tasks: null, dedupe: 'y' }, 'u:dirty', today);
+      const over = pts.createState('u:dirty', today);
+      over.tasks.browse3 = { progress: 99, status: '可领取', periodKey: today, claimedAt: null };
+      const n = pts.normalizeState(over, 'u:dirty', today);
+      dirtyOk = dirty.userId === 'u:dirty' && Array.isArray(dirty.ledger)
+        && Object.keys(dirty.tasks).length === cfg.TASK_DEFS.length
+        && n.tasks.browse3.progress === 3;
+    } catch { dirtyOk = false; }
+
+    const fields = ['id', 'userId', 'type', 'amount', 'description', 'createdAt'];
+    let lg = pts.createState('u:ledger', today);
+    lg = pts.signIn(lg, today).state;
+    lg = pts.applyBehavior(lg, 'favorite', {}, today).state;
+    lg = pts.claimTask(lg, 'fav1', today).state;
+    let ledgerOk = lg.ledger.every((x) => fields.every((k) => k in x)
+      && x.userId === lg.userId && !Number.isNaN(Date.parse(x.createdAt)))
+      && new Set(lg.ledger.map((x) => x.id)).size === lg.ledger.length
+      && lg.account.points === lg.ledger.reduce((a, x) => a + x.amount, 0);
+    let cap = pts.createState('u:cap', today);
+    for (let i = 0; i < 220; i += 1) cap = pts.signIn(cap, pts.offsetDateKey(today, i)).state;
+    ledgerOk = ledgerOk && cap.ledger.length === cfg.LEDGER_MAX;
+
+    const entrySrc = pointsView.slice(pointsView.indexOf('export function renderPointsEntry()'));
+    const entryOk = entrySrc.includes('levelTrack(lp)') && entrySrc.includes('calendarRow(st, today')
+      && /\.pt-level-track\s*\{\s*height:\s*1px/.test(cssSrc)
+      && /\.pt-btn\s*\{[^}]*min-height:\s*44px[^}]*min-width:\s*44px/s.test(cssSrc)
+      && /html\.reduced-fx \.pt-points-value\.is-bump/.test(cssSrc)
+      && /@media \(max-width: 767px\)[\s\S]*?\.pt-task-side\s*\{\s*width:\s*100%/.test(cssSrc);
+
+    const aiSrc = src('assistant.js');
+    const aiBlock = aiSrc.slice(aiSrc.indexOf('async function streamRun('), aiSrc.indexOf('/* ---------------- 三个能力'));
+    const viewSrc = src('views.js');
+    const branchOk = /if \(!wrap\)\s*\{[\s\S]{0,140}\}\s*else\s*\{[\s\S]{0,200}recordBehavior\('ai_chat'\)/.test(aiBlock)
+      && (aiBlock.match(/recordBehavior\('ai_chat'\)/g) || []).length === 1
+      && /recordVisit\(p\);[\s\S]{0,200}recordBehavior\('view_product'/.test(viewSrc)
+      && /allReviews\.unshift\(review\);[\s\S]{0,200}recordBehavior\('review'\)/.test(viewSrc)
+      && /function finish\(order\)\s*\{[\s\S]{0,200}recordBehavior\('order_success'\)/.test(src('checkout.js'));
+
     const cases = [
       ['规则全部抽到 pointsConfig.js（签到 10 / 3 天 20 / 7 天 50、5 档等级、6 任务、4 流水类型）', configOk],
       ['组件不写死规则数值，一律引用配置', noHardcode],
@@ -2916,6 +3006,16 @@ if (failed === 0) {
       ['按 scopeId() 分桶，不同用户积分互不可见', isolationOk],
       ['六处真实行为埋点 + 独立路由 + 个人中心入口 + 页脚链接全部接线', wiring],
       ['无弹窗 / 无无限循环动画 / 积分页不设登录门禁', discipline],
+      ['30 天里程碑序列正确（第 21 天只发 7 天档，不叠加 3 天档）', longOk],
+      ['跨年续签 / 跨年断签 / 最近 7 天日历跨月', dateOk],
+      ['13 个等级阈值边界 + 满级不越界 + 线性比例', levelEdgeOk],
+      ['周任务同周保持、跨周重置且已入账积分不回退', weeklyOk],
+      ['一次性任务领取后跨月仍为已完成', onceOk],
+      ['未知行为与原型链键名被白名单拦截且不抛异常', protoOk],
+      ['损坏数据 / 越界 progress 读盘规整不抛异常', dirtyOk],
+      ['流水六字段 + id 唯一 + 金额自洽 + LEDGER_MAX 截断', ledgerOk],
+      ['个人中心入口含 1px 进度条 / 7 天日历；任务按钮 44px / reduced-fx / 移动端单列', entryOk],
+      ['AI 空回复不埋点，六处埋点均在真实成功分支', branchOk],
     ];
     const bad = cases.filter(([, ok]) => !ok).map(([l]) => l);
     console.log(`  ${bad.length === 0 ? 'ok  ' : 'FAIL'} 积分与任务底座（${cases.length} 条）${bad.length ? ` → 缺失: ${bad.join('、')}` : ''}`);
